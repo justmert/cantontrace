@@ -1,0 +1,49 @@
+version: '3.9'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+    environment:
+      - VITE_API_URL=http://localhost:3001/api/v1
+    command: npm run dev -- --host 0.0.0.0
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+      target: dev
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./api-gateway/src:/app/src
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DATABASE_URL=postgresql://cantontrace:cantontrace@postgres:5432/cantontrace
+      - REDIS_URL=redis://redis:6379
+      - ENGINE_SERVICE_URL=http://engine-service:3002
+      - LOG_LEVEL=debug
+    command: npx tsx watch src/server.ts
+
+  engine-service:
+    ports:
+      - "3002:3002"
+    environment:
+      - JAVA_OPTS=-Xmx1g
+
+  postgres:
+    ports:
+      - "15432:5432"
+
+  redis:
+    ports:
+      - "16379:6379"

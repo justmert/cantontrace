@@ -1,0 +1,70 @@
+# Example GitLab CI pipeline for CantonTrace CI/CD integration
+
+stages:
+  - build
+  - test
+  - validate
+
+variables:
+  CANTONTRACE_URL: http://cantontrace:3001
+
+build-dar:
+  stage: build
+  image: digitalasset/daml-sdk:latest
+  script:
+    - cd daml-project
+    - daml build
+  artifacts:
+    paths:
+      - daml-project/.daml/dist/*.dar
+
+test-with-cantontrace:
+  stage: test
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache curl jq coreutils
+  services:
+    - name: cantontrace/platform:latest
+      alias: cantontrace
+  script:
+    - |
+      DAR_BASE64=$(base64 -w 0 daml-project/.daml/dist/project-1.0.0.dar)
+
+      RESULT=$(curl -sf -X POST ${CANTONTRACE_URL}/api/v1/ci/run \
+        -H "Content-Type: application/json" \
+        -d "{
+          \"darFile\": \"$DAR_BASE64\",
+          \"testScript\": \"Setup:setupTestData\",
+          \"assertions\": [
+            {\"type\": \"no_errors\"},
+            {\"type\": \"contract_count\", \"templateId\": {\"packageName\": \"project\", \"moduleName\": \"Main\", \"entityName\": \"Token\"}, \"expectedCount\": 5}
+          ]
+        }")
+
+      echo "$RESULT" | jq .
+
+      STATUS=$(echo "$RESULT" | jq -r '.data.status')
+      [ "$STATUS" = "passed" ] || exit 1
+
+validate-dar:
+  stage: validate
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache curl jq
+  services:
+    - name: cantontrace/platform:latest
+      alias: cantontrace
+  script:
+    - |
+      # First create a sandbox
+      SANDBOX=$(curl -sf -X POST ${CANTONTRACE_URL}/api/v1/sandboxes \
+        -H "Content-Type: application/json" \
+        -d '{}')
+      SANDBOX_ID=$(echo "$SANDBOX" | jq -r '.data.id')
+
+      # Upload and validate DAR
+      curl -sf -X POST "${CANTONTRACE_URL}/api/v1/sandboxes/${SANDBOX_ID}/dars" \
+        -F "dar=@daml-project/.daml/dist/project-1.0.0.dar"
+
+      # Cleanup
+      curl -sf -X DELETE "${CANTONTRACE_URL}/api/v1/sandboxes/${SANDBOX_ID}"

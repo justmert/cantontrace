@@ -1,0 +1,37 @@
+{
+  "name": "@cantontrace/api-gateway",
+  "version": "1.0.0",
+  "description": "CantonTrace API Gateway — gRPC-to-REST bridge for Canton Ledger API v2",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.0.0",
+    "@fastify/rate-limit": "^10.2.1",
+    "@fastify/swagger": "^9.4.2",
+    "@fastify/swagger-ui": "^5.2.1",
+    "@fastify/websocket": "^11.0.1",
+    "@grpc/grpc-js": "^1.12.6",
+    "@grpc/proto-loader": "^0.7.13",
+    "fastify": "^5.3.2",
+    "google-protobuf": "^3.21.4",
+    "ioredis": "^5.4.2",
+    "jose": "^6.0.11",
+    "pg": "^8.13.1",
+    "pino-pretty": "^13.1.3"
+  },
+  "devDependencies": {
+    "@types/google-protobuf": "^3.15.12",
+    "@types/node": "^22.12.0",
+    "@types/pg": "^8.11.11",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

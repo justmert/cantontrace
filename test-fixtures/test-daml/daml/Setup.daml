@@ -1,0 +1,118 @@
+module Setup where
+
+import Daml.Script
+import Main
+
+-- Create a complete test scenario with multiple transactions
+setupTestData : Script ()
+setupTestData = do
+  -- Allocate parties
+  alice <- allocatePartyWithHint "alice" (PartyIdHint "alice")
+  bob <- allocatePartyWithHint "bob" (PartyIdHint "bob")
+  charlie <- allocatePartyWithHint "charlie" (PartyIdHint "charlie")
+
+  -- Create tokens (for ACS Inspector, Template Explorer)
+  token1 <- submit alice do
+    createCmd SimpleToken with
+      issuer = alice
+      owner = alice
+      amount = 100.0
+      currency = "USD"
+      tokenId = "token-001"
+
+  token2 <- submit alice do
+    createCmd SimpleToken with
+      issuer = alice
+      owner = alice
+      amount = 50.0
+      currency = "EUR"
+      tokenId = "token-002"
+
+  -- Transfer token (for Transaction Explorer, Event Stream)
+  token3 <- submit alice do
+    exerciseCmd token1 Transfer with newOwner = bob
+
+  -- Split token (for complex transaction trees)
+  (splitA, splitB) <- submit alice do
+    exerciseCmd token2 (Split with splitAmount = 20.0)
+
+  -- Merge tokens (for testing Merge choice)
+  token4 <- submit alice do
+    createCmd SimpleToken with
+      issuer = alice
+      owner = alice
+      amount = 30.0
+      currency = "USD"
+      tokenId = "token-003"
+
+  token5 <- submit alice do
+    createCmd SimpleToken with
+      issuer = alice
+      owner = alice
+      amount = 15.0
+      currency = "USD"
+      tokenId = "token-004"
+
+  _mergedToken <- submit alice do
+    exerciseCmd token4 Merge with otherTokenId = token5
+
+  -- Multi-party workflow (for Workflow Debugger)
+  proposal <- submit alice do
+    createCmd AgreementProposal with
+      proposer = alice
+      accepter = bob
+      description = "Test Agreement"
+      value = 1000.0
+
+  agr <- submit bob do
+    exerciseCmd proposal Accept
+
+  settled <- submit alice do
+    exerciseCmd agr Settle
+
+  -- Reference data (for disclosed contract testing)
+  refData <- submit alice do
+    createCmd ReferenceData with
+      publisher = alice
+      dataKey = "exchange-rate"
+      dataValue = "1.15"
+      version = 1
+
+  -- Token with reference data
+  tokenWithRef <- submit alice do
+    createCmd TokenWithRefData with
+      issuer = alice
+      owner = alice
+      amount = 500.0
+      refDataKey = "exchange-rate"
+
+  -- Multi-party visibility (for Privacy Visualizer)
+  multiParty <- submit alice do
+    createCmd MultiPartyVisibility with
+      alice = alice
+      bob = bob
+      charlie = charlie
+      secretData = "top-secret"
+
+  submit alice do
+    exerciseCmd multiParty AliceBobAction
+
+  -- Contention target (for Error Debugger contention tests)
+  contentionTarget <- submit alice do
+    createCmd ContentionTarget with
+      owner = alice
+      value = 42
+
+  -- Authorization test
+  authTest <- submit alice do
+    createCmd AuthorizationTest with
+      owner = alice
+      delegate = bob
+
+  -- Create a failing template (ensure clause will succeed here)
+  _ <- submit alice do
+    createCmd FailingTemplate with
+      party = alice
+      value = 10
+
+  return ()

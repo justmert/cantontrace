@@ -1,17 +1,59 @@
+# Dependencies
 node_modules/
+.pnp.*
+.yarn/
+
+# Build outputs
 dist/
 build/
-.env
-.env.local
-*.log
-.DS_Store
 target/
-.bsp/
-.idea/
-.vscode/
 *.class
 *.jar
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Scala/SBT
+.bsp/
+.metals/
+.bloop/
+project/target/
+project/project/
+
+# Daml
 .daml/
-.cache/
+
+# Testing/Coverage
 coverage/
 .nyc_output/
+
+# Cache
+.cache/
+.vite/
+
+# Docker
+docker-data/
+
+# Temporary
+/tmp/
+*.tmp
+
+# CN-Quickstart (if cloned inside)
+cn-quickstart/

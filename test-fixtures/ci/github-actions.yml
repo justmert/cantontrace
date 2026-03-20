@@ -1,0 +1,92 @@
+# Example GitHub Actions workflow for CantonTrace CI/CD integration
+# This demonstrates how to use CantonTrace's CI API to validate Daml projects
+
+name: Daml CI with CantonTrace
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  daml-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: cantontrace
+          POSTGRES_PASSWORD: cantontrace
+          POSTGRES_DB: cantontrace
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      cantontrace:
+        image: cantontrace/platform:latest
+        ports:
+          - 3001:3001
+        env:
+          DATABASE_URL: postgresql://cantontrace:cantontrace@postgres:5432/cantontrace
+          REDIS_URL: redis://redis:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build DAR
+        run: |
+          # Install Daml SDK
+          curl -sSL https://get.daml.com/ | sh
+          export PATH="$HOME/.daml/bin:$PATH"
+
+          # Build DAR
+          cd daml-project
+          daml build
+
+      - name: Run CantonTrace CI
+        run: |
+          DAR_BASE64=$(base64 -w 0 daml-project/.daml/dist/project-1.0.0.dar)
+
+          RESULT=$(curl -sf -X POST http://localhost:3001/api/v1/ci/run \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"darFile\": \"$DAR_BASE64\",
+              \"testScript\": \"Setup:setupTestData\",
+              \"assertions\": [
+                {\"type\": \"no_errors\"},
+                {\"type\": \"contract_exists\", \"templateId\": {\"packageName\": \"project\", \"moduleName\": \"Main\", \"entityName\": \"Token\"}}
+              ]
+            }")
+
+          echo "$RESULT" | jq .
+
+          STATUS=$(echo "$RESULT" | jq -r '.data.status')
+          if [ "$STATUS" != "passed" ]; then
+            echo "CI run failed!"
+            exit 1
+          fi
+
+          echo "Platform URL: $(echo "$RESULT" | jq -r '.data.platformUrl')"
+
+      - name: Upload Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cantontrace-results
+          path: cantontrace-results/

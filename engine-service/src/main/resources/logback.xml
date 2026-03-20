@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+  <!-- Console appender with structured output -->
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- File appender for production (rotated daily, max 30 days) -->
+  <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>logs/engine-service.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>logs/engine-service.%d{yyyy-MM-dd}.log</fileNamePattern>
+      <maxHistory>30</maxHistory>
+      <totalSizeCap>1GB</totalSizeCap>
+    </rollingPolicy>
+    <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- CantonTrace engine service loggers -->
+  <logger name="cantontrace" level="INFO" />
+  <logger name="cantontrace.engine" level="DEBUG" />
+  <logger name="cantontrace.parser" level="DEBUG" />
+  <logger name="cantontrace.routes" level="INFO" />
+
+  <!-- Akka loggers — keep at WARN to reduce noise -->
+  <logger name="akka" level="WARN" />
+  <logger name="akka.http" level="WARN" />
+
+  <!-- Protobuf — suppress verbose logging -->
+  <logger name="com.google.protobuf" level="WARN" />
+
+  <!-- Daml engine loggers -->
+  <logger name="com.daml" level="INFO" />
+
+  <root level="${LOG_LEVEL:-INFO}">
+    <appender-ref ref="STDOUT" />
+    <!-- Uncomment for file logging in production:
+    <appender-ref ref="FILE" />
+    -->
+  </root>
+
+</configuration>

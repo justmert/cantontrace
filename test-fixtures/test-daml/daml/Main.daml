@@ -1,0 +1,275 @@
+module Main where
+
+-- ============================================================
+-- SimpleToken: Basic fungible token for testing
+-- Tests: Create, Exercise, Archive, Transfer, Split, Merge
+-- ============================================================
+
+template SimpleToken
+  with
+    issuer : Party
+    owner : Party
+    amount : Decimal
+    currency : Text
+    tokenId : Text
+  where
+    signatory issuer
+    observer owner
+
+    ensure amount > 0.0
+
+    choice Transfer : ContractId SimpleToken
+      with
+        newOwner : Party
+      controller owner
+      do
+        create this with owner = newOwner
+
+    choice Split : (ContractId SimpleToken, ContractId SimpleToken)
+      with
+        splitAmount : Decimal
+      controller owner
+      do
+        assertMsg "Split amount must be positive" (splitAmount > 0.0)
+        assertMsg "Split amount must be less than total" (splitAmount < amount)
+        token1 <- create this with amount = splitAmount, tokenId = tokenId <> "-a"
+        token2 <- create this with amount = amount - splitAmount, tokenId = tokenId <> "-b"
+        return (token1, token2)
+
+    choice Merge : ContractId SimpleToken
+      with
+        otherTokenId : ContractId SimpleToken
+      controller owner
+      do
+        otherToken <- fetch otherTokenId
+        assertMsg "Cannot merge tokens with different currencies" (currency == otherToken.currency)
+        assertMsg "Cannot merge tokens from different issuers" (issuer == otherToken.issuer)
+        archive otherTokenId
+        create this with amount = amount + otherToken.amount
+
+    nonconsuming choice GetBalance : Decimal
+      controller owner
+      do
+        return amount
+
+-- ============================================================
+-- Agreement: Multi-party workflow for testing cross-transaction flows
+-- Tests: Propose/Accept/Settle workflow, Workflow Debugger
+-- ============================================================
+
+template AgreementProposal
+  with
+    proposer : Party
+    accepter : Party
+    description : Text
+    value : Decimal
+  where
+    signatory proposer
+    observer accepter
+
+    choice Accept : ContractId Agreement
+      controller accepter
+      do
+        create Agreement with
+          party1 = proposer
+          party2 = accepter
+          description = description
+          value = value
+          status = "active"
+
+    choice Reject : ()
+      controller accepter
+      do
+        return ()
+
+template Agreement
+  with
+    party1 : Party
+    party2 : Party
+    description : Text
+    value : Decimal
+    status : Text
+  where
+    signatory party1, party2
+
+    ensure value >= 0.0
+
+    choice Settle : ContractId Agreement
+      controller party1
+      do
+        create this with status = "settled"
+
+    choice Amend : ContractId Agreement
+      with
+        newValue : Decimal
+        newDescription : Text
+      controller party1, party2
+      do
+        create this with
+          value = newValue
+          description = newDescription
+
+    nonconsuming choice GetStatus : Text
+      controller party1
+      do
+        return status
+
+-- ============================================================
+-- ReferenceData: For testing explicit contract disclosure
+-- Tests: Disclosed contracts in simulator and execution trace
+-- ============================================================
+
+template ReferenceData
+  with
+    publisher : Party
+    dataKey : Text
+    dataValue : Text
+    version : Int
+  where
+    signatory publisher
+
+    nonconsuming choice Lookup : Text
+      controller publisher
+      do
+        return dataValue
+
+    choice UpdateData : ContractId ReferenceData
+      with
+        newValue : Text
+      controller publisher
+      do
+        create this with dataValue = newValue, version = version + 1
+
+-- ============================================================
+-- TokenWithRefData: Uses reference data via disclosure
+-- Tests: Disclosed contract handling
+-- ============================================================
+
+template TokenWithRefData
+  with
+    issuer : Party
+    owner : Party
+    amount : Decimal
+    refDataKey : Text
+  where
+    signatory issuer
+    observer owner
+
+    choice TransferWithRef : ContractId TokenWithRefData
+      with
+        newOwner : Party
+      controller owner
+      do
+        create this with owner = newOwner
+
+-- ============================================================
+-- FailingTemplate: Intentionally has ensure clauses that fail
+-- Tests: Error Debugger, failing execution traces
+-- ============================================================
+
+template FailingTemplate
+  with
+    party : Party
+    value : Int
+  where
+    signatory party
+
+    -- This ensure clause will fail when value <= 0
+    ensure value > 0
+
+    choice FailingChoice : ()
+      with
+        divisor : Int
+      controller party
+      do
+        -- Will fail when divisor is 0
+        assertMsg "Divisor must not be zero" (divisor /= 0)
+        return ()
+
+-- ============================================================
+-- AuthorizationTest: For testing authorization errors
+-- Tests: Error Debugger, authorization checking in execution trace
+-- ============================================================
+
+template AuthorizationTest
+  with
+    owner : Party
+    delegate : Party
+  where
+    signatory owner
+    observer delegate
+
+    choice OwnerOnly : ()
+      controller owner
+      do
+        return ()
+
+    choice DelegateAction : ()
+      controller delegate
+      do
+        -- This exercises as delegate but needs owner authority
+        -- The controller is the delegate, not the owner
+        return ()
+
+-- ============================================================
+-- MultiPartyVisibility: For testing Privacy Visualizer
+-- Tests: Different parties see different parts of a transaction
+-- ============================================================
+
+template MultiPartyVisibility
+  with
+    alice : Party
+    bob : Party
+    charlie : Party
+    secretData : Text
+  where
+    signatory alice
+    observer bob
+    -- charlie is NOT an observer or signatory
+
+    choice AliceBobAction : (ContractId AliceOnly, ContractId BobOnly)
+      controller alice
+      do
+        a <- create AliceOnly with owner = alice, info = "alice-secret"
+        b <- create BobOnly with owner = alice, visibleTo = bob, info = "bob-data"
+        return (a, b)
+
+template AliceOnly
+  with
+    owner : Party
+    info : Text
+  where
+    signatory owner
+
+template BobOnly
+  with
+    owner : Party
+    visibleTo : Party
+    info : Text
+  where
+    signatory owner
+    observer visibleTo
+
+-- ============================================================
+-- ContentionTest: For testing UTXO contention
+-- Tests: Error Debugger contention visualization
+-- ============================================================
+
+template ContentionTarget
+  with
+    owner : Party
+    value : Int
+  where
+    signatory owner
+
+    choice Consume : ()
+      controller owner
+      do
+        return ()
+
+    choice IncrementAndConsume : ContractId ContentionTarget
+      with
+        increment : Int
+      controller owner
+      do
+        create this with value = value + increment

@@ -1,0 +1,105 @@
+version: '3.9'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=/api/v1
+    ports:
+      - "80:80"
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:80/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - cantontrace
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cantontrace}:${POSTGRES_PASSWORD:-cantontrace}@postgres:5432/${POSTGRES_DB:-cantontrace}
+      - REDIS_URL=redis://redis:6379
+      - ENGINE_SERVICE_URL=http://engine-service:3002
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cantontrace
+
+  engine-service:
+    build:
+      context: ./engine-service
+      dockerfile: Dockerfile
+    environment:
+      - JAVA_OPTS=-Xmx2g -Xms512m
+      - PROFILE_DIR=/data/profiles
+    volumes:
+      - engine-profiles:/data/profiles
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - cantontrace
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-cantontrace}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-cantontrace}
+      - POSTGRES_DB=${POSTGRES_DB:-cantontrace}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/docker-init.sql:/docker-entrypoint-initdb.d/00-init.sql
+      - ./database/migrations:/docker-entrypoint-initdb.d/migrations
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-cantontrace}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cantontrace
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - cantontrace
+
+volumes:
+  postgres-data:
+  redis-data:
+  engine-profiles:
+
+networks:
+  cantontrace:
+    driver: bridge
