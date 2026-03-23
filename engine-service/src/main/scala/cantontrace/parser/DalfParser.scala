@@ -203,10 +203,14 @@ object DalfParser extends LazyLogging {
     val internedDottedNames = pkg.getInternedDottedNamesList.asScala.map { idn =>
       idn.getSegmentsInternedStrList.asScala.map(_.intValue()).toSeq
     }.toIndexedSeq
+    val internedTypes = pkg.getInternedTypesList.asScala.toIndexedSeq
+    val internedExprs = pkg.getInternedExprsList.asScala.toIndexedSeq
 
     logger.info(s"DamlLf2 Package: ${pkg.getModulesCount} modules, " +
       s"${internedStrings.size} interned strings, " +
-      s"${internedDottedNames.size} interned dotted names")
+      s"${internedDottedNames.size} interned dotted names, " +
+      s"${internedTypes.size} interned types, " +
+      s"${internedExprs.size} interned exprs")
 
     def resolveStr(idx: Int): String =
       if (idx >= 0 && idx < internedStrings.size) internedStrings(idx) else s"<str_$idx>"
@@ -246,6 +250,11 @@ object DalfParser extends LazyLogging {
     def renderType2(typ: DamlLf2.Type): String = {
       try {
         typ.getSumCase match {
+          case DamlLf2.Type.SumCase.INTERNED_TYPE =>
+            val idx = typ.getInternedType
+            if (idx >= 0 && idx < internedTypes.size) renderType2(internedTypes(idx))
+            else s"<interned_type_$idx>"
+
           case DamlLf2.Type.SumCase.BUILTIN =>
             val builtin = typ.getBuiltin
             val baseName = renderBuiltinType(builtin.getBuiltin)
@@ -286,6 +295,15 @@ object DalfParser extends LazyLogging {
             val syn = typ.getSyn
             val synName = resolveDN(syn.getTysyn.getNameInternedDname)
             synName.split('.').lastOption.getOrElse(synName)
+
+          case DamlLf2.Type.SumCase.TAPP =>
+            val tapp = typ.getTapp
+            val fun = renderType2(tapp.getLhs)
+            val arg = renderType2(tapp.getRhs)
+            if (arg.contains(" ")) s"$fun ($arg)" else s"$fun $arg"
+
+          case DamlLf2.Type.SumCase.NAT =>
+            typ.getNat.toString
 
           case DamlLf2.Type.SumCase.SUM_NOT_SET | _ =>
             "<type>"
@@ -408,6 +426,11 @@ object DalfParser extends LazyLogging {
             val ec = expr.getEnumCon
             resolveStr(ec.getEnumConInternedStr)
 
+          case DamlLf2.Expr.SumCase.INTERNED_EXPR =>
+            val idx = expr.getInternedExpr
+            if (idx >= 0 && idx < internedExprs.size) renderExpr2(internedExprs(idx), depth + 1)
+            else s"<interned_expr_$idx>"
+
           case DamlLf2.Expr.SumCase.SUM_NOT_SET | _ =>
             "<expr>"
         }
@@ -439,20 +462,34 @@ object DalfParser extends LazyLogging {
       trimmed
     }
 
+    // --- Resolve a type through interning to check its actual structure ---
+
+    def resolveType(typ: DamlLf2.Type): DamlLf2.Type = {
+      if (typ.getSumCase == DamlLf2.Type.SumCase.INTERNED_TYPE) {
+        val idx = typ.getInternedType
+        if (idx >= 0 && idx < internedTypes.size) resolveType(internedTypes(idx))
+        else typ
+      } else typ
+    }
+
+    def isOptionalType(typ: DamlLf2.Type): Boolean = {
+      val resolved = resolveType(typ)
+      (resolved.getSumCase == DamlLf2.Type.SumCase.BUILTIN &&
+        resolved.getBuiltin.getBuiltin == DamlLf2.BuiltinType.OPTIONAL) ||
+      // Also detect when rendered type starts with "Optional"
+      renderType2(typ).startsWith("Optional")
+    }
+
     // --- Extract fields from a DefDataType record ---------------------------------
 
     def extractRecordFields(dt: DamlLf2.DefDataType): Seq[FieldDefinition] = {
       try {
         if (dt.getDataConsCase == DamlLf2.DefDataType.DataConsCase.RECORD) {
           val record = dt.getRecord
-          logger.debug(s"extractRecordFields: ${record.getFieldsCount} fields in record")
           record.getFieldsList.asScala.map { fwt =>
             val fieldName = resolveStr(fwt.getFieldInternedStr)
-            logger.debug(s"  field '$fieldName': type sumCase=${fwt.getType.getSumCase}")
             val fieldType = renderType2(fwt.getType)
-            logger.debug(s"  field '$fieldName': rendered as '$fieldType'")
-            val isOptional = fwt.getType.getSumCase == DamlLf2.Type.SumCase.BUILTIN &&
-              fwt.getType.getBuiltin.getBuiltin == DamlLf2.BuiltinType.OPTIONAL
+            val isOptional = isOptionalType(fwt.getType)
             FieldDefinition(
               name = fieldName,
               fieldType = fieldType,
@@ -473,10 +510,12 @@ object DalfParser extends LazyLogging {
       try {
         if (choice.hasArgBinder) {
           val argType = choice.getArgBinder.getType
+          // Resolve through interning so we see the actual type structure
+          val resolved = resolveType(argType)
           // The arg type is typically a type constructor referencing a record data type
-          argType.getSumCase match {
+          resolved.getSumCase match {
             case DamlLf2.Type.SumCase.CON =>
-              val typeName = resolveDN(argType.getCon.getTycon.getNameInternedDname)
+              val typeName = resolveDN(resolved.getCon.getTycon.getNameInternedDname)
               dataTypeMap.get(typeName) match {
                 case Some(dt) => extractRecordFields(dt)
                 case None =>
@@ -546,7 +585,96 @@ object DalfParser extends LazyLogging {
         }
       }.toMap
 
-      logger.debug(s"Module '$moduleName': ${dataTypeMap.size} data types: ${dataTypeMap.keys.take(10).mkString(", ")}")
+      // Build a map of value_name -> DefValue.Expr for resolving $$csignatory etc.
+      val valueExprMap: Map[String, DamlLf2.Expr] = mod.getValuesList.asScala.flatMap { dv =>
+        try {
+          val valName = resolveDN(dv.getNameWithType.getNameInternedDname)
+          if (valName.nonEmpty && dv.hasExpr) Some(valName -> dv.getExpr) else None
+        } catch {
+          case _: Exception => None
+        }
+      }.toMap
+
+      /** Resolve an Expr through interning. */
+      def resolveExpr(expr: DamlLf2.Expr): DamlLf2.Expr = {
+        if (expr.getSumCase == DamlLf2.Expr.SumCase.INTERNED_EXPR) {
+          val idx = expr.getInternedExpr
+          if (idx >= 0 && idx < internedExprs.size) resolveExpr(internedExprs(idx))
+          else expr
+        } else expr
+      }
+
+      /**
+       * Extract field names referenced via RecProj from an Expr tree.
+       * This walks the expression looking for patterns like `this.fieldName`.
+       */
+      def extractFieldProjections(expr: DamlLf2.Expr, depth: Int = 0): Seq[String] = {
+        if (depth > 30) return Seq.empty
+        val resolved = resolveExpr(expr)
+        resolved.getSumCase match {
+          case DamlLf2.Expr.SumCase.REC_PROJ =>
+            val proj = resolved.getRecProj
+            Seq(resolveStr(proj.getFieldInternedStr))
+          case DamlLf2.Expr.SumCase.APP =>
+            val app = resolved.getApp
+            val funProjs = extractFieldProjections(app.getFun, depth + 1)
+            val argProjs = app.getArgsList.asScala.flatMap(a => extractFieldProjections(a, depth + 1))
+            funProjs ++ argProjs
+          case DamlLf2.Expr.SumCase.ABS =>
+            extractFieldProjections(resolved.getAbs.getBody, depth + 1)
+          case DamlLf2.Expr.SumCase.TY_APP =>
+            extractFieldProjections(resolved.getTyApp.getExpr, depth + 1)
+          case DamlLf2.Expr.SumCase.TY_ABS =>
+            extractFieldProjections(resolved.getTyAbs.getBody, depth + 1)
+          case DamlLf2.Expr.SumCase.CONS =>
+            resolved.getCons.getFrontList.asScala.flatMap(e => extractFieldProjections(e, depth + 1)).toSeq
+          case DamlLf2.Expr.SumCase.LET =>
+            val block = resolved.getLet
+            val bindingProjs = block.getBindingsList.asScala.flatMap(b => extractFieldProjections(b.getBound, depth + 1))
+            val bodyProjs = extractFieldProjections(block.getBody, depth + 1)
+            bindingProjs.toSeq ++ bodyProjs
+          case DamlLf2.Expr.SumCase.VAL =>
+            // Inline simple value references ($$csignatory etc.)
+            val valName = resolveDN(resolved.getVal.getNameInternedDname)
+            valueExprMap.get(valName) match {
+              case Some(bodyExpr) => extractFieldProjections(bodyExpr, depth + 1)
+              case None => Seq.empty
+            }
+          case _ => Seq.empty
+        }
+      }
+
+      /** Render an expression, falling back to field projection extraction for compiler-generated functions. */
+      def renderExprInlined(expr: DamlLf2.Expr, depth: Int = 0): String = {
+        if (depth > 20) return "<...>"
+        val rendered = renderExpr2(expr, depth)
+        // If result contains compiler-generated names, try extracting field projections instead
+        if (rendered.contains("$$c")) {
+          val fields = extractFieldProjections(expr)
+          if (fields.nonEmpty) return fields.distinct.mkString(", ")
+          // If no field projections found, the expression likely resolves to an empty list
+          // Check if the underlying function returns []
+          val resolved = resolveExpr(expr)
+          if (resolved.getSumCase == DamlLf2.Expr.SumCase.APP) {
+            val app = resolved.getApp
+            var funExpr = resolveExpr(app.getFun)
+            while (funExpr.getSumCase == DamlLf2.Expr.SumCase.TY_APP) funExpr = resolveExpr(funExpr.getTyApp.getExpr)
+            if (funExpr.getSumCase == DamlLf2.Expr.SumCase.VAL) {
+              val valName = resolveDN(funExpr.getVal.getNameInternedDname)
+              valueExprMap.get(valName) match {
+                case Some(bodyExpr) =>
+                  val bodyRendered = renderExpr2(bodyExpr, depth + 1)
+                  val simplified = simplifyExpr(bodyRendered)
+                  if (!simplified.contains("$$")) return simplified
+                case None =>
+              }
+            }
+          }
+        }
+        rendered
+      }
+
+      logger.debug(s"Module '$moduleName': ${dataTypeMap.size} data types, ${valueExprMap.size} value defs")
 
       val templates = mod.getTemplatesList.asScala.flatMap { tmpl =>
         val tmplName = resolveDN(tmpl.getTyconInternedDname)
@@ -579,13 +707,13 @@ object DalfParser extends LazyLogging {
           } else None
         }.toSeq
 
-        // Step 4: Extract signatory and observer expressions
-        val sigExpr = if (tmpl.hasSignatories) simplifyExpr(renderExpr2(tmpl.getSignatories))
+        // Step 4: Extract signatory and observer expressions (with value inlining)
+        val sigExpr = if (tmpl.hasSignatories) simplifyExpr(renderExprInlined(tmpl.getSignatories))
                       else "<parsed from DALF>"
-        val obsExpr = if (tmpl.hasObservers) simplifyExpr(renderExpr2(tmpl.getObservers))
+        val obsExpr = if (tmpl.hasObservers) simplifyExpr(renderExprInlined(tmpl.getObservers))
                       else "<parsed from DALF>"
         val ensureExpr = if (tmpl.hasPrecond) {
-          val rendered = renderExpr2(tmpl.getPrecond)
+          val rendered = renderExprInlined(tmpl.getPrecond)
           if (rendered == "True" || rendered == "<expr>") None else Some(rendered)
         } else None
 

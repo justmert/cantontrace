@@ -16,7 +16,11 @@ import {
 } from '../middleware/canton-context.js';
 import type { CacheService } from '../services/cache.js';
 import { unsubscribeAll } from '../services/event-stream.js';
+import { OAuth2TokenService, discoverKeycloakCredentials } from '../services/oauth2.js';
 import type { ConnectionConfig, BootstrapInfo, ApiResponse } from '../types.js';
+
+// Module-level reference so we can stop it on disconnect
+let activeOAuth2Service: OAuth2TokenService | null = null;
 
 export function registerConnectionRoutes(app: FastifyInstance, cache: CacheService): void {
   /**
@@ -68,8 +72,11 @@ export function registerConnectionRoutes(app: FastifyInstance, cache: CacheServi
         required: ['ledgerApiEndpoint'],
         properties: {
           ledgerApiEndpoint: { type: 'string', description: 'gRPC endpoint (host:port)' },
-          iamUrl: { type: 'string', description: 'OAuth 2.0 / JWKS URL (optional for sandbox)' },
+          iamUrl: { type: 'string', description: 'OIDC issuer URL for OAuth2 token acquisition (optional for sandbox)' },
           sandboxId: { type: 'string', description: 'Sandbox ID if connecting to managed sandbox' },
+          clientId: { type: 'string', description: 'OAuth2 client ID (auto-discovered from Keycloak if omitted)' },
+          clientSecret: { type: 'string', description: 'OAuth2 client secret (auto-discovered from Keycloak if omitted)' },
+          audience: { type: 'string', description: 'OAuth2 audience (defaults to https://canton.network.global)' },
         },
       },
       response: {
@@ -80,27 +87,113 @@ export function registerConnectionRoutes(app: FastifyInstance, cache: CacheServi
       },
     },
   }, async (request: FastifyRequest<{ Body: ConnectionConfig }>, reply: FastifyReply) => {
-    const { ledgerApiEndpoint, iamUrl, sandboxId } = request.body;
+    const { ledgerApiEndpoint, iamUrl, sandboxId, clientId, clientSecret, audience } = request.body;
 
     // Clean up streaming subscriptions before disconnecting
     unsubscribeAll();
 
     // Disconnect existing connection if any
+    if (activeOAuth2Service) {
+      activeOAuth2Service.stop();
+      activeOAuth2Service = null;
+    }
     clearActiveConnection();
     await cache.clearBootstrapInfo();
     await cache.clearConnectionConfig();
 
+    // ============================================================
+    // OAuth2 Token Acquisition (when iamUrl is provided)
+    // ============================================================
+    let initialToken: string | undefined;
+
+    if (iamUrl) {
+      app.log.info({ iamUrl }, 'IAM URL provided — acquiring OAuth2 token');
+
+      // Resolve client credentials: use provided values, or auto-discover from Keycloak
+      let resolvedClientId = clientId;
+      let resolvedClientSecret = clientSecret;
+
+      if (!resolvedClientId || !resolvedClientSecret) {
+        app.log.info('Client credentials not provided — attempting Keycloak auto-discovery');
+        const discovered = await discoverKeycloakCredentials(iamUrl);
+        if (discovered) {
+          resolvedClientId = resolvedClientId ?? discovered.clientId;
+          resolvedClientSecret = resolvedClientSecret ?? discovered.clientSecret;
+          app.log.info({ clientId: resolvedClientId }, 'Auto-discovered Keycloak client credentials');
+        } else {
+          app.log.warn('Keycloak auto-discovery failed — will try with defaults');
+          resolvedClientId = resolvedClientId ?? 'app-provider-backend';
+        }
+      }
+
+      if (!resolvedClientSecret) {
+        return reply.code(400).send({
+          code: 'OAUTH2_CREDENTIALS_MISSING',
+          message:
+            'Could not determine OAuth2 client credentials. ' +
+            'Either provide clientId and clientSecret in the request body, ' +
+            'or ensure the Keycloak admin API is accessible for auto-discovery.',
+        });
+      }
+
+      // Create OAuth2 token service (onTokenRefreshed will be set after client is created)
+      const oauth2Service = new OAuth2TokenService({
+        issuerUrl: iamUrl,
+        clientId: resolvedClientId,
+        clientSecret: resolvedClientSecret,
+        audience: audience ?? 'https://canton.network.global',
+      });
+
+      // Discover OIDC endpoints
+      try {
+        await oauth2Service.discoverEndpoints();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'OIDC discovery failed';
+        return reply.code(502).send({
+          code: 'OIDC_DISCOVERY_FAILED',
+          message: `Failed to discover OIDC endpoints from ${iamUrl}: ${message}`,
+        });
+      }
+
+      // Acquire initial token
+      try {
+        initialToken = await oauth2Service.getToken();
+        app.log.info('OAuth2 token acquired successfully');
+      } catch (err) {
+        oauth2Service.stop();
+        const message = err instanceof Error ? err.message : 'Token acquisition failed';
+        return reply.code(502).send({
+          code: 'OAUTH2_TOKEN_FAILED',
+          message: `Failed to acquire OAuth2 token: ${message}`,
+        });
+      }
+
+      activeOAuth2Service = oauth2Service;
+    }
+
     // Create and connect Canton client
     const clientOptions: CantonClientOptions = {
       tls: ledgerApiEndpoint.includes(':443') || request.body.ledgerApiEndpoint.startsWith('https'),
-      token: request.jwtToken || undefined,
+      token: initialToken ?? (request.jwtToken || undefined),
     };
 
     const client = new CantonClient(ledgerApiEndpoint, clientOptions);
 
+    // Wire up the token refresh callback so background refreshes update the client
+    if (activeOAuth2Service) {
+      activeOAuth2Service.setTokenRefreshCallback((jwt: string) => {
+        client.setToken(jwt);
+        app.log.info('OAuth2 token refreshed and applied to Canton client');
+      });
+    }
+
     try {
       await client.connect();
     } catch (err) {
+      if (activeOAuth2Service) {
+        activeOAuth2Service.stop();
+        activeOAuth2Service = null;
+      }
       const message = err instanceof Error ? err.message : 'Connection failed';
       return reply.code(502).send({
         code: 'CONNECTION_FAILED',
@@ -115,6 +208,10 @@ export function registerConnectionRoutes(app: FastifyInstance, cache: CacheServi
         skipUserManagement: !iamUrl, // Skip user management for sandbox
       });
     } catch (err) {
+      if (activeOAuth2Service) {
+        activeOAuth2Service.stop();
+        activeOAuth2Service = null;
+      }
       client.disconnect();
       const message = err instanceof Error ? err.message : 'Bootstrap failed';
       return reply.code(502).send({
@@ -164,6 +261,12 @@ export function registerConnectionRoutes(app: FastifyInstance, cache: CacheServi
   }, async (_request: FastifyRequest, reply: FastifyReply) => {
     // Clean up streaming subscriptions before disconnecting
     unsubscribeAll();
+
+    // Stop OAuth2 token refresh if active
+    if (activeOAuth2Service) {
+      activeOAuth2Service.stop();
+      activeOAuth2Service = null;
+    }
 
     clearActiveConnection();
     await cache.clearBootstrapInfo();

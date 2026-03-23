@@ -28,6 +28,9 @@ export function ConnectionDialog({ open, onOpenChange }: ConnectionDialogProps) 
   const { status, error, connect, createSandbox } = useConnectionStore();
   const [endpoint, setEndpoint] = useState("localhost:6865");
   const [iamUrl, setIamUrl] = useState("");
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const isConnecting = status === "connecting";
 
   const handleConnect = async () => {
@@ -35,6 +38,8 @@ export function ConnectionDialog({ open, onOpenChange }: ConnectionDialogProps) 
       await connect({
         ledgerApiEndpoint: endpoint,
         iamUrl: iamUrl || undefined,
+        clientId: clientId || undefined,
+        clientSecret: clientSecret || undefined,
       });
       onOpenChange(false);
     } catch {
@@ -96,12 +101,60 @@ export function ConnectionDialog({ open, onOpenChange }: ConnectionDialogProps) 
                 </FieldLabel>
                 <Input
                   id="iam-url"
-                  placeholder="https://auth.example.com"
+                  placeholder="http://keycloak.localhost:8082/realms/AppProvider"
                   value={iamUrl}
                   onChange={(e) => setIamUrl(e.target.value)}
                   disabled={isConnecting}
                 />
+                {iamUrl && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Client credentials will be auto-discovered from Keycloak.{" "}
+                    <button
+                      type="button"
+                      className="underline hover:text-foreground"
+                      onClick={() => setShowAdvanced(!showAdvanced)}
+                    >
+                      {showAdvanced ? "Hide" : "Override"} credentials
+                    </button>
+                  </p>
+                )}
               </Field>
+
+              {iamUrl && showAdvanced && (
+                <>
+                  <Field>
+                    <FieldLabel htmlFor="client-id">
+                      Client ID{" "}
+                      <span className="text-muted-foreground font-normal">
+                        (default: auto-discovered)
+                      </span>
+                    </FieldLabel>
+                    <Input
+                      id="client-id"
+                      placeholder="app-provider-backend"
+                      value={clientId}
+                      onChange={(e) => setClientId(e.target.value)}
+                      disabled={isConnecting}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="client-secret">
+                      Client Secret{" "}
+                      <span className="text-muted-foreground font-normal">
+                        (default: auto-discovered)
+                      </span>
+                    </FieldLabel>
+                    <Input
+                      id="client-secret"
+                      type="password"
+                      placeholder="Auto-discovered from Keycloak"
+                      value={clientSecret}
+                      onChange={(e) => setClientSecret(e.target.value)}
+                      disabled={isConnecting}
+                    />
+                  </Field>
+                </>
+              )}
 
               {error && (
                 <Alert variant="destructive">

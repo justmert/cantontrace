@@ -24,7 +24,7 @@
   <!-- CantonTrace engine service loggers -->
   <logger name="cantontrace" level="INFO" />
   <logger name="cantontrace.engine" level="DEBUG" />
-  <logger name="cantontrace.parser" level="DEBUG" />
+  <logger name="cantontrace.parser" level="INFO" />
   <logger name="cantontrace.routes" level="INFO" />
 
   <!-- Akka loggers — keep at WARN to reduce noise -->

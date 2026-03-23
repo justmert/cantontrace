@@ -13,6 +13,12 @@ export interface ConnectionConfig {
   ledgerApiEndpoint: string;
   iamUrl?: string;
   sandboxId?: string;
+  /** OAuth2 client ID for client_credentials grant. Auto-discovered from Keycloak if omitted. */
+  clientId?: string;
+  /** OAuth2 client secret. Auto-discovered from Keycloak if omitted. */
+  clientSecret?: string;
+  /** OAuth2 audience claim. Defaults to "https://canton.network.global". */
+  audience?: string;
 }
 
 export interface BootstrapInfo {
