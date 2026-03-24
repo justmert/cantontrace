@@ -33,21 +33,19 @@ export default function WorkflowDebuggerPage() {
     null;
 
   return (
-    <div className="flex flex-col gap-4 p-6">
+    <div className="flex h-full flex-col">
       {/* Page header */}
-      <div className="flex items-center gap-3">
-        <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10">
-          <HugeiconsIcon icon={GitBranchIcon} strokeWidth={2} className="size-5 text-primary" />
-        </div>
+      <div className="flex items-center gap-3 border-b px-6 py-4">
+        <HugeiconsIcon icon={GitBranchIcon} strokeWidth={2} className="size-5 text-primary" />
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            Workflow Debugger
-          </h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-lg font-semibold">Workflow Debugger</h1>
+          <p className="text-xs text-muted-foreground">
             Cross-transaction workflow visualization and tracing
           </p>
         </div>
       </div>
+
+      <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
 
       {/* Correlation input */}
       <CorrelationInput onSearch={handleSearch} isLoading={isLoading} />
@@ -74,6 +72,7 @@ export default function WorkflowDebuggerPage() {
       {timeline && (
         <WorkflowDetail transaction={selectedTransaction} />
       )}
+      </div>
     </div>
   );
 }

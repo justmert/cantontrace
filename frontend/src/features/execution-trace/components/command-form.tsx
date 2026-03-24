@@ -28,6 +28,8 @@ import { Separator } from "@/components/ui/separator";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { partitionPackages } from "@/lib/utils";
+import { ContractIdCombobox } from "@/components/smart-fields/contract-id-combobox";
+import { PartyMultiSelect } from "@/components/smart-fields/party-multi-select";
 import type {
   TraceRequest,
   SimulationCommand,
@@ -223,8 +225,8 @@ export function CommandForm({ onTrace, isTracing }: CommandFormProps) {
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [selectedChoice, setSelectedChoice] = useState<string>("");
   const [contractId, setContractId] = useState("");
-  const [actingParties, setActingParties] = useState("");
-  const [readAsParties, setReadAsParties] = useState("");
+  const [actingParties, setActingParties] = useState<string[]>([]);
+  const [readAsParties, setReadAsParties] = useState<string[]>([]);
   const [historicalOffset, setHistoricalOffset] = useState("");
   const [args, setArgs] = useState<Record<string, unknown>>({});
   const [disclosedEntries, setDisclosedEntries] = useState<DisclosedContractEntry[]>([]);
@@ -258,6 +260,22 @@ export function CommandForm({ onTrace, isTracing }: CommandFormProps) {
   const currentChoice = currentTemplate?.choices.find(
     (c) => c.name === selectedChoice
   );
+
+  // Build template filter for Contract ID combobox based on selected template
+  const contractTemplateFilter = useMemo<TemplateId[] | undefined>(() => {
+    if (!currentTemplate || !packageDetail) return undefined;
+    const module = packageDetail.modules.find((m) =>
+      m.templates.some((t) => t.name === selectedTemplate)
+    );
+    if (!module) return undefined;
+    return [
+      {
+        packageName: packageDetail.packageName ?? selectedPackageId,
+        moduleName: module.name,
+        entityName: selectedTemplate,
+      },
+    ];
+  }, [currentTemplate, packageDetail, selectedTemplate, selectedPackageId]);
 
   // Reset downstream selections when parent changes
   useEffect(() => {
@@ -340,14 +358,8 @@ export function CommandForm({ onTrace, isTracing }: CommandFormProps) {
 
     const request: TraceRequest = {
       command,
-      actAs: actingParties
-        .split(",")
-        .map((p) => p.trim())
-        .filter(Boolean),
-      readAs: readAsParties
-        .split(",")
-        .map((p) => p.trim())
-        .filter(Boolean),
+      actAs: actingParties.filter(Boolean),
+      readAs: readAsParties.filter(Boolean),
       disclosedContracts: disclosed.length > 0 ? disclosed : undefined,
       historicalOffset: historicalOffset || undefined,
     };
@@ -513,11 +525,12 @@ export function CommandForm({ onTrace, isTracing }: CommandFormProps) {
             <Label className="text-xs font-medium text-muted-foreground">
               Contract ID (for exercise commands)
             </Label>
-            <Input
-              className="h-9 font-mono text-xs"
-              placeholder="Contract ID to exercise..."
+            <ContractIdCombobox
               value={contractId}
-              onChange={(e) => setContractId(e.target.value)}
+              onChange={setContractId}
+              templateFilter={contractTemplateFilter}
+              placeholder="Select or type a contract ID..."
+              className="h-9"
             />
           </div>
 
@@ -546,24 +559,22 @@ export function CommandForm({ onTrace, isTracing }: CommandFormProps) {
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-medium text-muted-foreground">
-                Acting As (comma-separated)
+                Acting As
               </Label>
-              <Input
-                className="h-9 font-mono text-xs"
-                placeholder="party1, party2..."
+              <PartyMultiSelect
                 value={actingParties}
-                onChange={(e) => setActingParties(e.target.value)}
+                onChange={setActingParties}
+                placeholder="Select acting parties..."
               />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-medium text-muted-foreground">
-                Read As (comma-separated)
+                Read As
               </Label>
-              <Input
-                className="h-9 font-mono text-xs"
-                placeholder="party1, party2..."
+              <PartyMultiSelect
                 value={readAsParties}
-                onChange={(e) => setReadAsParties(e.target.value)}
+                onChange={setReadAsParties}
+                placeholder="Select read-as parties..."
               />
             </div>
           </div>

@@ -35,7 +35,6 @@ export interface FilterBarProps {
   onTemplateChange: (value: string) => void;
   onPartyChange: (value: string) => void;
   onSearchChange: (value: string) => void;
-  onApply: () => void;
   onClear: () => void;
 }
 
@@ -50,7 +49,6 @@ export function FilterBar({
   onTemplateChange,
   onPartyChange,
   onSearchChange,
-  onApply,
   onClear,
 }: FilterBarProps) {
   const hasFilters =
@@ -63,6 +61,9 @@ export function FilterBar({
       <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
         <HugeiconsIcon icon={FilterIcon} strokeWidth={2} className="size-4" />
         <span>Filters</span>
+        {isLoading && (
+          <span className="ml-1 size-3 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+        )}
         {resultCount !== undefined && (
           <Badge variant="secondary" className="ml-auto">
             {resultCount.toLocaleString()} contract{resultCount !== 1 ? "s" : ""}
@@ -128,19 +129,13 @@ export function FilterBar({
               placeholder="Search by contract ID prefix..."
               value={searchContractId}
               onChange={(e) => onSearchChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") onApply();
-              }}
             />
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2">
-          <Button size="sm" onClick={onApply} disabled={isLoading}>
-            Apply Filters
-          </Button>
-          {hasFilters && (
+        {/* Clear button */}
+        {hasFilters && (
+          <div className="flex items-center">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -156,8 +151,8 @@ export function FilterBar({
                 <TooltipContent>Clear all filters</TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

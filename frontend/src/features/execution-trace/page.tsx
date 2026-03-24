@@ -161,15 +161,13 @@ export default function ExecutionTracePage() {
   }, []);
 
   return (
-    <div className="flex h-full flex-col gap-4 p-6">
+    <div className="flex h-full flex-col">
       {/* Page header */}
-      <div className="flex items-center gap-3">
-        <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10">
-          <HugeiconsIcon icon={Bug01Icon} className="size-5 text-primary" strokeWidth={2} />
-        </div>
+      <div className="flex items-center gap-3 border-b px-6 py-4">
+        <HugeiconsIcon icon={Bug01Icon} strokeWidth={2} className="size-5 text-primary" />
         <div className="flex-1">
-          <h1 className="text-xl font-bold tracking-tight">Execution Trace</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-lg font-semibold">Execution Trace</h1>
+          <p className="text-xs text-muted-foreground">
             Step through Daml command execution with full source mapping
           </p>
         </div>
@@ -188,6 +186,8 @@ export default function ExecutionTracePage() {
           </div>
         )}
       </div>
+
+      <div className="flex flex-1 flex-col gap-4 overflow-hidden p-4">
 
       {/* Command form (collapsible) */}
       <CommandForm
@@ -260,6 +260,7 @@ export default function ExecutionTracePage() {
             />
           }
         />
+      </div>
       </div>
     </div>
   );

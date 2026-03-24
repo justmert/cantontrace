@@ -1,9 +1,22 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ViewIcon, Search01Icon } from "@hugeicons/core-free-icons";
+import { ViewIcon, Search01Icon, ArrowDown01Icon } from "@hugeicons/core-free-icons";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -13,12 +26,15 @@ import {
   EmptyTitle,
   EmptyDescription,
 } from "@/components/ui/empty";
+import { truncateId } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
 import { PrivacyTree } from "./components/privacy-tree";
 import { PartySelector } from "./components/party-selector";
 import { VisibilityMatrix } from "./components/visibility-matrix";
 import { MultiPartyComparison } from "./components/multi-party-comparison";
 import { StaticAnalysis } from "./components/static-analysis";
 import { usePrivacyAnalysis, usePartyColors } from "./hooks";
+import { useRecentTransactions } from "../transaction-explorer/hooks";
 
 // ---------------------------------------------------------------------------
 // Privacy Visualizer Page
@@ -36,11 +52,24 @@ function useUpdateIdFromUrl(): string | undefined {
   return match ? decodeURIComponent(match[1]) : undefined;
 }
 
+// ---------------------------------------------------------------------------
+// Event type badge color mapping (shared with transaction-search)
+// ---------------------------------------------------------------------------
+
+function eventTypeBadgeVariant(
+  eventType: string
+): "default" | "secondary" | "outline" {
+  const lower = eventType.toLowerCase();
+  if (lower.includes("created") || lower.includes("create")) return "default";
+  if (lower.includes("exercised") || lower.includes("exercise"))
+    return "secondary";
+  return "outline";
+}
+
 export default function PrivacyVisualizerPage() {
   const navigate = useNavigate();
   const urlUpdateId = useUpdateIdFromUrl();
 
-  const [updateIdInput, setUpdateIdInput] = useState(urlUpdateId ?? "");
   const [activeUpdateId, setActiveUpdateId] = useState<string | null>(
     urlUpdateId ?? null
   );
@@ -49,10 +78,15 @@ export default function PrivacyVisualizerPage() {
   );
   const [highlightedParty, setHighlightedParty] = useState<string | null>(null);
 
+  // Combobox state
+  const [comboOpen, setComboOpen] = useState(false);
+  const [comboInput, setComboInput] = useState("");
+
+  const { data: recentTransactions } = useRecentTransactions();
+
   // When the URL param changes (e.g. direct navigation), sync state
   useEffect(() => {
     if (urlUpdateId && urlUpdateId !== activeUpdateId) {
-      setUpdateIdInput(urlUpdateId);
       setActiveUpdateId(urlUpdateId);
       setHighlightedParty(null);
     }
@@ -74,18 +108,31 @@ export default function PrivacyVisualizerPage() {
     }
   }, [analysis]);
 
-  const handleSearch = useCallback(() => {
-    const trimmed = updateIdInput.trim();
-    if (trimmed) {
-      setActiveUpdateId(trimmed);
-      setHighlightedParty(null);
-      // Update the URL to include the updateId
-      navigate({ to: `/privacy/${encodeURIComponent(trimmed)}` });
-    }
-  }, [updateIdInput, navigate]);
+  const handleSelectTransaction = useCallback(
+    (updateId: string) => {
+      const trimmed = updateId.trim();
+      if (trimmed) {
+        setActiveUpdateId(trimmed);
+        setHighlightedParty(null);
+        setComboOpen(false);
+        setComboInput("");
+        navigate({ to: `/privacy/${encodeURIComponent(trimmed)}` });
+      }
+    },
+    [navigate]
+  );
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSearch();
+  const handleComboKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && comboInput.trim()) {
+      const trimmed = comboInput.trim();
+      const isExactMatch = (recentTransactions ?? []).some(
+        (tx) => tx.updateId === trimmed
+      );
+      if (!isExactMatch) {
+        handleSelectTransaction(trimmed);
+        e.preventDefault();
+      }
+    }
   };
 
   const handleToggleParty = useCallback((party: string) => {
@@ -113,43 +160,135 @@ export default function PrivacyVisualizerPage() {
   }, []);
 
   return (
-    <div className="flex flex-col gap-4 p-6">
+    <div className="flex h-full flex-col">
       {/* Page header */}
-      <div className="flex items-center gap-3">
-        <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10">
-          <HugeiconsIcon icon={ViewIcon} strokeWidth={2} className="size-5 text-primary" />
-        </div>
+      <div className="flex items-center gap-3 border-b px-6 py-4">
+        <HugeiconsIcon icon={ViewIcon} strokeWidth={2} className="size-5 text-primary" />
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            Privacy Visualizer
-          </h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-lg font-semibold">Privacy Visualizer</h1>
+          <p className="text-xs text-muted-foreground">
             Per-party visibility analysis for transaction events
           </p>
         </div>
       </div>
 
-      {/* Update ID input */}
+      <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
+
+      {/* Transaction combobox */}
       <div className="rounded-lg border bg-card p-4 shadow-sm">
         <div className="mb-2 flex items-center gap-2 text-sm font-medium">
           <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="size-4 text-muted-foreground" />
           <span>Transaction</span>
         </div>
-        <div className="flex gap-2">
-          <Input
-            className="flex-1 font-mono text-xs"
-            placeholder="Enter Update ID to analyze privacy..."
-            value={updateIdInput}
-            onChange={(e) => setUpdateIdInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-          />
-          <Button
-            onClick={handleSearch}
-            disabled={!updateIdInput.trim() || isLoading}
+
+        <Popover open={comboOpen} onOpenChange={setComboOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={comboOpen}
+              className="h-10 w-full justify-between px-3 font-normal"
+            >
+              <div className="flex items-center gap-2 truncate">
+                {isLoading ? (
+                  <Spinner className="size-3.5 shrink-0" />
+                ) : (
+                  <HugeiconsIcon
+                    icon={Search01Icon}
+                    strokeWidth={2}
+                    className="size-4 shrink-0 text-muted-foreground"
+                  />
+                )}
+                {activeUpdateId ? (
+                  <span className="font-mono text-sm">
+                    {truncateId(activeUpdateId, 24)}
+                  </span>
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    Select a transaction to analyze...
+                  </span>
+                )}
+              </div>
+              <HugeiconsIcon
+                icon={ArrowDown01Icon}
+                strokeWidth={2}
+                className="size-4 shrink-0 opacity-50"
+              />
+            </Button>
+          </PopoverTrigger>
+
+          <PopoverContent
+            className="w-[var(--radix-popover-trigger-width)] p-0"
+            align="start"
           >
-            {isLoading ? "Analyzing..." : "Analyze"}
-          </Button>
-        </div>
+            <Command shouldFilter={false}>
+              <CommandInput
+                placeholder="Search by Update ID..."
+                value={comboInput}
+                onValueChange={setComboInput}
+                onKeyDown={handleComboKeyDown}
+              />
+              <CommandList>
+                <CommandEmpty className="py-4 text-center text-xs text-muted-foreground">
+                  {comboInput.trim()
+                    ? "Press Enter to analyze this Update ID"
+                    : "No recent transactions"}
+                </CommandEmpty>
+
+                {(recentTransactions ?? []).length > 0 && (
+                  <CommandGroup heading="Recent Transactions">
+                    {(recentTransactions ?? [])
+                      .filter(
+                        (tx) =>
+                          !comboInput.trim() ||
+                          tx.updateId
+                            .toLowerCase()
+                            .includes(comboInput.trim().toLowerCase()) ||
+                          tx.offset.includes(comboInput.trim())
+                      )
+                      .map((tx) => (
+                        <CommandItem
+                          key={tx.updateId}
+                          value={tx.updateId}
+                          onSelect={() =>
+                            handleSelectTransaction(tx.updateId)
+                          }
+                          className="flex items-center gap-2"
+                        >
+                          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                            #{tx.offset}
+                          </span>
+
+                          {tx.eventTypes.slice(0, 1).map((et) => (
+                            <Badge
+                              key={et}
+                              variant={eventTypeBadgeVariant(et)}
+                              className="shrink-0 text-[10px]"
+                            >
+                              {et}
+                            </Badge>
+                          ))}
+
+                          <span className="min-w-0 truncate font-mono text-xs">
+                            {truncateId(tx.updateId, 16)}
+                          </span>
+
+                          {tx.recordTime && (
+                            <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+                              {formatDistanceToNow(
+                                new Date(tx.recordTime),
+                                { addSuffix: true }
+                              )}
+                            </span>
+                          )}
+                        </CommandItem>
+                      ))}
+                  </CommandGroup>
+                )}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Loading state */}
@@ -253,6 +392,7 @@ export default function PrivacyVisualizerPage() {
           </EmptyHeader>
         </Empty>
       )}
+      </div>
     </div>
   );
 }

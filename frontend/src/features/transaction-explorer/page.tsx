@@ -43,23 +43,15 @@ export default function TransactionExplorerPage() {
     error,
   } = useTransaction(updateId);
 
-  const { data: recentIds } = useRecentTransactions();
+  const { data: recentTransactions } = useRecentTransactions();
 
-  const handleSearch = useCallback(
+  const handleSelect = useCallback(
     (uid: string) => {
       setUpdateId(uid);
       navigate({ to: "/transactions/$updateId", params: { updateId: uid } });
     },
     [navigate]
   );
-
-  const handleBrowseLatest = useCallback(() => {
-    if (recentIds && recentIds.length > 0) {
-      const uid = recentIds[0]!;
-      setUpdateId(uid);
-      navigate({ to: "/transactions/$updateId", params: { updateId: uid } });
-    }
-  }, [recentIds, navigate]);
 
   return (
     <div className="flex h-full flex-col">
@@ -78,10 +70,9 @@ export default function TransactionExplorerPage() {
       <div className="border-b px-6 py-3">
         <TransactionSearch
           currentUpdateId={updateId}
-          recentUpdateIds={recentIds ?? []}
+          recentTransactions={recentTransactions ?? []}
           isLoading={isLoading}
-          onSearch={handleSearch}
-          onBrowseLatest={handleBrowseLatest}
+          onSelect={handleSelect}
         />
       </div>
 

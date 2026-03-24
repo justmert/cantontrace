@@ -6,18 +6,10 @@ import {
   Loading03Icon,
   CheckmarkCircle02Icon,
   CircleIcon,
-  ServerStackIcon,
 } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   FieldGroup,
@@ -109,14 +101,14 @@ function ProvisioningProgress({
 }
 
 // ---------------------------------------------------------------------------
-// Create Sandbox Component
+// Create Sandbox Form
 // ---------------------------------------------------------------------------
 
-export interface CreateSandboxProps {
+export interface CreateSandboxFormProps {
   onCreated?: (sandboxId: string) => void;
 }
 
-export function CreateSandbox({ onCreated }: CreateSandboxProps) {
+export function CreateSandboxForm({ onCreated }: CreateSandboxFormProps) {
   const [partyInput, setPartyInput] = useState("");
   const [parties, setParties] = useState<string[]>([]);
   const [enableProfiling, setEnableProfiling] = useState(false);
@@ -156,20 +148,14 @@ export function CreateSandbox({ onCreated }: CreateSandboxProps) {
 
   const handleCreate = useCallback(async () => {
     try {
-      // Step 1: Create sandbox (parties are included in the create request
-      // and allocated by the backend during provisioning)
       setProvisioningStep("creating");
       const sandbox = await createSandbox.mutateAsync({
         parties: parties.length > 0 ? parties : undefined,
         enableProfiling,
       });
 
-      // Step 2: Starting node (the backend handles node startup
-      // asynchronously; status updates come via polling)
       setProvisioningStep("starting_node");
 
-      // Step 3: Upload DAR if provided (requires the sandbox to be
-      // running, but the backend queues it during provisioning)
       if (darFile) {
         setProvisioningStep("uploading_dar");
         await uploadDar.mutateAsync({
@@ -178,15 +164,9 @@ export function CreateSandbox({ onCreated }: CreateSandboxProps) {
         });
       }
 
-      // Parties are already registered via the create request body,
-      // so we skip separate allocation here. Additional parties can
-      // be allocated later from the sandbox detail panel.
-
-      // Done
       setProvisioningStep("ready");
       onCreated?.(sandbox.id);
 
-      // Reset form after brief delay
       setTimeout(() => {
         setProvisioningStep("idle");
         setParties([]);
@@ -210,136 +190,126 @@ export function CreateSandbox({ onCreated }: CreateSandboxProps) {
     provisioningStep !== "idle" && provisioningStep !== "error";
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <HugeiconsIcon icon={ServerStackIcon} strokeWidth={2} className="size-4" />
-          Create Sandbox
-        </CardTitle>
-        <CardDescription>
-          Spin up a local Canton sandbox for debugging and testing
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <FieldGroup>
-          {/* DAR upload */}
-          <Field>
-            <FieldLabel className="text-xs">DAR File (optional)</FieldLabel>
-            <DarUpload
-              onUpload={handleDarSelect}
-              isUploading={provisioningStep === "uploading_dar"}
-            />
-          </Field>
+    <FieldGroup>
+      {/* DAR upload */}
+      <Field>
+        <FieldLabel className="text-xs">DAR File (optional)</FieldLabel>
+        <DarUpload
+          onUpload={handleDarSelect}
+          isUploading={provisioningStep === "uploading_dar"}
+        />
+      </Field>
 
-          {/* Party names */}
-          <Field>
-            <FieldLabel className="text-xs">Party Names</FieldLabel>
-            <div className="flex gap-2">
-              <Input
-                className="flex-1 text-xs"
-                placeholder="Enter party name, press Enter or comma to add"
-                value={partyInput}
-                onChange={(e) => setPartyInput(e.target.value)}
-                onKeyDown={handlePartyKeyDown}
-                disabled={isProvisioning}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleAddParty}
-                disabled={!partyInput.trim() || isProvisioning}
-              >
-                <HugeiconsIcon icon={Add01Icon} strokeWidth={2} className="size-3.5" />
-              </Button>
-            </div>
-            {parties.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {parties.map((party) => (
-                  <Badge
-                    key={party}
-                    variant="secondary"
-                    className="flex items-center gap-1 font-mono text-xs"
-                  >
-                    {party}
-                    <button
-                      onClick={() => handleRemoveParty(party)}
-                      className="ml-0.5 rounded-full hover:bg-muted"
-                      disabled={isProvisioning}
-                    >
-                      <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </Field>
-
-          {/* Profiling toggle */}
-          <Field orientation="horizontal">
-            <div className="flex flex-col gap-0.5">
-              <FieldLabel className="text-xs font-medium">Enable Profiling</FieldLabel>
-              <FieldDescription>
-                May require Enterprise Edition
-              </FieldDescription>
-            </div>
-            <Switch
-              checked={enableProfiling}
-              onCheckedChange={setEnableProfiling}
-              disabled={isProvisioning}
-            />
-          </Field>
-
-          {/* Auto-connect toggle */}
-          <Field orientation="horizontal">
-            <div className="flex flex-col gap-0.5">
-              <FieldLabel className="text-xs font-medium">Auto-Connect</FieldLabel>
-              <FieldDescription>
-                Set as active connection when ready
-              </FieldDescription>
-            </div>
-            <Switch
-              checked={autoConnect}
-              onCheckedChange={setAutoConnect}
-              disabled={isProvisioning}
-            />
-          </Field>
-
-          {/* Provisioning progress */}
-          {provisioningStep !== "idle" && (
-            <ProvisioningProgress
-              currentStep={provisioningStep}
-              hasDar={!!darFile}
-              hasParties={parties.length > 0}
-            />
-          )}
-
-          {/* Error state */}
-          {provisioningStep === "error" && (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-xs text-destructive">
-              Failed to create sandbox. Please try again.
-            </div>
-          )}
-
-          {/* Create button */}
-          <Button
-            className="w-full"
-            onClick={handleCreate}
+      {/* Party names */}
+      <Field>
+        <FieldLabel className="text-xs">Party Names</FieldLabel>
+        <div className="flex gap-2">
+          <Input
+            className="flex-1 text-xs"
+            placeholder="Enter party name, press Enter or comma to add"
+            value={partyInput}
+            onChange={(e) => setPartyInput(e.target.value)}
+            onKeyDown={handlePartyKeyDown}
             disabled={isProvisioning}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleAddParty}
+            disabled={!partyInput.trim() || isProvisioning}
           >
-            {isProvisioning ? (
-              <>
-                <HugeiconsIcon icon={Loading03Icon} data-icon="inline-start" strokeWidth={2} className="animate-spin" />
-                Provisioning...
-              </>
-            ) : (
-              <>
-                <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" strokeWidth={2} />
-                Create Sandbox
-              </>
-            )}
+            <HugeiconsIcon icon={Add01Icon} strokeWidth={2} className="size-3.5" />
           </Button>
-        </FieldGroup>
-      </CardContent>
-    </Card>
+        </div>
+        {parties.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {parties.map((party) => (
+              <Badge
+                key={party}
+                variant="secondary"
+                className="flex items-center gap-1 font-mono text-xs"
+              >
+                {party}
+                <button
+                  onClick={() => handleRemoveParty(party)}
+                  className="ml-0.5 rounded-full hover:bg-muted"
+                  disabled={isProvisioning}
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        )}
+      </Field>
+
+      {/* Profiling toggle */}
+      <Field orientation="horizontal">
+        <div className="flex flex-col gap-0.5">
+          <FieldLabel className="text-xs font-medium">Enable Profiling</FieldLabel>
+          <FieldDescription>
+            May require Enterprise Edition
+          </FieldDescription>
+        </div>
+        <Switch
+          checked={enableProfiling}
+          onCheckedChange={setEnableProfiling}
+          disabled={isProvisioning}
+        />
+      </Field>
+
+      {/* Auto-connect toggle */}
+      <Field orientation="horizontal">
+        <div className="flex flex-col gap-0.5">
+          <FieldLabel className="text-xs font-medium">Auto-Connect</FieldLabel>
+          <FieldDescription>
+            Set as active connection when ready
+          </FieldDescription>
+        </div>
+        <Switch
+          checked={autoConnect}
+          onCheckedChange={setAutoConnect}
+          disabled={isProvisioning}
+        />
+      </Field>
+
+      {/* Provisioning progress */}
+      {provisioningStep !== "idle" && (
+        <ProvisioningProgress
+          currentStep={provisioningStep}
+          hasDar={!!darFile}
+          hasParties={parties.length > 0}
+        />
+      )}
+
+      {/* Error state */}
+      {provisioningStep === "error" && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-xs text-destructive">
+          Failed to create sandbox. Please try again.
+        </div>
+      )}
+
+      {/* Create button */}
+      <Button
+        className="w-full"
+        onClick={handleCreate}
+        disabled={isProvisioning}
+      >
+        {isProvisioning ? (
+          <>
+            <HugeiconsIcon icon={Loading03Icon} data-icon="inline-start" strokeWidth={2} className="animate-spin" />
+            Provisioning...
+          </>
+        ) : (
+          <>
+            <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" strokeWidth={2} />
+            Create Sandbox
+          </>
+        )}
+      </Button>
+    </FieldGroup>
   );
 }
+
+// Keep backward-compatible export
+export const CreateSandbox = CreateSandboxForm;

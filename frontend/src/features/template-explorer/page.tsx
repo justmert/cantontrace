@@ -92,7 +92,7 @@ export default function TemplateExplorerPage() {
   }, [selected, detailsMap]);
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col">
+    <div className="flex h-full flex-col">
       {/* Page header */}
       <div className="flex shrink-0 items-center gap-3 border-b px-6 py-4">
         <HugeiconsIcon icon={BookOpen01Icon} strokeWidth={2} className="size-5 shrink-0 text-primary" />

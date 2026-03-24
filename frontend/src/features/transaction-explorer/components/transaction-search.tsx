@@ -1,118 +1,195 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  Search01Icon,
-  ArrowDown01Icon,
-  Clock01Icon,
-} from "@hugeicons/core-free-icons";
+import { Search01Icon, ArrowDown01Icon } from "@hugeicons/core-free-icons";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Spinner } from "@/components/ui/spinner";
 import { truncateId } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
+import type { RecentTransaction } from "../hooks";
+
+// ---------------------------------------------------------------------------
+// Event type badge color mapping
+// ---------------------------------------------------------------------------
+
+function eventTypeBadgeVariant(
+  eventType: string
+): "default" | "secondary" | "outline" {
+  const lower = eventType.toLowerCase();
+  if (lower.includes("created") || lower.includes("create")) return "default";
+  if (lower.includes("exercised") || lower.includes("exercise"))
+    return "secondary";
+  return "outline";
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export interface TransactionSearchProps {
   currentUpdateId: string | null;
-  recentUpdateIds: string[];
+  recentTransactions: RecentTransaction[];
   isLoading: boolean;
-  onSearch: (updateId: string) => void;
-  onBrowseLatest: () => void;
+  onSelect: (updateId: string) => void;
 }
 
 export function TransactionSearch({
   currentUpdateId,
-  recentUpdateIds,
+  recentTransactions,
   isLoading,
-  onSearch,
-  onBrowseLatest,
+  onSelect,
 }: TransactionSearchProps) {
-  const [inputValue, setInputValue] = useState(currentUpdateId ?? "");
-  const [showRecent, setShowRecent] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [inputValue, setInputValue] = useState("");
 
-  // Sync input when currentUpdateId changes externally (Browse Latest, route)
+  // Sync display when currentUpdateId changes externally (e.g. route navigation)
   useEffect(() => {
     if (currentUpdateId !== null) {
-      setInputValue(currentUpdateId);
+      setInputValue("");
     }
   }, [currentUpdateId]);
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    if (!showRecent) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
-        setShowRecent(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showRecent]);
+  const handleSelect = (updateId: string) => {
+    onSelect(updateId);
+    setOpen(false);
+    setInputValue("");
+  };
 
-  const handleSubmit = useCallback(() => {
-    const trimmed = inputValue.trim();
-    if (trimmed) {
-      onSearch(trimmed);
-      setShowRecent(false);
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Allow submitting a typed update ID with Enter when no item is highlighted
+    if (e.key === "Enter" && inputValue.trim()) {
+      // Check if the input looks like an explicit ID (not matching any dropdown item text)
+      const trimmed = inputValue.trim();
+      const isExactMatch = recentTransactions.some(
+        (tx) => tx.updateId === trimmed
+      );
+      if (!isExactMatch) {
+        // User typed a custom update ID -- submit it directly
+        handleSelect(trimmed);
+        e.preventDefault();
+      }
     }
-  }, [inputValue, onSearch]);
+  };
 
   return (
-    <div className="relative flex items-center gap-2">
-      {/* Search input */}
-      <div className="relative flex-1">
-        <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Enter Update ID to inspect..."
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleSubmit();
-          }}
-          className="h-10 pl-9 font-mono text-sm"
-        />
-      </div>
-
-      <Button onClick={handleSubmit} disabled={isLoading || !inputValue.trim()}>
-        {isLoading ? "Loading..." : "Search"}
-      </Button>
-
-      {/* Recent transactions dropdown */}
-      <div className="relative" ref={dropdownRef}>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
         <Button
           variant="outline"
-          onClick={() => setShowRecent(!showRecent)}
-          disabled={recentUpdateIds.length === 0}
+          role="combobox"
+          aria-expanded={open}
+          className="h-10 w-full justify-between px-3 font-normal"
         >
-          <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} data-icon="inline-start" />
-          Recent
-          <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} data-icon="inline-end" />
-        </Button>
-
-        {showRecent && recentUpdateIds.length > 0 && (
-          <div className="absolute right-0 top-full z-50 mt-1 max-h-80 w-80 overflow-y-auto rounded-md border bg-popover p-1 shadow-md">
-            {recentUpdateIds.map((uid) => (
-              <button
-                key={uid}
-                className="flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-xs hover:bg-accent"
-                onClick={() => {
-                  onSearch(uid);
-                  setShowRecent(false);
-                }}
-              >
-                <span className="font-mono">{truncateId(uid, 16)}</span>
-              </button>
-            ))}
+          <div className="flex items-center gap-2 truncate">
+            {isLoading ? (
+              <Spinner className="size-3.5 shrink-0" />
+            ) : (
+              <HugeiconsIcon
+                icon={Search01Icon}
+                strokeWidth={2}
+                className="size-4 shrink-0 text-muted-foreground"
+              />
+            )}
+            {currentUpdateId ? (
+              <span className="font-mono text-sm">
+                {truncateId(currentUpdateId, 24)}
+              </span>
+            ) : (
+              <span className="text-sm text-muted-foreground">
+                Select a transaction...
+              </span>
+            )}
           </div>
-        )}
-      </div>
+          <HugeiconsIcon
+            icon={ArrowDown01Icon}
+            strokeWidth={2}
+            className="size-4 shrink-0 opacity-50"
+          />
+        </Button>
+      </PopoverTrigger>
 
-      {/* Browse latest */}
-      <Button variant="outline" onClick={onBrowseLatest}>
-        <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} data-icon="inline-start" />
-        Browse Latest
-      </Button>
-    </div>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder="Search by Update ID..."
+            value={inputValue}
+            onValueChange={setInputValue}
+            onKeyDown={handleKeyDown}
+          />
+          <CommandList>
+            <CommandEmpty className="py-4 text-center text-xs text-muted-foreground">
+              {inputValue.trim()
+                ? "Press Enter to search this Update ID"
+                : "No recent transactions"}
+            </CommandEmpty>
+
+            {recentTransactions.length > 0 && (
+              <CommandGroup heading="Recent Transactions">
+                {recentTransactions
+                  .filter(
+                    (tx) =>
+                      !inputValue.trim() ||
+                      tx.updateId
+                        .toLowerCase()
+                        .includes(inputValue.trim().toLowerCase()) ||
+                      tx.offset.includes(inputValue.trim())
+                  )
+                  .map((tx) => (
+                    <CommandItem
+                      key={tx.updateId}
+                      value={tx.updateId}
+                      onSelect={() => handleSelect(tx.updateId)}
+                      className="flex items-center gap-2"
+                    >
+                      {/* Offset number */}
+                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                        #{tx.offset}
+                      </span>
+
+                      {/* Event type badge(s) */}
+                      {tx.eventTypes.slice(0, 1).map((et) => (
+                        <Badge
+                          key={et}
+                          variant={eventTypeBadgeVariant(et)}
+                          className="shrink-0 text-[10px]"
+                        >
+                          {et}
+                        </Badge>
+                      ))}
+
+                      {/* Truncated Update ID */}
+                      <span className="min-w-0 truncate font-mono text-xs">
+                        {truncateId(tx.updateId, 16)}
+                      </span>
+
+                      {/* Relative time */}
+                      {tx.recordTime && (
+                        <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+                          {formatDistanceToNow(new Date(tx.recordTime), {
+                            addSuffix: true,
+                          })}
+                        </span>
+                      )}
+                    </CommandItem>
+                  ))}
+              </CommandGroup>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }

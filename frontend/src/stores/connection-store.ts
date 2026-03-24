@@ -120,7 +120,7 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
           const savedConfig = loadConfig();
           set({
             status: "connected",
-            config: savedConfig ?? { ledgerApiEndpoint: "unknown" },
+            config: savedConfig ?? { ledgerApiEndpoint: "" },
             bootstrap: existing.data,
             error: null,
           });

@@ -259,7 +259,7 @@ export default function ErrorDebuggerPage() {
       <div className="flex items-center gap-3 border-b px-6 py-4">
         <HugeiconsIcon
           icon={AlertCircleIcon}
-          className="size-5 text-destructive"
+          className="size-5 text-primary"
           strokeWidth={2}
         />
         <div>

@@ -46,21 +46,19 @@ export default function ContractLifecyclePage() {
   };
 
   return (
-    <div className="flex h-full flex-col gap-6 p-6">
+    <div className="flex h-full flex-col">
       {/* Page header */}
-      <div className="flex items-center gap-3">
-        <div className="flex size-10 items-center justify-center rounded-lg bg-secondary">
-          <HugeiconsIcon icon={GitCommitHorizontalIcon} className="size-5 text-secondary-foreground" strokeWidth={2} />
-        </div>
+      <div className="flex items-center gap-3 border-b px-6 py-4">
+        <HugeiconsIcon icon={GitCommitHorizontalIcon} strokeWidth={2} className="size-5 text-primary" />
         <div>
-          <h1 className="text-xl font-bold tracking-tight">
-            Contract Lifecycle Tracker
-          </h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-lg font-semibold">Contract Lifecycle Tracker</h1>
+          <p className="text-xs text-muted-foreground">
             Trace a contract from creation through exercises to archival
           </p>
         </div>
       </div>
+
+      <div className="flex flex-1 flex-col gap-6 overflow-auto p-4">
 
       {/* Search */}
       <LifecycleSearch
@@ -123,6 +121,7 @@ export default function ContractLifecyclePage() {
           />
         </div>
       ) : null}
+      </div>
     </div>
   );
 }

@@ -10,6 +10,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ContractIdCombobox } from "@/components/smart-fields/contract-id-combobox";
+import { UpdateIdCombobox } from "@/components/smart-fields/update-id-combobox";
 import type { WorkflowCorrelation } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -150,13 +152,13 @@ export function CorrelationInput({
                 {DESCRIPTIONS.contract_chain}
               </p>
               <div className="flex gap-2">
-                <Input
-                  className="flex-1 font-mono text-xs"
-                  placeholder="Contract ID to start chain trace"
-                  value={contractId}
-                  onChange={(e) => setContractId(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                />
+                <div className="flex-1" onKeyDown={handleKeyDown}>
+                  <ContractIdCombobox
+                    value={contractId}
+                    onChange={setContractId}
+                    placeholder="Select or type a contract ID to trace..."
+                  />
+                </div>
                 <Button
                   onClick={handleSearch}
                   disabled={isSearchDisabled() || isLoading}
@@ -196,13 +198,13 @@ export function CorrelationInput({
                 {DESCRIPTIONS.update_id}
               </p>
               <div className="flex gap-2">
-                <Input
-                  className="flex-1 font-mono text-xs"
-                  placeholder="Update ID (starting point)"
-                  value={updateId}
-                  onChange={(e) => setUpdateId(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                />
+                <div className="flex-1" onKeyDown={handleKeyDown}>
+                  <UpdateIdCombobox
+                    value={updateId}
+                    onChange={setUpdateId}
+                    placeholder="Select or type an update ID..."
+                  />
+                </div>
                 <Button
                   onClick={handleSearch}
                   disabled={isSearchDisabled() || isLoading}

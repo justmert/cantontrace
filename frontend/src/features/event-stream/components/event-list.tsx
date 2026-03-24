@@ -10,9 +10,17 @@ import {
   Copy01Icon,
   Tick02Icon,
   ArrowDown01Icon,
+  ArrowUp01Icon,
+  LinkForwardIcon,
 } from "@hugeicons/core-free-icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Empty,
   EmptyHeader,
@@ -27,13 +35,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { truncateId } from "@/lib/utils";
+import { truncateId, formatTemplateId } from "@/lib/utils";
 import type {
   LedgerUpdate,
   LedgerEvent,
+  CreatedEvent,
   ExercisedEvent,
+  ArchivedEvent,
 } from "@/lib/types";
-import { EventDetailPopover } from "./event-detail-popover";
 
 // ---------------------------------------------------------------------------
 // Event type helpers
@@ -126,7 +135,126 @@ function InlineCopy({ text }: { text: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Single event card
+// Inline event detail (replaces the old popover)
+// ---------------------------------------------------------------------------
+
+function EventDetail({ event }: { event: LedgerEvent }) {
+  switch (event.eventType) {
+    case "created": {
+      const e = event as CreatedEvent;
+      return (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1 overflow-hidden">
+            <span className="text-xs font-medium text-muted-foreground">Template</span>
+            <span className="truncate font-mono text-xs" title={formatTemplateId(e.templateId)}>
+              {formatTemplateId(e.templateId)}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1 overflow-hidden">
+            <span className="text-xs font-medium text-muted-foreground">Contract ID</span>
+            <div className="flex items-center gap-1 min-w-0">
+              <span className="min-w-0 break-all font-mono text-xs">{e.contractId}</span>
+              <InlineCopy text={e.contractId} />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted-foreground">Signatories</span>
+            <div className="flex flex-wrap gap-1">
+              {e.signatories.map((s) => (
+                <Badge key={s} variant="secondary" className="max-w-full font-mono text-[10px]">
+                  <span className="truncate">{s}</span>
+                </Badge>
+              ))}
+            </div>
+          </div>
+          {e.observers.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Observers</span>
+              <div className="flex flex-wrap gap-1">
+                {e.observers.map((o) => (
+                  <Badge key={o} variant="outline" className="max-w-full font-mono text-[10px]">
+                    <span className="truncate">{o}</span>
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted-foreground">Payload</span>
+            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2 font-mono text-[10px]">
+              {JSON.stringify(e.payload, null, 2).slice(0, 800)}
+            </pre>
+          </div>
+        </div>
+      );
+    }
+    case "exercised": {
+      const e = event as ExercisedEvent;
+      return (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs font-semibold">{e.choice}</span>
+            <Badge variant={e.consuming ? "destructive" : "secondary"} className="text-[9px]">
+              {e.consuming ? "Consuming" : "Non-consuming"}
+            </Badge>
+          </div>
+          <div className="flex flex-col gap-1 overflow-hidden">
+            <span className="text-xs font-medium text-muted-foreground">Contract ID</span>
+            <div className="flex items-center gap-1 min-w-0">
+              <span className="min-w-0 break-all font-mono text-xs">{e.contractId}</span>
+              <InlineCopy text={e.contractId} />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted-foreground">Acting Parties</span>
+            <div className="flex flex-wrap gap-1">
+              {e.actingParties.map((p) => (
+                <Badge key={p} variant="secondary" className="max-w-full font-mono text-[10px]">
+                  <span className="truncate">{p}</span>
+                </Badge>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted-foreground">Choice Argument</span>
+            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2 font-mono text-[10px]">
+              {JSON.stringify(e.choiceArgument, null, 2).slice(0, 800)}
+            </pre>
+          </div>
+        </div>
+      );
+    }
+    case "archived": {
+      const e = event as ArchivedEvent;
+      return (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1 overflow-hidden">
+            <span className="text-xs font-medium text-muted-foreground">Template</span>
+            <span className="truncate font-mono text-xs" title={formatTemplateId(e.templateId)}>
+              {formatTemplateId(e.templateId)}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1 overflow-hidden">
+            <span className="text-xs font-medium text-muted-foreground">Contract ID</span>
+            <div className="flex items-center gap-1 min-w-0">
+              <span className="min-w-0 break-all font-mono text-xs">{e.contractId}</span>
+              <InlineCopy text={e.contractId} />
+            </div>
+          </div>
+        </div>
+      );
+    }
+    default:
+      return (
+        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2 font-mono text-[10px]">
+          {JSON.stringify(event, null, 2)}
+        </pre>
+      );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Event card helpers
 // ---------------------------------------------------------------------------
 
 function getEventTemplateName(event: LedgerEvent): string | null {
@@ -150,20 +278,20 @@ function getActingParty(event: LedgerEvent): string | null {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// Single event card with inline expansion
+// ---------------------------------------------------------------------------
+
 function EventCard({
   update,
   event,
-  onClickEvent,
-  onClickContractId,
-  popoverOpen,
-  onTogglePopover,
+  isExpanded,
+  onToggle,
 }: {
   update: LedgerUpdate;
   event: LedgerEvent;
-  onClickEvent: (updateId: string) => void;
-  onClickContractId: (contractId: string) => void;
-  popoverOpen: boolean;
-  onTogglePopover: () => void;
+  isExpanded: boolean;
+  onToggle: () => void;
 }) {
   const templateName = getEventTemplateName(event);
   const contractId = getEventContractId(event);
@@ -176,84 +304,109 @@ function EventCard({
   } as Intl.DateTimeFormatOptions);
 
   return (
-    <div className="relative">
+    <Collapsible open={isExpanded} onOpenChange={onToggle}>
       <div
         className={cn(
-          "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted/50",
-          getEventColor(event.eventType)
+          "rounded-lg border transition-colors",
+          getEventColor(event.eventType),
+          isExpanded && "ring-1 ring-ring/20"
         )}
-        onClick={onTogglePopover}
       >
-        {/* Icon */}
-        <div className="mt-0.5 shrink-0">{getEventIcon(event.eventType)}</div>
+        {/* Collapsed row: type badge + template + contract ID + timestamp */}
+        <CollapsibleTrigger asChild>
+          <div
+            className={cn(
+              "flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/50",
+              isExpanded && "bg-muted/30"
+            )}
+          >
+            {/* Icon */}
+            <div className="shrink-0">{getEventIcon(event.eventType)}</div>
 
-        {/* Content */}
-        <div className="flex flex-1 flex-col gap-1 overflow-hidden">
-          <div className="flex items-center gap-2">
-            <Badge variant={getBadgeVariant(event.eventType)} className="text-[9px]">
+            {/* Badge */}
+            <Badge variant={getBadgeVariant(event.eventType)} className="shrink-0 text-[9px]">
               {event.eventType.toUpperCase()}
             </Badge>
+
+            {/* Template name */}
             {templateName && (
               <span className="truncate font-mono text-xs font-medium">
                 {templateName}
               </span>
             )}
+
+            {/* Choice name for exercised events */}
             {event.eventType === "exercised" && (
-              <span className="text-xs text-muted-foreground">
+              <span className="shrink-0 text-xs text-muted-foreground">
                 .{(event as ExercisedEvent).choice}
               </span>
             )}
-          </div>
 
-          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-            {contractId && (
-              <div className="flex items-center gap-0.5">
-                <a
-                  href={`/contracts/${encodeURIComponent(contractId)}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onClickContractId(contractId);
-                  }}
-                  className="font-mono hover:underline"
-                >
-                  {truncateId(contractId, 8)}
-                </a>
-                <InlineCopy text={contractId} />
-              </div>
+            {/* Contract ID */}
+            {contractId && contractId.length > 0 && (
+              <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                {truncateId(contractId, 8)}
+              </span>
             )}
+
+            {/* Acting party */}
             {actingParty && (
-              <span className="max-w-[120px] truncate font-mono" title={actingParty}>{actingParty}</span>
+              <span
+                className="hidden max-w-[100px] truncate font-mono text-[10px] text-muted-foreground sm:inline"
+                title={actingParty}
+              >
+                {actingParty}
+              </span>
             )}
-            <span className="ml-auto font-mono">{timestamp}</span>
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* Timestamp */}
+            <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+              {timestamp}
+            </span>
+
+            {/* Expand/collapse chevron */}
+            <HugeiconsIcon
+              icon={isExpanded ? ArrowUp01Icon : ArrowDown01Icon}
+              strokeWidth={2}
+              className="size-3.5 shrink-0 text-muted-foreground transition-transform"
+            />
           </div>
-        </div>
+        </CollapsibleTrigger>
 
-        {/* Update ID */}
-        <div className="shrink-0">
-          <a
-            href={`/transactions/${encodeURIComponent(update.updateId)}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onClickEvent(update.updateId);
-            }}
-            className="font-mono text-[10px] text-muted-foreground hover:underline"
-          >
-            {truncateId(update.updateId, 6)}
-          </a>
-        </div>
+        {/* Expanded detail panel */}
+        <CollapsibleContent>
+          <div className="overflow-hidden">
+            <Separator />
+            <div className="px-4 py-3">
+              <EventDetail event={event} />
+
+              <Separator className="my-3" />
+
+              {/* Footer actions */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <span className="font-mono">
+                    Update: {truncateId(update.updateId, 12)}
+                  </span>
+                  <InlineCopy text={update.updateId} />
+                </div>
+                <a
+                  href={`/transactions/${encodeURIComponent(update.updateId)}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  <HugeiconsIcon icon={LinkForwardIcon} strokeWidth={2} className="size-3" />
+                  Open in Transaction Explorer
+                </a>
+              </div>
+            </div>
+          </div>
+        </CollapsibleContent>
       </div>
-
-      {/* Popover */}
-      {popoverOpen && (
-        <div className="absolute right-0 top-full z-50 mt-1">
-          <EventDetailPopover
-            update={update}
-            event={event}
-            onClose={onTogglePopover}
-          />
-        </div>
-      )}
-    </div>
+    </Collapsible>
   );
 }
 
@@ -271,7 +424,7 @@ export function EventList({ events, isPaused }: EventListProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [newEventsSinceScroll, setNewEventsSinceScroll] = useState(0);
-  const [popoverId, setPopoverId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const prevCountRef = useRef(events.length);
 
   // Track scroll position
@@ -383,25 +536,16 @@ export function EventList({ events, isPaused }: EventListProps) {
       >
         <div className="flex flex-col gap-1.5 p-3">
           {flatEvents.map(({ update, event }, index) => {
-            // eventId is NOT unique within an update (e.g. multiple
-            // created/archived events can share the same eventId).
-            // Include the flat-list index to guarantee uniqueness.
             const eventKey = `${update.updateId}-${index}`;
             return (
               <EventCard
                 key={eventKey}
                 update={update}
                 event={event}
-                onClickEvent={() => {
-                  // Navigation handled by <a> tags
-                }}
-                onClickContractId={() => {
-                  // Navigation handled by <a> tags
-                }}
-                popoverOpen={popoverId === eventKey}
-                onTogglePopover={() =>
-                  setPopoverId(
-                    popoverId === eventKey ? null : eventKey
+                isExpanded={expandedId === eventKey}
+                onToggle={() =>
+                  setExpandedId(
+                    expandedId === eventKey ? null : eventKey
                   )
                 }
               />

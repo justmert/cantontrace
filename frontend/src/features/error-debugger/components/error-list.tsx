@@ -7,9 +7,17 @@ import {
   Cancel01Icon,
   ArrowDown01Icon,
   ArrowUp01Icon,
+  Calendar01Icon,
 } from "@hugeicons/core-free-icons";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -88,6 +96,98 @@ function SkeletonRow() {
 }
 
 // ---------------------------------------------------------------------------
+// Date picker field (Calendar + Popover, theme-compatible)
+// ---------------------------------------------------------------------------
+
+function DatePickerField({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: Date | undefined;
+  onChange: (date: Date | undefined) => void;
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [timeValue, setTimeValue] = useState(() => {
+    if (value) {
+      return format(value, "HH:mm");
+    }
+    return "00:00";
+  });
+
+  const handleDateSelect = (day: Date | undefined) => {
+    if (!day) {
+      onChange(undefined);
+      setOpen(false);
+      return;
+    }
+    // Preserve time when changing date
+    const [hours, minutes] = timeValue.split(":").map(Number);
+    const combined = new Date(day);
+    combined.setHours(hours, minutes, 0, 0);
+    onChange(combined);
+    setOpen(false);
+  };
+
+  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = e.target.value;
+    setTimeValue(newTime);
+    if (value) {
+      const [hours, minutes] = newTime.split(":").map(Number);
+      const updated = new Date(value);
+      updated.setHours(hours, minutes, 0, 0);
+      onChange(updated);
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn(
+            "h-8 w-[170px] justify-start gap-2 text-left font-normal",
+            !value && "text-muted-foreground"
+          )}
+        >
+          <HugeiconsIcon
+            icon={Calendar01Icon}
+            strokeWidth={2}
+            className="size-3.5 shrink-0"
+          />
+          <span className="truncate text-xs">
+            {value ? format(value, "MMM d, yyyy HH:mm") : placeholder}
+          </span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <div className="flex flex-col">
+          <Calendar
+            mode="single"
+            selected={value}
+            onSelect={handleDateSelect}
+            initialFocus
+          />
+          <div className="border-t px-3 py-2">
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              Time
+              <Input
+                type="time"
+                value={timeValue}
+                onChange={handleTimeChange}
+                className="h-7 w-[100px] text-xs"
+              />
+            </label>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Error List component (full-width, inline expandable detail)
 // ---------------------------------------------------------------------------
 
@@ -95,8 +195,8 @@ export function ErrorList() {
   const [filter, setFilter] = useState<CompletionFilter>({});
   const [categoryFilter, setCategoryFilter] = useState<string>("__all__");
   const [partyFilter, setPartyFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const {
@@ -114,16 +214,16 @@ export function ErrorList() {
           ? (categoryFilter as ErrorCategory)
           : undefined,
       party: partyFilter || undefined,
-      dateFrom: dateFrom || undefined,
-      dateTo: dateTo || undefined,
+      dateFrom: dateFrom ? dateFrom.toISOString() : undefined,
+      dateTo: dateTo ? dateTo.toISOString() : undefined,
     });
   }, [categoryFilter, partyFilter, dateFrom, dateTo]);
 
   const clearFilters = useCallback(() => {
     setCategoryFilter("__all__");
     setPartyFilter("");
-    setDateFrom("");
-    setDateTo("");
+    setDateFrom(undefined);
+    setDateTo(undefined);
     setFilter({});
   }, []);
 
@@ -184,20 +284,16 @@ export function ErrorList() {
           />
         </div>
 
-        <Input
-          type="datetime-local"
-          className="h-8 w-[160px] text-xs"
-          placeholder="From"
+        <DatePickerField
           value={dateFrom}
-          onChange={(e) => setDateFrom(e.target.value)}
+          onChange={setDateFrom}
+          placeholder="From date"
         />
 
-        <Input
-          type="datetime-local"
-          className="h-8 w-[160px] text-xs"
-          placeholder="To"
+        <DatePickerField
           value={dateTo}
-          onChange={(e) => setDateTo(e.target.value)}
+          onChange={setDateTo}
+          placeholder="To date"
         />
 
         <Button size="sm" className="h-8" onClick={applyFilters} disabled={isLoading}>

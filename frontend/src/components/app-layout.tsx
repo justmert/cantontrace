@@ -96,6 +96,8 @@ export function AppLayout() {
       )
       .map((r) => r.party) ?? [];
 
+  const knownParties = bootstrap?.knownParties ?? [];
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
@@ -261,7 +263,7 @@ export function AppLayout() {
           </div>
 
           <div className="flex items-center gap-3">
-            {participantParties.length > 0 && (
+            {participantParties.length > 0 ? (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span>Party:</span>
                 <span className="font-mono rounded bg-muted px-1.5 py-0.5">
@@ -273,7 +275,13 @@ export function AppLayout() {
                   </span>
                 )}
               </div>
-            )}
+            ) : status === "connected" && knownParties.length > 0 ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="font-mono rounded bg-muted px-1.5 py-0.5">
+                  {knownParties.length} {knownParties.length === 1 ? "party" : "parties"}
+                </span>
+              </div>
+            ) : null}
 
             {status === "connected" ? (
               <Button

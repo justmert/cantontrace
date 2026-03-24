@@ -66,28 +66,20 @@ export default function SimulatorPage() {
   );
 
   return (
-    <div className="flex-1 p-6">
-      <div className="flex flex-col gap-6">
-        {/* Page header with mode toggle */}
+    <div className="flex h-full flex-col">
+      {/* Page header */}
+      <div className="flex items-center gap-3 border-b px-6 py-4">
+        <HugeiconsIcon icon={TestTube01Icon} strokeWidth={2} className="size-5 text-primary" />
         <div>
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-muted">
-              <HugeiconsIcon
-                icon={TestTube01Icon}
-                className="size-5 text-foreground"
-                strokeWidth={2}
-              />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">
-                Transaction Simulator
-              </h1>
-              <p className="text-muted-foreground">
-                Predict transaction outcomes before submitting to the ledger
-              </p>
-            </div>
-          </div>
+          <h1 className="text-lg font-semibold">Transaction Simulator</h1>
+          <p className="text-xs text-muted-foreground">
+            Predict transaction outcomes before submitting to the ledger
+          </p>
         </div>
+      </div>
+
+      <div className="flex-1 overflow-auto p-4">
+      <div className="flex flex-col gap-6">
 
         {/* Command builder card */}
         <CommandBuilder
@@ -169,6 +161,7 @@ export default function SimulatorPage() {
             />
           </>
         )}
+      </div>
       </div>
     </div>
   );

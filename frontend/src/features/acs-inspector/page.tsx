@@ -28,19 +28,10 @@ export default function ACSInspectorPage() {
   // Time-travel
   const timeTravel = useTimeTravelOffset();
 
-  // Filter state
+  // Filter state -- used directly in the query key so changes refetch instantly
   const [selectedTemplate, setSelectedTemplate] = useState("__all__");
   const [selectedParty, setSelectedParty] = useState("__all__");
   const [searchContractId, setSearchContractId] = useState("");
-  const [appliedFilters, setAppliedFilters] = useState<{
-    templateFilter: TemplateId[];
-    partyFilter: string[];
-    searchContractId: string;
-  }>({
-    templateFilter: [],
-    partyFilter: [],
-    searchContractId: "",
-  });
 
   // Pagination
   const [pageTokenStack, setPageTokenStack] = useState<string[]>([]);
@@ -52,14 +43,31 @@ export default function ACSInspectorPage() {
   const [selectedContract, setSelectedContract] =
     useState<ActiveContract | null>(null);
 
-  // Data fetching
+  // Derive filter values from the UI state (computed each render, no split)
+  const templateFilter: TemplateId[] = useMemo(
+    () =>
+      selectedTemplate !== "__all__"
+        ? [parseTemplateKey(selectedTemplate)]
+        : [],
+    [selectedTemplate]
+  );
+
+  const partyFilter: string[] = useMemo(
+    () => (selectedParty !== "__all__" ? [selectedParty] : []),
+    [selectedParty]
+  );
+
+  // Data fetching -- filter values are in the query key, so TanStack Query
+  // auto-refetches whenever they change.
   const {
     data: acsData,
     isLoading: acsLoading,
     isFetching: acsFetching,
   } = useACS(
     {
-      ...appliedFilters,
+      templateFilter,
+      partyFilter,
+      searchContractId,
       pageSize: 50,
       pageToken: currentPageToken,
     },
@@ -103,33 +111,28 @@ export default function ACSInspectorPage() {
       .map(([key, tid]) => ({ key, ...tid }));
   }, [acsData]);
 
-  // Handlers
-  const handleApply = useCallback(() => {
-    // Convert selectedTemplate into a TemplateId[] for the API query.
-    const templateFilter: TemplateId[] =
-      selectedTemplate !== "__all__"
-        ? [parseTemplateKey(selectedTemplate)]
-        : [];
-
-    setAppliedFilters({
-      templateFilter,
-      partyFilter:
-        selectedParty !== "__all__" ? [selectedParty] : [],
-      searchContractId,
-    });
+  // Reset pagination when filters change
+  const handleTemplateChange = useCallback((value: string) => {
+    setSelectedTemplate(value);
     setPageTokenStack([]);
     setCurrentPageToken(undefined);
-  }, [selectedTemplate, selectedParty, searchContractId]);
+  }, []);
+
+  const handlePartyChange = useCallback((value: string) => {
+    setSelectedParty(value);
+    setPageTokenStack([]);
+    setCurrentPageToken(undefined);
+  }, []);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchContractId(value);
+    // Do NOT reset pagination for contract ID search since it's client-side
+  }, []);
 
   const handleClear = useCallback(() => {
     setSelectedTemplate("__all__");
     setSelectedParty("__all__");
     setSearchContractId("");
-    setAppliedFilters({
-      templateFilter: [],
-      partyFilter: [],
-      searchContractId: "",
-    });
     setPageTokenStack([]);
     setCurrentPageToken(undefined);
   }, []);
@@ -162,12 +165,12 @@ export default function ACSInspectorPage() {
   // Client-side contract ID prefix filter
   const filteredContracts = useMemo(() => {
     if (!acsData) return [];
-    if (!appliedFilters.searchContractId) return acsData.contracts;
-    const prefix = appliedFilters.searchContractId.toLowerCase();
+    if (!searchContractId) return acsData.contracts;
+    const prefix = searchContractId.toLowerCase();
     return acsData.contracts.filter((c) =>
       c.contractId.toLowerCase().startsWith(prefix)
     );
-  }, [acsData, appliedFilters.searchContractId]);
+  }, [acsData, searchContractId]);
 
   return (
     <div className="flex h-full flex-col">
@@ -193,7 +196,7 @@ export default function ACSInspectorPage() {
           onSetCurrent={timeTravel.setCurrent}
         />
 
-        {/* Filter bar */}
+        {/* Filter bar -- instant filtering, no Apply button */}
         <FilterBar
           templateOptions={templateOptions}
           parties={parties}
@@ -204,10 +207,9 @@ export default function ACSInspectorPage() {
             acsData ? filteredContracts.length : undefined
           }
           isLoading={acsLoading || acsFetching}
-          onTemplateChange={setSelectedTemplate}
-          onPartyChange={setSelectedParty}
-          onSearchChange={setSearchContractId}
-          onApply={handleApply}
+          onTemplateChange={handleTemplateChange}
+          onPartyChange={handlePartyChange}
+          onSearchChange={handleSearchChange}
           onClear={handleClear}
         />
 

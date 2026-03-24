@@ -30,10 +30,10 @@ export interface RecentTransaction {
 
 /**
  * Fetch recent transactions using descending_order + end_inclusive.
- * Returns update IDs for the most recent transactions.
+ * Returns rich summaries for display in the transaction combobox.
  */
 export function useRecentTransactions(limit: number = 20) {
-  return useQuery({
+  return useQuery<RecentTransaction[]>({
     queryKey: ["recent-transactions", limit],
     queryFn: async () => {
       const response = await fetch(`/api/v1/transactions/recent?limit=${limit}`);
@@ -45,9 +45,20 @@ export function useRecentTransactions(limit: number = 20) {
           offset: string;
           recordTime: string;
           commandId?: string;
-          events: Array<{ eventType: string }>;
-        }) => u.updateId
-      ) as string[];
+          events: Array<{ eventType: string; templateId?: string }>;
+        }): RecentTransaction => ({
+          updateId: u.updateId,
+          offset: u.offset,
+          recordTime: u.recordTime,
+          commandId: u.commandId,
+          eventCount: u.events?.length ?? 0,
+          eventTypes: [
+            ...new Set(
+              (u.events ?? []).map((e) => e.eventType).filter(Boolean)
+            ),
+          ],
+        })
+      );
     },
     staleTime: 30 * 1000,
     refetchOnWindowFocus: true,
