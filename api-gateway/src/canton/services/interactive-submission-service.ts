@@ -59,15 +59,14 @@ export class InteractiveSubmissionServiceClient {
     // Build Commands using package-name format
     const grpcCommands = commands.map(buildGrpcCommand);
 
+    // Canton 3.4: PrepareSubmissionRequest has flat fields (not nested Commands message)
     const request: Record<string, unknown> = {
-      commands: {
-        application_id: applicationId,
-        command_id: commandId,
-        commands: grpcCommands,
-        act_as: actAs,
-        read_as: readAs,
-        synchronizer_id: synchronizerId,
-      },
+      user_id: applicationId,
+      command_id: commandId,
+      commands: grpcCommands, // repeated Command (flat array, not nested)
+      act_as: actAs,
+      read_as: readAs,
+      synchronizer_id: synchronizerId || undefined,
       verbose_hashing: true,
       disclosed_contracts: (disclosedContracts ?? []).map((dc) => ({
         template_id: templateIdToIdentifier(dc.templateId),
@@ -252,9 +251,9 @@ function buildGrpcCommand(cmd: SimulationCommand): Command {
 
 function templateIdToIdentifier(tid: TemplateId): Identifier {
   return {
-    // In Canton 3.5 package-name format, package_id may be empty
-    // and the participant resolves via package name + version
-    package_id: '',
+    // Canton 3.4 requires actual package ID. The caller should resolve
+    // packageName → packageId before reaching here.
+    package_id: tid.packageName || '',
     module_name: tid.moduleName,
     entity_name: tid.entityName,
   };

@@ -57,3 +57,5 @@ docker-data/
 
 # CN-Quickstart (if cloned inside)
 cn-quickstart/
+*.gz
+log/

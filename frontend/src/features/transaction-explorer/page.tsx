@@ -129,20 +129,20 @@ export default function TransactionExplorerPage() {
         {/* Transaction loaded */}
         {transaction && !isLoading && (
           <>
-            {/* Tree (main area) */}
+            {/* Tree (left — 50%) */}
             <div className="min-w-0 flex-1 overflow-hidden border-r">
               <TransactionTree transaction={transaction} />
             </div>
 
-            {/* Right panel: State Diff + Metadata */}
-            <div className="flex w-[380px] min-w-0 shrink-0 flex-col overflow-hidden">
-              {/* State diff (top) */}
+            {/* Right panel: State Diff + Metadata (50%) */}
+            <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+              {/* State diff (top, scrollable) */}
               <div className="min-h-0 flex-1 overflow-y-auto border-b">
                 <StateDiffPanel stateDiff={transaction.stateDiff} />
               </div>
 
-              {/* Metadata (bottom) */}
-              <div className="h-[280px] shrink-0 overflow-y-auto">
+              {/* Metadata (bottom, fixed height) */}
+              <div className="h-[260px] shrink-0 overflow-y-auto">
                 <TransactionMetadata transaction={transaction} />
               </div>
             </div>

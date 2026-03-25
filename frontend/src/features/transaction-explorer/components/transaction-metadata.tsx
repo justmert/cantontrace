@@ -53,7 +53,7 @@ function MetaRow({
 
   return (
     <div className="flex flex-col gap-0.5 overflow-hidden">
-      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+      <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
         {label}
       </span>
       <div className="flex items-center gap-1.5 min-w-0">
@@ -179,7 +179,7 @@ export function TransactionMetadata({
           {transaction.traceContext && (
             <>
               <div className="flex flex-col gap-0.5">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Trace Context
                 </span>
               </div>
@@ -206,7 +206,7 @@ export function TransactionMetadata({
 
           {/* Quick actions */}
           <div className="flex flex-col gap-2">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Quick Actions
             </span>
             <a

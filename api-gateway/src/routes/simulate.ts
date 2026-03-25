@@ -104,14 +104,28 @@ async function simulateOnline(
   body: SimulationRequest,
   currentOffset: string,
 ): Promise<void> {
-  const { client } = requireCantonContext(request);
+  const { client, bootstrapInfo } = requireCantonContext(request);
 
   const commandId = `sim-${crypto.randomUUID()}`;
   const applicationId = 'cantontrace-simulator';
 
+  // Resolve packageName → packageId (Canton 3.4 requires actual package ID)
+  const resolvedCommands = body.commands.map((cmd) => {
+    const pkg = bootstrapInfo.packages.find(
+      (p) => p.packageName === cmd.templateId.packageName
+    );
+    return {
+      ...cmd,
+      templateId: {
+        ...cmd.templateId,
+        packageName: pkg?.packageId ?? cmd.templateId.packageName,
+      },
+    };
+  });
+
   try {
     const result = await client.interactiveSubmissionService.prepareSubmission(
-      body.commands,
+      resolvedCommands,
       body.actAs,
       body.readAs ?? [],
       applicationId,

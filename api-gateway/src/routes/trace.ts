@@ -277,6 +277,38 @@ export function registerTraceRoutes(app: FastifyInstance, cache: CacheService): 
       const rawResult = await engineResponse.json() as Record<string, unknown>;
       const traceResult = normalizeEngineTrace(rawResult);
 
+      // If no source files, fetch decompiled Daml-LF from the engine service
+      if (!traceResult.sourceAvailable && Object.keys(traceResult.sourceFiles).length === 0) {
+        // Find the package ID for the template being traced
+        const templateParts = body.command.templateId;
+        const matchingPkg = bootstrapInfo.packages.find(
+          (p) => p.packageName === templateParts.packageName
+        );
+        const pkgId = matchingPkg?.packageId;
+
+        if (pkgId && packages[pkgId]) {
+          try {
+            const decompileResponse = await fetch(`${ENGINE_SERVICE_URL}/api/v1/decompile`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ dalfBase64: packages[pkgId] }),
+            });
+
+            if (decompileResponse.ok) {
+              const decompiled = await decompileResponse.json() as Record<string, unknown>;
+              const decompiledSource = (decompiled as { decompiledSource?: string }).decompiledSource;
+              if (decompiledSource && typeof decompiledSource === 'string') {
+                const fileName = `${templateParts.moduleName}.daml (decompiled)`;
+                traceResult.sourceFiles = { [fileName]: decompiledSource };
+              }
+            }
+          } catch {
+            // Non-fatal — trace still works without source
+            request.log.warn('Failed to fetch decompiled source from engine-service');
+          }
+        }
+      }
+
       const response: ApiResponse<ExecutionTrace> = {
         data: traceResult,
         meta: {

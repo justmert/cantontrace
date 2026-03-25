@@ -73,7 +73,7 @@ export interface EventNodeData {
 export function CreateNode({ data }: NodeProps) {
   const nodeData = data as unknown as EventNodeData;
   const event = nodeData.event as CreatedEvent;
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   return (
     <div
@@ -139,7 +139,7 @@ export function CreateNode({ data }: NodeProps) {
 export function ExerciseNode({ data }: NodeProps) {
   const nodeData = data as unknown as EventNodeData;
   const event = nodeData.event as ExercisedEvent;
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   return (
     <div

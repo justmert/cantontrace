@@ -58,7 +58,7 @@ function ContractCard({
   contract: ActiveContract;
   variant: "input" | "output";
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const isInput = variant === "input";
   const emptyPayload = isEmptyPayload(contract.payload);
 
@@ -82,11 +82,11 @@ function ContractCard({
           <div className="flex items-center gap-1.5">
             <Badge
               variant={isInput ? "secondary" : "outline"}
-              className="shrink-0 text-[9px]"
+              className="shrink-0 text-xs"
             >
               {contract.templateId.entityName}
             </Badge>
-            <span className="truncate font-mono text-[10px] text-muted-foreground">
+            <span className="truncate font-mono text-xs text-muted-foreground">
               {truncateId(contract.contractId, 8)}
             </span>
             <CopyBtn text={contract.contractId} />
@@ -96,7 +96,7 @@ function ContractCard({
           {keyFields.length > 0 && (
             <div className="flex min-w-0 flex-wrap gap-x-3 gap-y-0.5 overflow-hidden">
               {keyFields.map(([key, value]) => (
-                <span key={key} className="block max-w-full truncate text-[10px]">
+                <span key={key} className="block max-w-full truncate text-xs">
                   <span className="text-muted-foreground">{key}:</span>{" "}
                   <span className="font-mono">
                     {typeof value === "string"
@@ -112,7 +112,7 @@ function ContractCard({
 
           {/* Empty payload notice for consumed contracts */}
           {isInput && emptyPayload && (
-            <p className="text-[10px] italic text-muted-foreground">
+            <p className="text-xs italic text-muted-foreground">
               Payload not available for consumed contracts
             </p>
           )}
@@ -121,7 +121,7 @@ function ContractCard({
           {!emptyPayload && (
             <button
               onClick={() => setExpanded(!expanded)}
-              className="flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground"
+              className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground"
             >
               {expanded ? (
                 <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} className="size-3" />
@@ -133,7 +133,7 @@ function ContractCard({
           )}
 
           {expanded && !emptyPayload && (
-            <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-muted p-2 font-mono text-[9px] leading-relaxed text-foreground">
+            <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-muted p-2 font-mono text-xs leading-relaxed text-foreground">
               {JSON.stringify(contract.payload, null, 2)}
             </pre>
           )}
@@ -171,7 +171,7 @@ export function StateDiffPanel({ stateDiff }: StateDiffProps) {
               <span className="text-xs font-medium text-foreground">
                 Inputs (Consumed)
               </span>
-              <Badge variant="secondary" className="text-[9px]">
+              <Badge variant="secondary" className="text-xs">
                 {stateDiff.inputs.length}
               </Badge>
             </div>
@@ -201,7 +201,7 @@ export function StateDiffPanel({ stateDiff }: StateDiffProps) {
               <span className="text-xs font-medium text-foreground">
                 Outputs (Created)
               </span>
-              <Badge variant="secondary" className="text-[9px]">
+              <Badge variant="secondary" className="text-xs">
                 {stateDiff.outputs.length}
               </Badge>
             </div>

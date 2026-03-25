@@ -192,20 +192,23 @@ function TransactionTreeInner({ transaction }: { transaction: TransactionDetail 
         />
         <MiniMap
           nodeColor={(node) => {
+            // MiniMap renders in canvas — CSS var() doesn't work, use computed values
+            const root = document.documentElement;
+            const style = getComputedStyle(root);
             switch (node.type) {
               case "createNode":
-                return "oklch(var(--primary))";
+                return style.getPropertyValue("--primary").trim() || "#0d9488";
               case "exerciseNode":
-                return "oklch(var(--accent-foreground))";
+                return style.getPropertyValue("--accent-foreground").trim() || "#334155";
               case "archiveNode":
-                return "oklch(var(--destructive))";
+                return style.getPropertyValue("--destructive").trim() || "#ef4444";
               default:
-                return "oklch(var(--muted-foreground))";
+                return style.getPropertyValue("--muted-foreground").trim() || "#94a3b8";
             }
           }}
-          maskColor="oklch(var(--muted) / 60%)"
+          maskColor="rgba(255,255,255,0.7)"
           style={{
-            backgroundColor: "oklch(var(--card))",
+            backgroundColor: "var(--card)",
           }}
           className="rounded-lg border border-border shadow-sm"
         />

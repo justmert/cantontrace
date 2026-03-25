@@ -216,8 +216,16 @@ export function CodePanel({
   const monacoRef = useRef<Monaco | null>(null);
   const decorationsRef = useRef<editor.IEditorDecorationsCollection | null>(null);
 
-  // Determine current file and content
-  const currentFile = currentStep?.sourceLocation?.file ?? "";
+  // Determine current file and content.
+  // If the step has a sourceLocation.file that matches a key in sourceFiles, use it.
+  // Otherwise fall back to the first available source file (typically the decompiled one).
+  const fileNames = Object.keys(sourceFiles);
+  const locFile = currentStep?.sourceLocation?.file ?? "";
+  const currentFile = sourceFiles[locFile]
+    ? locFile
+    : fileNames.length > 0
+    ? fileNames[0]!
+    : "";
   const sourceContent = sourceFiles[currentFile] ?? "";
   const hasSource = !!sourceContent;
 
