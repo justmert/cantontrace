@@ -396,10 +396,11 @@ class InstrumentedEngine extends EngineExecutor with LazyLogging {
     readAs: Set[String],
     hooks: CollectingHooks
   ): Unit = {
-    // 1. Package lookups
-    packages.keys.foreach { pkgId =>
-      hooks.onPackageLookup(pkgId, found = true)
-    }
+    // 1. Package lookups — collapsed into a single step instead of N individual steps
+    hooks.onPackageLookup(
+      s"${packages.size} packages loaded",
+      found = true
+    )
 
     // 2. Expression evaluation — command interpretation begins
     hooks.onExpressionEvaluated(
