@@ -2,7 +2,6 @@ import React, { useMemo, useCallback } from "react";
 import {
   ReactFlow,
   Background,
-  Controls,
   MiniMap,
   useNodesState,
   useEdgesState,
@@ -176,7 +175,8 @@ function TransactionTreeInner({ transaction }: { transaction: TransactionDetail 
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.2 }}
+        fitViewOptions={{ padding: 0.3 }}
+        defaultViewport={{ x: 0, y: 0, zoom: 0.7 }}
         minZoom={0.1}
         maxZoom={2}
         defaultEdgeOptions={{
@@ -186,31 +186,24 @@ function TransactionTreeInner({ transaction }: { transaction: TransactionDetail 
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={16} size={1} />
-        <Controls
-          showInteractive={false}
-          className="rounded-md border bg-card shadow-sm"
-        />
         <MiniMap
           nodeColor={(node) => {
-            // MiniMap renders in canvas — CSS var() doesn't work, use computed values
-            const root = document.documentElement;
-            const style = getComputedStyle(root);
+            // MiniMap renders in canvas — CSS var() / oklch don't work, use hardcoded hex
+            const isDark = document.documentElement.classList.contains("dark");
             switch (node.type) {
               case "createNode":
-                return style.getPropertyValue("--primary").trim() || "#0d9488";
+                return isDark ? "#2dd4bf" : "#0d9488";
               case "exerciseNode":
-                return style.getPropertyValue("--accent-foreground").trim() || "#334155";
+                return isDark ? "#e2e8f0" : "#1e293b";
               case "archiveNode":
-                return style.getPropertyValue("--destructive").trim() || "#ef4444";
+                return isDark ? "#f87171" : "#ef4444";
               default:
-                return style.getPropertyValue("--muted-foreground").trim() || "#94a3b8";
+                return "#94a3b8";
             }
           }}
-          maskColor="rgba(255,255,255,0.7)"
-          style={{
-            backgroundColor: "var(--card)",
-          }}
-          className="rounded-lg border border-border shadow-sm"
+          maskColor="rgba(0,0,0,0.15)"
+          style={{ backgroundColor: "transparent" }}
+          className="rounded-lg border border-border bg-card/80 shadow-sm"
         />
 
         <Panel position="top-right">

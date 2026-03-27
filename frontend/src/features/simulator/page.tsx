@@ -5,6 +5,7 @@ import {
   AlertCircleIcon,
   LockIcon,
 } from "@hugeicons/core-free-icons";
+import { PageHeader } from "@/components/page-header";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import type { SimulationRequest, SimulationResult } from "@/lib/types";
@@ -68,15 +69,11 @@ export default function SimulatorPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Page header */}
-      <div className="flex items-center gap-3 border-b px-6 py-4">
-        <HugeiconsIcon icon={TestTube01Icon} strokeWidth={2} className="size-5 text-primary" />
-        <div>
-          <h1 className="text-lg font-semibold">Transaction Simulator</h1>
-          <p className="text-xs text-muted-foreground">
-            Predict transaction outcomes before submitting to the ledger
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        icon={TestTube01Icon}
+        title="Transaction Simulator"
+        subtitle="Predict transaction outcomes before submitting to the ledger"
+      />
 
       <div className="flex-1 overflow-auto p-4">
       <div className="flex flex-col gap-6">

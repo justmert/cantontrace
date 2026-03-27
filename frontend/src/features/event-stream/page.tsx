@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { RadioIcon } from "@hugeicons/core-free-icons";
+import { PageHeader } from "@/components/page-header";
 import { useEventStream, useEventFilter } from "./hooks";
 import { StreamControls } from "./components/stream-controls";
 import { EventFilter } from "./components/event-filter";
@@ -141,16 +141,11 @@ export default function EventStreamPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Page header */}
-      <div className="flex items-center gap-3 border-b px-6 py-4">
-        <HugeiconsIcon icon={RadioIcon} strokeWidth={2} className="size-5 text-primary" />
-        <div className="flex-1">
-          <h1 className="text-lg font-semibold">Event Stream Monitor</h1>
-          <p className="text-xs text-muted-foreground">
-            Real-time ledger event feed
-          </p>
-        </div>
-
-        {/* Stream controls in the header */}
+      <PageHeader
+        icon={RadioIcon}
+        title="Event Stream Monitor"
+        subtitle="Real-time ledger event feed"
+      >
         <StreamControls
           status={status}
           isPaused={isPaused}
@@ -162,7 +157,7 @@ export default function EventStreamPage() {
           onReconnect={reconnect}
           onLoadRecent={loadRecent}
         />
-      </div>
+      </PageHeader>
 
       <div className="flex flex-1 flex-col gap-0 overflow-hidden">
         {/* Filter bar */}

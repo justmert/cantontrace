@@ -270,7 +270,13 @@ function identifierToTemplateId(id: Identifier | undefined): TemplateId {
 
 function objectToValue(obj: unknown): Value {
   if (obj === null || obj === undefined) return { unit: {} };
-  if (typeof obj === 'string') return { text: obj };
+  if (typeof obj === 'string') {
+    // Canton party IDs contain '::' — detect and use party value type
+    if (obj.includes('::')) return { party: obj };
+    // Numeric strings (Decimal/Numeric fields)
+    if (/^-?\d+(\.\d+)?$/.test(obj)) return { numeric: obj };
+    return { text: obj };
+  }
   if (typeof obj === 'number') return { int64: String(obj) };
   if (typeof obj === 'boolean') return { bool: obj };
   if (Array.isArray(obj)) {

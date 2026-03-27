@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { GitBranchIcon } from "@hugeicons/core-free-icons";
+import { PageHeader } from "@/components/page-header";
 import { CorrelationInput } from "./components/correlation-input";
 import { WorkflowTimeline } from "./components/workflow-timeline";
 import { WorkflowDetail } from "./components/workflow-detail";
@@ -35,15 +35,11 @@ export default function WorkflowDebuggerPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Page header */}
-      <div className="flex items-center gap-3 border-b px-6 py-4">
-        <HugeiconsIcon icon={GitBranchIcon} strokeWidth={2} className="size-5 text-primary" />
-        <div>
-          <h1 className="text-lg font-semibold">Workflow Debugger</h1>
-          <p className="text-xs text-muted-foreground">
-            Cross-transaction workflow visualization and tracing
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        icon={GitBranchIcon}
+        title="Workflow Debugger"
+        subtitle="Cross-transaction workflow visualization and tracing"
+      />
 
       <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
 

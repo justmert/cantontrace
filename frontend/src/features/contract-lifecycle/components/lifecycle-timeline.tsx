@@ -9,56 +9,12 @@ import {
   LinkSquare01Icon,
   Alert01Icon,
   InformationCircleIcon,
-  Copy01Icon,
-  Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { CopyButton } from "@/components/copy-button";
 import { cn, truncateId, formatTemplateId } from "@/lib/utils";
 import type { ContractLifecycle } from "@/lib/types";
-
-// ---------------------------------------------------------------------------
-// Copy button
-// ---------------------------------------------------------------------------
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard API may be blocked in some contexts; silently ignore.
-    }
-  };
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={handleCopy}
-            className="inline-flex size-5 items-center justify-center rounded hover:bg-muted"
-          >
-            {copied ? (
-              <HugeiconsIcon icon={Tick02Icon} className="size-3 text-secondary-foreground" strokeWidth={2} />
-            ) : (
-              <HugeiconsIcon icon={Copy01Icon} className="size-3 text-muted-foreground" strokeWidth={2} />
-            )}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>{copied ? "Copied!" : "Copy"}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // JSON tree viewer

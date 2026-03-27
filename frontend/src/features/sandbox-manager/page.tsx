@@ -8,13 +8,12 @@ import {
   FileZipIcon,
   Clock01Icon,
   PulseRectangle01Icon,
-  Copy01Icon,
-  Tick01Icon,
   RotateLeft01Icon,
   Share01Icon,
   Add01Icon,
   PackageIcon,
 } from "@hugeicons/core-free-icons";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +48,7 @@ import {
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { CopyButton } from "@/components/copy-button";
 import { cn, truncateId } from "@/lib/utils";
 import type { Sandbox } from "@/lib/types";
 import { CreateSandboxForm } from "./components/create-sandbox";
@@ -111,56 +111,6 @@ function StatusBadge({ status }: { status: Sandbox["status"] }) {
       {config.icon}
       {config.label}
     </Badge>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Copy button
-// ---------------------------------------------------------------------------
-
-function CopyButton({ text, label }: { text: string; label?: string }) {
-  const [copied, setCopied] = React.useState(false);
-
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // silently ignore
-    }
-  };
-
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={handleCopy}
-            className="inline-flex size-6 items-center justify-center rounded hover:bg-muted"
-            aria-label={label ?? "Copy to clipboard"}
-          >
-            {copied ? (
-              <HugeiconsIcon
-                icon={Tick01Icon}
-                strokeWidth={2}
-                className="size-3.5 text-primary"
-              />
-            ) : (
-              <HugeiconsIcon
-                icon={Copy01Icon}
-                strokeWidth={2}
-                className="size-3.5 text-muted-foreground"
-              />
-            )}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>
-          {copied ? "Copied!" : label ?? "Copy"}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
   );
 }
 
@@ -660,20 +610,12 @@ export default function SandboxManagerPage() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Page header -- standard pattern */}
-      <div className="flex items-center gap-3 border-b px-6 py-4">
-        <HugeiconsIcon
-          icon={ServerStackIcon}
-          strokeWidth={2}
-          className="size-5 text-primary"
-        />
-        <div>
-          <h1 className="text-lg font-semibold">Sandbox Manager</h1>
-          <p className="text-xs text-muted-foreground">
-            Create, manage, and connect to Canton sandbox instances
-          </p>
-        </div>
-      </div>
+      {/* Page header */}
+      <PageHeader
+        icon={ServerStackIcon}
+        title="Sandbox Manager"
+        subtitle="Create, manage, and connect to Canton sandbox instances"
+      />
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-auto p-4">

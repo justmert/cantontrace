@@ -1,6 +1,5 @@
-import React from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ShieldEnergyIcon, Copy01Icon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { ShieldEnergyIcon } from "@hugeicons/core-free-icons";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
@@ -8,48 +7,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { CopyButton } from "@/components/copy-button";
 import { truncateId } from "@/lib/utils";
 import type { DisclosedBoundary } from "@/lib/types";
-
-// ---------------------------------------------------------------------------
-// Copy button helper
-// ---------------------------------------------------------------------------
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = React.useState(false);
-
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard API may be blocked in some contexts; silently ignore.
-    }
-  };
-
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={handleCopy}
-            className="inline-flex size-5 items-center justify-center rounded hover:bg-muted"
-            aria-label={`Copy ${text}`}
-          >
-            {copied ? (
-              <HugeiconsIcon icon={Tick01Icon} strokeWidth={2} className="size-3 text-primary" />
-            ) : (
-              <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} className="size-3 text-muted-foreground" />
-            )}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>{copied ? "Copied!" : "Copy"}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Disclosed Contract Marker

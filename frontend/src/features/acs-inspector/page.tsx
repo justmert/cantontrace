@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from "react";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { DatabaseIcon } from "@hugeicons/core-free-icons";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 import { useConnectionStore } from "@/stores/connection-store";
 import type { ActiveContract, TemplateId } from "@/lib/types";
 import { useACS, useTimeTravelOffset } from "./hooks";
@@ -175,15 +175,11 @@ export default function ACSInspectorPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Page header */}
-      <div className="flex items-center gap-3 border-b px-6 py-4">
-        <HugeiconsIcon icon={DatabaseIcon} strokeWidth={2} className="size-5 text-primary" />
-        <div>
-          <h1 className="text-lg font-semibold">ACS Inspector</h1>
-          <p className="text-xs text-muted-foreground">
-            Browse and inspect active contracts on the ledger
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        icon={DatabaseIcon}
+        title="ACS Inspector"
+        subtitle="Browse and inspect active contracts on the ledger"
+      />
 
       <div className="flex flex-1 flex-col gap-4 overflow-hidden p-4">
         {/* Time travel controls */}

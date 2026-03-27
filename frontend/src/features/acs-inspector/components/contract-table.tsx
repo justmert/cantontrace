@@ -4,8 +4,6 @@ import {
   ArrowUpDownIcon,
   ArrowLeft01Icon,
   ArrowRight01Icon,
-  Copy01Icon,
-  Tick02Icon,
   FileCodeIcon,
 } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
@@ -19,61 +17,16 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   Empty,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
   EmptyDescription,
 } from "@/components/ui/empty";
+import { CopyButton } from "@/components/copy-button";
 import { cn } from "@/lib/utils";
 import { truncateId, formatTemplateId } from "@/lib/utils";
 import type { ActiveContract } from "@/lib/types";
-
-// ---------------------------------------------------------------------------
-// Copy button helper
-// ---------------------------------------------------------------------------
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = React.useState(false);
-
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard API may be blocked in some contexts; silently ignore.
-    }
-  };
-
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={handleCopy}
-            aria-label="Copy contract ID"
-            className="inline-flex size-5 items-center justify-center rounded hover:bg-muted"
-          >
-            {copied ? (
-              <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="size-3 text-primary" />
-            ) : (
-              <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} className="size-3 text-muted-foreground" />
-            )}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>{copied ? "Copied!" : "Copy full ID"}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Loading skeleton rows

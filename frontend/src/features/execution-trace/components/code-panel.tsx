@@ -1,9 +1,10 @@
-import { useRef, useEffect, useMemo, useState } from "react";
+import { useRef, useEffect, useMemo, useState, useCallback } from "react";
 import Editor, { type Monaco } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowDown01Icon, ArrowUp01Icon } from "@hugeicons/core-free-icons";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 import type { TraceStep } from "@/lib/types";
 import { VariableInspector } from "./variable-inspector";
 
@@ -162,7 +163,9 @@ function registerDamlLanguage(monaco: Monaco) {
     },
   });
 
-  // Theme contributions for Daml
+  // Theme contributions for Daml — colours aligned to the app's oklch palette.
+  // Dark: background oklch(0.205 0 0) ≈ #2b2b2b, foreground oklch(0.985 0 0) ≈ #fbfbfb
+  // Light: background oklch(1 0 0) = #ffffff, foreground oklch(0.145 0 0) ≈ #1a1a1a
   monaco.editor.defineTheme("daml-dark", {
     base: "vs-dark",
     inherit: true,
@@ -175,7 +178,11 @@ function registerDamlLanguage(monaco: Monaco) {
       { token: "operator", foreground: "d4d4d4" },
     ],
     colors: {
-      "editor.background": "#0a0a0a",
+      "editor.background": "#2b2b2b",
+      "editor.foreground": "#fbfbfb",
+      "editorLineNumber.foreground": "#6b6b6b",
+      "editorGutter.background": "#2b2b2b",
+      "editor.lineHighlightBackground": "#2b2b2b",
     },
   });
 
@@ -189,7 +196,13 @@ function registerDamlLanguage(monaco: Monaco) {
       { token: "number", foreground: "098658" },
       { token: "comment", foreground: "008000" },
     ],
-    colors: {},
+    colors: {
+      "editor.background": "#ffffff",
+      "editor.foreground": "#1a1a1a",
+      "editorLineNumber.foreground": "#8a8a8a",
+      "editorGutter.background": "#ffffff",
+      "editor.lineHighlightBackground": "#ffffff",
+    },
   });
 }
 
@@ -203,6 +216,8 @@ export interface CodePanelProps {
   currentStep: TraceStep | null;
   variables: Record<string, unknown>;
   previousVariables?: Record<string, unknown>;
+  /** Package ID for the traced template — used to fetch decompiled LF on demand */
+  packageId?: string;
 }
 
 export function CodePanel({
@@ -211,22 +226,78 @@ export function CodePanel({
   currentStep,
   variables,
   previousVariables,
+  packageId,
 }: CodePanelProps) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   const decorationsRef = useRef<editor.IEditorDecorationsCollection | null>(null);
 
+  // On-demand decompiled source when backend didn't provide it
+  const [decompiledSource, setDecompiledSource] = useState<string | null>(null);
+  const [decompiledLoading, setDecompiledLoading] = useState(false);
+
+  const effectiveSourceFiles = useMemo(() => {
+    if (Object.keys(sourceFiles).length > 0) return sourceFiles;
+    if (decompiledSource) return { "decompiled.daml": decompiledSource };
+    return sourceFiles;
+  }, [sourceFiles, decompiledSource]);
+
+  // Fetch decompiled LF when source is not available
+  const fetchDecompiled = useCallback(async () => {
+    if (!packageId || decompiledLoading || decompiledSource) return;
+    setDecompiledLoading(true);
+    try {
+      const res = await fetch(`/api/v1/packages/${encodeURIComponent(packageId)}/templates`);
+      if (res.ok) {
+        const data = await res.json();
+        // Look for decompiledLF in any module/template
+        const modules = data?.data?.modules ?? [];
+        const lfParts: string[] = [];
+        for (const mod of modules) {
+          for (const tmpl of mod.templates ?? []) {
+            if (tmpl.decompiledLF) {
+              lfParts.push(`-- Template: ${mod.name}.${tmpl.name}\n${tmpl.decompiledLF}`);
+            }
+          }
+        }
+        if (lfParts.length > 0) {
+          setDecompiledSource(lfParts.join("\n\n"));
+        } else {
+          setDecompiledSource("-- No decompiled Daml-LF available for this package");
+        }
+      }
+    } catch {
+      setDecompiledSource("-- Failed to fetch decompiled source");
+    } finally {
+      setDecompiledLoading(false);
+    }
+  }, [packageId, decompiledLoading, decompiledSource]);
+
+  // Auto-fetch when source is empty and we have a packageId
+  useEffect(() => {
+    if (
+      currentStep &&
+      Object.keys(sourceFiles).length === 0 &&
+      !sourceAvailable &&
+      packageId &&
+      !decompiledSource &&
+      !decompiledLoading
+    ) {
+      fetchDecompiled();
+    }
+  }, [currentStep, sourceFiles, sourceAvailable, packageId, decompiledSource, decompiledLoading, fetchDecompiled]);
+
   // Determine current file and content.
-  // If the step has a sourceLocation.file that matches a key in sourceFiles, use it.
+  // If the step has a sourceLocation.file that matches a key in effectiveSourceFiles, use it.
   // Otherwise fall back to the first available source file (typically the decompiled one).
-  const fileNames = Object.keys(sourceFiles);
+  const fileNames = Object.keys(effectiveSourceFiles);
   const locFile = currentStep?.sourceLocation?.file ?? "";
-  const currentFile = sourceFiles[locFile]
+  const currentFile = effectiveSourceFiles[locFile]
     ? locFile
     : fileNames.length > 0
     ? fileNames[0]!
     : "";
-  const sourceContent = sourceFiles[currentFile] ?? "";
+  const sourceContent = effectiveSourceFiles[currentFile] ?? "";
   const hasSource = !!sourceContent;
 
   // Detect dark mode from document, reactively via MutationObserver
@@ -341,8 +412,8 @@ export function CodePanel({
   // Placeholder state
   if (!currentStep) {
     return (
-      <div className="flex h-full flex-col">
-        <div className="flex items-center gap-2 border-b px-3 py-2">
+      <div className="flex h-full flex-col bg-background">
+        <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-2">
           <span className="text-xs font-medium text-muted-foreground">
             Source Code
           </span>
@@ -358,16 +429,21 @@ export function CodePanel({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-background">
       {/* Header */}
-      <div className="flex items-center gap-2 border-b px-3 py-2">
-        <span className="truncate font-mono text-xs">
+      <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-2">
+        <span className="truncate font-mono text-xs text-foreground">
           {currentFile || "Unknown file"}
         </span>
         <div className="ml-auto flex-shrink-0">
           {sourceAvailable ? (
             <Badge variant="secondary" className="text-[10px]">
               Source Available
+            </Badge>
+          ) : decompiledLoading ? (
+            <Badge variant="outline" className="text-[10px]">
+              <Spinner className="mr-1 size-3" />
+              Loading decompiled source...
             </Badge>
           ) : (
             <Badge variant="outline" className="text-[10px]">
@@ -378,12 +454,18 @@ export function CodePanel({
       </div>
 
       {/* Editor */}
-      <div className="flex-1" style={{ minHeight: 0 }}>
+      <div className="flex-1 bg-card" style={{ minHeight: 0 }}>
         <Editor
           height="100%"
           language="daml"
           theme={isDark ? "daml-dark" : "daml-light"}
-          value={hasSource ? sourceContent : "-- Source code not available for this file"}
+          value={
+            hasSource
+              ? sourceContent
+              : decompiledLoading
+              ? "-- Loading decompiled Daml-LF source..."
+              : "-- Source code not available. Decompiled LF could not be loaded."
+          }
           options={{
             readOnly: true,
             minimap: { enabled: true },
@@ -405,7 +487,7 @@ export function CodePanel({
 
       {/* Variable Inspector (collapsible) */}
       {hasVariables && (
-        <div className="flex flex-col border-t">
+        <div className="flex flex-col border-t border-border bg-card">
           <button
             className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/50"
             onClick={() => setInspectorOpen(!inspectorOpen)}

@@ -35,6 +35,7 @@ import { useConnectionStore } from "@/stores/connection-store";
 import { useEventStreamStore } from "@/stores/event-stream-store";
 import { formatDistanceToNow } from "date-fns";
 import { cn, truncateId, formatTemplateId } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 
 // ─── Types ────────────────────────────────────────────────────────────
 interface NavCardProps {
@@ -228,22 +229,11 @@ export default function DashboardPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b px-6 py-4">
-        <HugeiconsIcon
-          icon={DashboardSquare01Icon}
-          strokeWidth={2}
-          className="size-5 text-primary"
-        />
-        <div>
-          <h1 className="text-lg font-semibold">Dashboard</h1>
-          <p className="text-xs text-muted-foreground">
-            Connected{" "}
-            {formatDistanceToNow(new Date(bootstrap.connectedAt), {
-              addSuffix: true,
-            })}
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        icon={DashboardSquare01Icon}
+        title="Dashboard"
+        subtitle={`Connected ${formatDistanceToNow(new Date(bootstrap.connectedAt), { addSuffix: true })}`}
+      />
 
       <div className="flex-1 overflow-auto">
         <div className="mx-auto max-w-5xl px-6 py-6">

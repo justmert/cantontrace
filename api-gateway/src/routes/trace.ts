@@ -66,6 +66,22 @@ function disclosedToEngine(disclosed: DisclosedContract[]): unknown[] {
 }
 
 /**
+ * Normalize a party list value from the engine.
+ * The engine may send a Set (iterable), an array, a comma-delimited string,
+ * or null/undefined. Returns a plain string array.
+ */
+function normalizePartyList(value: unknown): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map(String);
+  if (typeof value === 'string') return value.split(',').map((s) => s.trim()).filter(Boolean);
+  // Handle Set or other iterables
+  if (typeof value === 'object' && Symbol.iterator in (value as object)) {
+    return Array.from(value as Iterable<unknown>).map(String);
+  }
+  return [];
+}
+
+/**
  * Transform the raw engine-service step context into the frontend's
  * TraceStepContext shape. The engine uses a discriminated union with a
  * `contextType` field; the frontend expects a flat bag of optional fields.
@@ -81,12 +97,10 @@ function normalizeStepContext(rawContext: Record<string, unknown>): TraceStepCon
       ctx.contractPayloads = { [cid]: payload as Record<string, unknown> };
     }
   } else if (contextType === 'check_authorization') {
-    ctx.requiredAuthority = rawContext.required
-      ? Array.from(rawContext.required as Iterable<string>)
-      : [];
-    ctx.providedAuthority = rawContext.provided
-      ? Array.from(rawContext.provided as Iterable<string>)
-      : [];
+    // Engine may return Sets, arrays, or comma-delimited strings.
+    // Normalize to string arrays.
+    ctx.requiredAuthority = normalizePartyList(rawContext.required);
+    ctx.providedAuthority = normalizePartyList(rawContext.provided);
   } else if (contextType === 'evaluate_guard') {
     ctx.guardExpression = rawContext.expression as string | undefined;
     ctx.guardResult = rawContext.result as boolean | undefined;
@@ -129,8 +143,12 @@ function parseTemplateIdString(s: string | undefined): TemplateId | undefined {
  * Transform the engine-service ExecutionTrace response into the frontend shape.
  * The engine's step contexts use a discriminated union that needs to be
  * normalized to the flat TraceStepContext the frontend expects.
+ *
+ * Additionally, propagates auth data from check_authorization steps forward
+ * to subsequent action steps that don't have their own auth context, so the
+ * Authorization tab is useful on non-auth steps.
  */
-function normalizeEngineTrace(raw: Record<string, unknown>): ExecutionTrace {
+function normalizeEngineTrace(raw: Record<string, unknown>, actAs?: string[]): ExecutionTrace {
   const rawSteps = (raw.steps ?? []) as Array<Record<string, unknown>>;
   const steps: TraceStep[] = rawSteps.map((s) => ({
     stepNumber: s.stepNumber as number,
@@ -142,6 +160,28 @@ function normalizeEngineTrace(raw: Record<string, unknown>): ExecutionTrace {
     passed: s.passed as boolean,
     error: s.error as string | undefined,
   }));
+
+  // Propagate auth context forward: if a step has no requiredAuthority/providedAuthority,
+  // inherit from the most recent check_authorization step before it.
+  let lastRequired: string[] | undefined;
+  let lastProvided: string[] | undefined;
+  for (const step of steps) {
+    if (step.stepType === 'check_authorization') {
+      lastRequired = step.context.requiredAuthority;
+      lastProvided = step.context.providedAuthority;
+    } else if (
+      ['create_contract', 'exercise_choice', 'archive_contract'].includes(step.stepType) &&
+      !step.context.requiredAuthority?.length &&
+      !step.context.providedAuthority?.length
+    ) {
+      if (lastRequired?.length) step.context.requiredAuthority = lastRequired;
+      if (lastProvided?.length) step.context.providedAuthority = lastProvided;
+      // If still no provided, use actAs as fallback
+      if (!step.context.providedAuthority?.length && actAs?.length) {
+        step.context.providedAuthority = actAs;
+      }
+    }
+  }
 
   return {
     steps,
@@ -275,7 +315,7 @@ export function registerTraceRoutes(app: FastifyInstance, cache: CacheService): 
       }
 
       const rawResult = await engineResponse.json() as Record<string, unknown>;
-      const traceResult = normalizeEngineTrace(rawResult);
+      const traceResult = normalizeEngineTrace(rawResult, body.actAs);
 
       // If no source files, fetch decompiled Daml-LF from the engine service
       if (!traceResult.sourceAvailable && Object.keys(traceResult.sourceFiles).length === 0) {

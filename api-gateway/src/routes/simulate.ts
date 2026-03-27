@@ -17,7 +17,7 @@ import type {
 } from '../types.js';
 import crypto from 'crypto';
 
-const ENGINE_SERVICE_URL = process.env.ENGINE_SERVICE_URL ?? 'http://localhost:4001';
+const ENGINE_SERVICE_URL = process.env.ENGINE_SERVICE_URL ?? 'http://localhost:3002';
 
 export function registerSimulateRoutes(app: FastifyInstance, cache: CacheService): void {
   /**
@@ -229,19 +229,43 @@ async function simulateOffline(
     packages[pkgId] = pkgBytes.toString('base64');
   }
 
+  // Transform command to engine-service format (colon-delimited templateId, flat payload)
+  const cmd = body.commands[0];
+  const engineCommand = cmd ? {
+    templateId: `${cmd.templateId.packageName}:${cmd.templateId.moduleName}:${cmd.templateId.entityName}`,
+    choice: cmd.choice ?? null,
+    contractId: cmd.contractId ?? null,
+    arguments: Object.fromEntries(
+      Object.entries(cmd.arguments).map(([k, v]) => [k, typeof v === 'string' ? v : JSON.stringify(v)])
+    ),
+  } : null;
+
+  // Transform ACS to engine format (map keyed by contractId)
+  const engineContracts: Record<string, unknown> = {};
+  for (const c of contracts) {
+    engineContracts[c.contractId] = {
+      contractId: c.contractId,
+      templateId: `${c.templateId.packageName}:${c.templateId.moduleName}:${c.templateId.entityName}`,
+      payload: Object.fromEntries(
+        Object.entries(c.payload).map(([k, v]) => [k, typeof v === 'string' ? v : JSON.stringify(v)])
+      ),
+      signatories: c.signatories,
+      observers: c.observers,
+    };
+  }
+
   // Send to engine-service for local interpretation
   try {
     const engineResponse = await fetch(`${ENGINE_SERVICE_URL}/api/v1/simulate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        commands: body.commands,
+        command: engineCommand,
         actAs: body.actAs,
         readAs: body.readAs ?? [],
-        acs: contracts,
+        contracts: engineContracts,
         packages,
-        disclosedContracts: body.disclosedContracts ?? [],
-        offset: snapshotOffset,
+        disclosedContracts: [],
       }),
     });
 

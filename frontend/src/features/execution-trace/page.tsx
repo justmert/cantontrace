@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Bug01Icon, AlertCircleIcon, DragDropVerticalIcon } from "@hugeicons/core-free-icons";
+import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import type { TraceRequest, ExecutionTrace } from "@/lib/types";
@@ -72,12 +73,12 @@ function ResizableTriplePanel({
   return (
     <div
       id="trace-panels"
-      className="relative flex h-full overflow-hidden rounded-lg border"
+      className="relative flex h-full overflow-hidden rounded-lg border border-border bg-background"
       style={{ cursor: dragging ? "col-resize" : undefined }}
     >
       {/* Left panel */}
       <div
-        className="flex h-full flex-col overflow-hidden border-r"
+        className="flex h-full flex-col overflow-hidden border-r border-border"
         style={{ width: `${leftWidth}%` }}
       >
         {left}
@@ -93,7 +94,7 @@ function ResizableTriplePanel({
 
       {/* Center panel */}
       <div
-        className="flex h-full flex-col overflow-hidden border-r"
+        className="flex h-full flex-col overflow-hidden border-r border-border"
         style={{ width: `${centerWidth}%` }}
       >
         {center}
@@ -151,26 +152,27 @@ export default function ExecutionTracePage() {
       ? trace?.steps[navigation.currentStep - 1]
       : null;
 
-  // Cross-feature navigation handlers
-  const handleNavigateContract = useCallback((contractId: string) => {
-    window.location.href = `/contracts/${encodeURIComponent(contractId)}`;
-  }, []);
-
-  const handleNavigateTemplate = useCallback((templateId: string) => {
-    window.location.href = `/templates/${encodeURIComponent(templateId)}`;
-  }, []);
+  // Derive the package ID being traced for decompiled LF fallback
+  const tracedPackageId = useMemo(() => {
+    // Find from trace steps or from the command form state (not available here).
+    // Best effort: look for a fetch_package step or a step with templateId.
+    if (!trace) return undefined;
+    for (const step of trace.steps) {
+      if (step.context.templateId) {
+        return step.context.templateId.packageName;
+      }
+    }
+    return undefined;
+  }, [trace]);
 
   return (
     <div className="flex h-full flex-col">
       {/* Page header */}
-      <div className="flex items-center gap-3 border-b px-6 py-4">
-        <HugeiconsIcon icon={Bug01Icon} strokeWidth={2} className="size-5 text-primary" />
-        <div className="flex-1">
-          <h1 className="text-lg font-semibold">Execution Trace</h1>
-          <p className="text-xs text-muted-foreground">
-            Step through Daml command execution with full source mapping
-          </p>
-        </div>
+      <PageHeader
+        icon={Bug01Icon}
+        title="Execution Trace"
+        subtitle="Step through Daml command execution with full source mapping"
+      >
         {trace && (
           <div className="flex items-center gap-2">
             {trace.error ? (
@@ -185,7 +187,7 @@ export default function ExecutionTracePage() {
             </span>
           </div>
         )}
-      </div>
+      </PageHeader>
 
       <div className="flex flex-1 flex-col gap-4 overflow-hidden p-4">
 
@@ -242,6 +244,7 @@ export default function ExecutionTracePage() {
               currentStep={currentStep}
               variables={currentStep?.variables ?? {}}
               previousVariables={previousStep?.variables}
+              packageId={tracedPackageId}
             />
           }
           center={
@@ -255,8 +258,6 @@ export default function ExecutionTracePage() {
               trace={trace}
               currentStep={currentStep}
               currentStepIndex={navigation.currentStep}
-              onNavigateContract={handleNavigateContract}
-              onNavigateTemplate={handleNavigateTemplate}
             />
           }
         />

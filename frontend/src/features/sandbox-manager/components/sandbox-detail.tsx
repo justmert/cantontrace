@@ -1,12 +1,10 @@
-import React, { useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   PlugSocketIcon,
   RotateLeft01Icon,
   Delete02Icon,
   Share01Icon,
-  Copy01Icon,
-  Tick01Icon,
   Add01Icon,
   UserGroupIcon,
   FileZipIcon,
@@ -26,57 +24,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { CopyButton } from "@/components/copy-button";
 import { cn } from "@/lib/utils";
 import { truncateId } from "@/lib/utils";
 import type { Sandbox } from "@/lib/types";
 import { DarUpload } from "./dar-upload";
 import { useDeleteSandbox, useUploadDar, useAllocateParty, useResetSandbox } from "../hooks";
-
-// ---------------------------------------------------------------------------
-// Copy button helper
-// ---------------------------------------------------------------------------
-
-function CopyButton({ text, label }: { text: string; label?: string }) {
-  const [copied, setCopied] = React.useState(false);
-
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard API may be blocked in some contexts; silently ignore.
-    }
-  };
-
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={handleCopy}
-            className="inline-flex size-6 items-center justify-center rounded hover:bg-muted"
-            aria-label={label ?? "Copy to clipboard"}
-          >
-            {copied ? (
-              <HugeiconsIcon icon={Tick01Icon} strokeWidth={2} className="size-3.5 text-primary" />
-            ) : (
-              <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} className="size-3.5 text-muted-foreground" />
-            )}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>{copied ? "Copied!" : label ?? "Copy"}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Status config

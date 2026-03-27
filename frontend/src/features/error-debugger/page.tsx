@@ -6,6 +6,7 @@ import {
   Shield01Icon,
   Sword01Icon,
 } from "@hugeicons/core-free-icons";
+import { PageHeader } from "@/components/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -255,20 +256,12 @@ function ContentionTab() {
 export default function ErrorDebuggerPage() {
   return (
     <div className="flex h-full flex-col">
-      {/* Page header -- matches app-wide pattern: icon + text in a border-b bar */}
-      <div className="flex items-center gap-3 border-b px-6 py-4">
-        <HugeiconsIcon
-          icon={AlertCircleIcon}
-          className="size-5 text-primary"
-          strokeWidth={2}
-        />
-        <div>
-          <h1 className="text-lg font-semibold">Error Debugger</h1>
-          <p className="text-xs text-muted-foreground">
-            Analyze failed commands and understand Canton error categories
-          </p>
-        </div>
-      </div>
+      {/* Page header */}
+      <PageHeader
+        icon={AlertCircleIcon}
+        title="Error Debugger"
+        subtitle="Analyze failed commands and understand Canton error categories"
+      />
 
       {/* Full-width tabbed content */}
       <div className="flex flex-1 flex-col overflow-hidden px-6 pt-4">

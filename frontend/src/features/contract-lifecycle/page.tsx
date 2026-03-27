@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { GitCommitHorizontalIcon } from "@hugeicons/core-free-icons";
+import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from "@/components/ui/empty";
 import { LifecycleSearch } from "./components/lifecycle-search";
@@ -24,10 +25,18 @@ export default function ContractLifecyclePage() {
 
   const {
     data: lifecycle,
-    isLoading,
+    isPending,
+    isFetching,
     isError,
     error,
   } = useContractLifecycle(contractId || null);
+
+  // Use a broader "loading" check: show skeleton when the query is in any
+  // non-resolved state while we have a contractId.  React Query v5 defines
+  // isLoading = isPending && isFetching, but there can be a brief render
+  // frame where isPending is true while isFetching is still false (fetch
+  // hasn't kicked in yet).  Using isPending avoids a flash of empty content.
+  const showLoading = isPending && !!contractId;
 
   const handleSearch = (id: string) => {
     setContractId(id);
@@ -48,15 +57,11 @@ export default function ContractLifecyclePage() {
   return (
     <div className="flex h-full flex-col">
       {/* Page header */}
-      <div className="flex items-center gap-3 border-b px-6 py-4">
-        <HugeiconsIcon icon={GitCommitHorizontalIcon} strokeWidth={2} className="size-5 text-primary" />
-        <div>
-          <h1 className="text-lg font-semibold">Contract Lifecycle Tracker</h1>
-          <p className="text-xs text-muted-foreground">
-            Trace a contract from creation through exercises to archival
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        icon={GitCommitHorizontalIcon}
+        title="Contract Lifecycle Tracker"
+        subtitle="Trace a contract from creation through exercises to archival"
+      />
 
       <div className="flex flex-1 flex-col gap-6 overflow-auto p-4">
 
@@ -64,7 +69,7 @@ export default function ContractLifecyclePage() {
       <LifecycleSearch
         contractId={contractId}
         onSearch={handleSearch}
-        isLoading={isLoading}
+        isLoading={showLoading || isFetching}
       />
 
       {/* Content */}
@@ -79,7 +84,7 @@ export default function ContractLifecyclePage() {
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
-      ) : isLoading ? (
+      ) : showLoading ? (
         <div className="mx-auto w-full max-w-3xl">
           <div className="flex flex-col gap-6">
             {/* Summary bar skeleton */}

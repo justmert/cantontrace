@@ -7,8 +7,6 @@ import {
   ArrowDataTransferHorizontalIcon,
   GlobeIcon,
   MapPinIcon,
-  Copy01Icon,
-  Tick02Icon,
   ArrowDown01Icon,
   ArrowUp01Icon,
   LinkForwardIcon,
@@ -28,12 +26,7 @@ import {
   EmptyTitle,
   EmptyDescription,
 } from "@/components/ui/empty";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { CopyButton } from "@/components/copy-button";
 import { cn } from "@/lib/utils";
 import { truncateId, formatTemplateId } from "@/lib/utils";
 import type {
@@ -98,43 +91,6 @@ function getBadgeVariant(type: string): "default" | "secondary" | "destructive" 
 }
 
 // ---------------------------------------------------------------------------
-// Copy button
-// ---------------------------------------------------------------------------
-
-function InlineCopy({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard API may be blocked in some contexts; silently ignore.
-    }
-  };
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={handleCopy}
-            className="inline-flex size-5 items-center justify-center rounded hover:bg-muted"
-          >
-            {copied ? (
-              <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="size-3 text-primary" />
-            ) : (
-              <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} className="size-3 text-muted-foreground" />
-            )}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>{copied ? "Copied!" : "Copy"}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Inline event detail (replaces the old popover)
 // ---------------------------------------------------------------------------
 
@@ -154,7 +110,7 @@ function EventDetail({ event }: { event: LedgerEvent }) {
             <span className="text-xs font-medium text-muted-foreground">Contract ID</span>
             <div className="flex items-center gap-1 min-w-0">
               <span className="min-w-0 break-all font-mono text-xs">{e.contractId}</span>
-              <InlineCopy text={e.contractId} />
+              <CopyButton text={e.contractId} />
             </div>
           </div>
           <div className="flex flex-col gap-1">
@@ -202,7 +158,7 @@ function EventDetail({ event }: { event: LedgerEvent }) {
             <span className="text-xs font-medium text-muted-foreground">Contract ID</span>
             <div className="flex items-center gap-1 min-w-0">
               <span className="min-w-0 break-all font-mono text-xs">{e.contractId}</span>
-              <InlineCopy text={e.contractId} />
+              <CopyButton text={e.contractId} />
             </div>
           </div>
           <div className="flex flex-col gap-1">
@@ -238,7 +194,7 @@ function EventDetail({ event }: { event: LedgerEvent }) {
             <span className="text-xs font-medium text-muted-foreground">Contract ID</span>
             <div className="flex items-center gap-1 min-w-0">
               <span className="min-w-0 break-all font-mono text-xs">{e.contractId}</span>
-              <InlineCopy text={e.contractId} />
+              <CopyButton text={e.contractId} />
             </div>
           </div>
         </div>
@@ -391,7 +347,7 @@ function EventCard({
                   <span className="font-mono">
                     Update: {truncateId(update.updateId, 12)}
                   </span>
-                  <InlineCopy text={update.updateId} />
+                  <CopyButton text={update.updateId} />
                 </div>
                 <a
                   href={`/transactions/${encodeURIComponent(update.updateId)}`}

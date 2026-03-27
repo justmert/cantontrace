@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from "react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ViewIcon, Search01Icon, ArrowDown01Icon } from "@hugeicons/core-free-icons";
+import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -162,15 +163,11 @@ export default function PrivacyVisualizerPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Page header */}
-      <div className="flex items-center gap-3 border-b px-6 py-4">
-        <HugeiconsIcon icon={ViewIcon} strokeWidth={2} className="size-5 text-primary" />
-        <div>
-          <h1 className="text-lg font-semibold">Privacy Visualizer</h1>
-          <p className="text-xs text-muted-foreground">
-            Per-party visibility analysis for transaction events
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        icon={ViewIcon}
+        title="Privacy Visualizer"
+        subtitle="Per-party visibility analysis for transaction events"
+      />
 
       <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
 

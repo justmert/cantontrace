@@ -79,12 +79,11 @@ export function LifecycleSearch({
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && inputValue.trim()) {
-      const trimmed = inputValue.trim();
-      const isExactMatch = recentContracts.some((id) => id === trimmed);
-      if (!isExactMatch) {
-        handleSelect(trimmed);
-        e.preventDefault();
-      }
+      // Always fire handleSelect directly on Enter — don't rely on cmdk's
+      // internal item-select dispatch, which can silently fail when
+      // shouldFilter={false} and the highlighted item state is stale.
+      e.preventDefault();
+      handleSelect(inputValue.trim());
     }
   };
 

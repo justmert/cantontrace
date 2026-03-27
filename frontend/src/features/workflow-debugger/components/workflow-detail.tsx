@@ -1,11 +1,8 @@
-import React from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   LinkSquareIcon,
   ViewIcon,
   TerminalIcon,
-  Copy01Icon,
-  Tick01Icon,
   Clock01Icon,
   UserGroupIcon,
   File01Icon,
@@ -13,56 +10,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { CopyButton } from "@/components/copy-button";
 import { truncateId, formatTemplateId } from "@/lib/utils";
 import type { WorkflowTransaction } from "@/lib/types";
-
-// ---------------------------------------------------------------------------
-// Copy button helper
-// ---------------------------------------------------------------------------
-
-function CopyButton({ text, label }: { text: string; label?: string }) {
-  const [copied, setCopied] = React.useState(false);
-
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard API may be blocked in some contexts; silently ignore.
-    }
-  };
-
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={handleCopy}
-            className="inline-flex size-5 items-center justify-center rounded hover:bg-muted"
-            aria-label={label ?? "Copy to clipboard"}
-          >
-            {copied ? (
-              <HugeiconsIcon icon={Tick01Icon} strokeWidth={2} className="size-3 text-primary" />
-            ) : (
-              <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} className="size-3 text-muted-foreground" />
-            )}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>
-          {copied ? "Copied!" : label ?? "Copy full value"}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Component

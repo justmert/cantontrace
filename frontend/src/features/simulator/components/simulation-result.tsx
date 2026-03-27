@@ -7,7 +7,6 @@ import {
   InformationCircleIcon,
   ArrowDown01Icon,
   ArrowRight01Icon,
-  Copy01Icon,
   LinkSquare01Icon,
   DollarCircleIcon,
   HashtagIcon,
@@ -19,51 +18,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { CopyButton } from "@/components/copy-button";
 import { cn, truncateId, formatTemplateId } from "@/lib/utils";
 import type { SimulationResult, ActiveContract, CommandError } from "@/lib/types";
 import { TransactionTree } from "@/features/transaction-explorer/components/transaction-tree";
-
-// ---------------------------------------------------------------------------
-// Copy button helper
-// ---------------------------------------------------------------------------
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard API may be blocked in some contexts; silently ignore.
-    }
-  };
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={handleCopy}
-            className="inline-flex size-5 items-center justify-center rounded hover:bg-muted"
-          >
-            {copied ? (
-              <HugeiconsIcon icon={Tick02Icon} className="size-3 text-secondary-foreground" strokeWidth={2} />
-            ) : (
-              <HugeiconsIcon icon={Copy01Icon} className="size-3 text-muted-foreground" strokeWidth={2} />
-            )}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>{copied ? "Copied!" : "Copy"}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Contract card

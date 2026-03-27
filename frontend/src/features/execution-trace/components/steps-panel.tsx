@@ -183,8 +183,13 @@ interface StepRowProps {
 }
 
 function StepRow({ step, isCurrent, onClick }: StepRowProps) {
-  const [expanded, setExpanded] = React.useState(false);
+  const [expanded, setExpanded] = React.useState(isCurrent);
   const Icon = STEP_ICONS[step.stepType];
+
+  // Auto-expand when this step becomes current, auto-collapse when it loses focus
+  React.useEffect(() => {
+    setExpanded(isCurrent);
+  }, [isCurrent]);
 
   return (
     <div
@@ -311,8 +316,8 @@ export function StepsPanel({ steps, navigation }: StepsPanelProps) {
 
   if (steps.length === 0) {
     return (
-      <div className="flex h-full flex-col">
-        <div className="flex items-center gap-2 border-b px-3 py-2">
+      <div className="flex h-full flex-col bg-background">
+        <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-2">
           <span className="text-xs font-medium text-muted-foreground">
             Execution Steps
           </span>
@@ -332,9 +337,9 @@ export function StepsPanel({ steps, navigation }: StepsPanelProps) {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-background">
       {/* Toolbar */}
-      <div className="flex items-center gap-1 border-b px-2 py-1.5">
+      <div className="flex items-center gap-1 border-b border-border bg-card px-2 py-1.5">
         <TooltipProvider>
           {/* Reset */}
           <Tooltip>

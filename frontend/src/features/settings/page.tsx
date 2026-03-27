@@ -10,6 +10,7 @@ import {
   User02Icon,
   Settings02Icon,
 } from "@hugeicons/core-free-icons";
+import { PageHeader } from "@/components/page-header";
 import {
   Card,
   CardContent,
@@ -90,20 +91,12 @@ export default function SettingsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Page header -- standard pattern */}
-      <div className="flex items-center gap-3 border-b px-6 py-4">
-        <HugeiconsIcon
-          icon={Settings02Icon}
-          strokeWidth={2}
-          className="size-5 text-primary"
-        />
-        <div>
-          <h1 className="text-lg font-semibold">Settings</h1>
-          <p className="text-xs text-muted-foreground">
-            Manage your CantonTrace preferences and connections
-          </p>
-        </div>
-      </div>
+      {/* Page header */}
+      <PageHeader
+        icon={Settings02Icon}
+        title="Settings"
+        subtitle="Manage your CantonTrace preferences and connections"
+      />
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-auto p-4">

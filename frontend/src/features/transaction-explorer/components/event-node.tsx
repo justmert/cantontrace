@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -7,8 +7,6 @@ import {
   FlashIcon,
   ArrowDown01Icon,
   ArrowRight01Icon,
-  Copy01Icon,
-  Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,6 +15,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { CopyButton } from "@/components/copy-button";
 import { cn } from "@/lib/utils";
 import { truncateId, formatTemplateId } from "@/lib/utils";
 import type {
@@ -25,36 +24,6 @@ import type {
   ArchivedEvent,
   ExercisedEvent,
 } from "@/lib/types";
-
-// ---------------------------------------------------------------------------
-// Copy helper
-// ---------------------------------------------------------------------------
-
-function CopyBtn({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard API may be blocked in some contexts; silently ignore.
-    }
-  };
-  return (
-    <button
-      onClick={handleCopy}
-      className="inline-flex size-4 shrink-0 items-center justify-center rounded hover:bg-muted"
-    >
-      {copied ? (
-        <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="size-2.5 text-primary" />
-      ) : (
-        <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} className="size-2.5 text-current opacity-50" />
-      )}
-    </button>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Node data type
@@ -105,7 +74,7 @@ export function CreateNode({ data }: NodeProps) {
           >
             {truncateId(event.contractId, 8)}
           </a>
-          <CopyBtn text={event.contractId} />
+          <CopyButton text={event.contractId} />
         </div>
 
         <button
@@ -187,7 +156,7 @@ export function ExerciseNode({ data }: NodeProps) {
           >
             {truncateId(event.contractId, 8)}
           </a>
-          <CopyBtn text={event.contractId} />
+          <CopyButton text={event.contractId} />
         </div>
 
         <div className="flex items-center gap-1 overflow-hidden">
@@ -265,7 +234,7 @@ export function ArchiveNode({ data }: NodeProps) {
           >
             {truncateId(event.contractId, 8)}
           </a>
-          <CopyBtn text={event.contractId} />
+          <CopyButton text={event.contractId} />
         </div>
       </div>
 

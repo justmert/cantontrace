@@ -5,43 +5,13 @@ import {
   PlusSignIcon,
   ArrowRight01Icon,
   ArrowDown01Icon,
-  Copy01Icon,
-  Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { CopyButton } from "@/components/copy-button";
 import { truncateId } from "@/lib/utils";
 import type { StateDiff, ActiveContract } from "@/lib/types";
-
-// ---------------------------------------------------------------------------
-// Copy button
-// ---------------------------------------------------------------------------
-
-function CopyBtn({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard API may be blocked in some contexts; silently ignore.
-    }
-  };
-  return (
-    <button
-      onClick={handleCopy}
-      className="inline-flex size-4 items-center justify-center rounded hover:bg-muted"
-    >
-      {copied ? (
-        <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="size-2.5 text-primary" />
-      ) : (
-        <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} className="size-2.5 text-muted-foreground" />
-      )}
-    </button>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Contract card
@@ -89,7 +59,7 @@ function ContractCard({
             <span className="truncate font-mono text-xs text-muted-foreground">
               {truncateId(contract.contractId, 8)}
             </span>
-            <CopyBtn text={contract.contractId} />
+            <CopyButton text={contract.contractId} />
           </div>
 
           {/* Key field preview */}

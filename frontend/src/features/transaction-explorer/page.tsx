@@ -5,6 +5,7 @@ import {
   GitBranchIcon,
   AlertCircleIcon,
 } from "@hugeicons/core-free-icons";
+import { PageHeader } from "@/components/page-header";
 import {
   Empty,
   EmptyHeader,
@@ -56,15 +57,11 @@ export default function TransactionExplorerPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Page header */}
-      <div className="flex items-center gap-3 border-b px-6 py-4">
-        <HugeiconsIcon icon={GitBranchIcon} strokeWidth={2} className="size-5 text-primary" />
-        <div>
-          <h1 className="text-lg font-semibold">Transaction Explorer</h1>
-          <p className="text-xs text-muted-foreground">
-            Visualize transaction trees and state changes
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        icon={GitBranchIcon}
+        title="Transaction Explorer"
+        subtitle="Visualize transaction trees and state changes"
+      />
 
       {/* Search bar */}
       <div className="border-b px-6 py-3">
@@ -134,16 +131,16 @@ export default function TransactionExplorerPage() {
               <TransactionTree transaction={transaction} />
             </div>
 
-            {/* Right panel: State Diff + Metadata (50%) */}
+            {/* Right panel: Metadata + State Diff (50%) */}
             <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-              {/* State diff (top, scrollable) */}
-              <div className="min-h-0 flex-1 overflow-y-auto border-b">
-                <StateDiffPanel stateDiff={transaction.stateDiff} />
+              {/* Metadata (top, compact) */}
+              <div className="shrink-0 overflow-y-auto border-b">
+                <TransactionMetadata transaction={transaction} />
               </div>
 
-              {/* Metadata (bottom, fixed height) */}
-              <div className="h-[260px] shrink-0 overflow-y-auto">
-                <TransactionMetadata transaction={transaction} />
+              {/* State diff (bottom, fills remaining space) */}
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <StateDiffPanel stateDiff={transaction.stateDiff} />
               </div>
             </div>
           </>

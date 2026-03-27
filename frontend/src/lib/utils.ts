@@ -91,3 +91,76 @@ export function partitionPackages(
   }
   return [user, system];
 }
+
+/**
+ * Extract the human-readable display name from a Canton party ID.
+ * Canton party IDs follow the format `displayName::fingerprint`
+ * (e.g., `alice::122068eb6f6a6acd...`).
+ */
+export function formatPartyId(partyId: string, showFingerprint = false): string {
+  if (!partyId) return "";
+  const sepIndex = partyId.indexOf("::");
+  if (sepIndex === -1) return truncateId(partyId, 12);
+  const displayName = partyId.slice(0, sepIndex);
+  if (!showFingerprint) return displayName;
+  const fingerprint = partyId.slice(sepIndex + 2, sepIndex + 6);
+  return `${displayName}::${fingerprint}…`;
+}
+
+/**
+ * Generate a deterministic color hue (0-360) from a string.
+ * Used for party avatar colors.
+ */
+export function stringToHue(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return ((hash % 360) + 360) % 360;
+}
+
+/**
+ * Format a timestamp in various compact modes.
+ * - "relative": "2m ago", "1h ago"
+ * - "time": "14:32:07"
+ * - "datetime": "Apr 6, 14:32"
+ */
+export function formatTimestamp(
+  date: string | Date | number,
+  mode: "relative" | "time" | "datetime" = "relative"
+): string {
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return String(date);
+
+  switch (mode) {
+    case "relative": {
+      const now = Date.now();
+      const diffMs = now - d.getTime();
+      const diffSec = Math.floor(diffMs / 1000);
+      if (diffSec < 5) return "just now";
+      if (diffSec < 60) return `${diffSec}s ago`;
+      const diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return `${diffMin}m ago`;
+      const diffHr = Math.floor(diffMin / 60);
+      if (diffHr < 24) return `${diffHr}h ago`;
+      const diffDay = Math.floor(diffHr / 24);
+      return `${diffDay}d ago`;
+    }
+    case "time":
+      return d.toLocaleTimeString("en-US", {
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+    case "datetime":
+      return d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      }) + ", " + d.toLocaleTimeString("en-US", {
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+  }
+}

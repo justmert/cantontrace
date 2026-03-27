@@ -3,30 +3,15 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import {
   FileAttachmentIcon,
   GitBranchIcon,
-  BarChartIcon,
   LinkSquare01Icon,
   Tick02Icon,
   Cancel01Icon,
   InformationCircleIcon,
+  Add01Icon,
+  PlayIcon,
+  Delete01Icon,
+  ArrowRight01Icon,
 } from "@hugeicons/core-free-icons";
-import {
-  ReactFlow,
-  Background,
-  Controls,
-  type Node,
-  type Edge,
-  Position,
-} from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  ResponsiveContainer,
-} from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -43,13 +28,15 @@ import type {
 
 interface ContractsTabProps {
   step: TraceStep | null;
-  onNavigateContract?: (contractId: string) => void;
-  onNavigateTemplate?: (templateId: string) => void;
 }
 
-function ContractsTab({ step, onNavigateContract, onNavigateTemplate }: ContractsTabProps) {
+function ContractsTab({ step }: ContractsTabProps) {
   const payloads = step?.context.contractPayloads ?? {};
   const contractIds = Object.keys(payloads);
+  const templateId = step?.context.templateId;
+  const templateLabel = templateId
+    ? `${templateId.moduleName}:${templateId.entityName}`
+    : null;
 
   if (contractIds.length === 0) {
     return (
@@ -71,24 +58,34 @@ function ContractsTab({ step, onNavigateContract, onNavigateTemplate }: Contract
       <div className="flex flex-col gap-2 p-2">
         {contractIds.map((cid) => {
           const payload = payloads[cid];
-          const keyFields = Object.entries(payload).slice(0, 3);
+          const keyFields = Object.entries(payload).slice(0, 4);
           return (
             <div
               key={cid}
-              className="flex flex-col gap-1.5 rounded-md border bg-card p-3"
+              className="flex flex-col gap-2 rounded-md border border-border bg-card p-3"
             >
+              {/* Template name */}
+              {templateLabel && (
+                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  {templateLabel}
+                </span>
+              )}
               <div className="flex items-center justify-between gap-2">
-                <span className="truncate font-mono text-xs">
-                  {truncateId(cid, 10)}
+                <span
+                  className="truncate font-mono text-xs text-foreground"
+                  title={cid}
+                >
+                  {truncateId(cid, 16)}
                 </span>
                 <Badge variant="outline" className="flex-shrink-0 text-[9px]">
                   ACS
                 </Badge>
               </div>
+              {/* Payload preview */}
               {keyFields.length > 0 && (
-                <div className="flex flex-col gap-0.5">
+                <div className="flex flex-col gap-0.5 rounded border border-border bg-muted/30 p-2">
                   {keyFields.map(([k, v]) => (
-                    <span key={k} className="text-[10px]">
+                    <span key={k} className="text-[10px] text-foreground">
                       <span className="text-muted-foreground">{k}:</span>{" "}
                       <span className="font-mono">
                         {typeof v === "string"
@@ -101,29 +98,22 @@ function ContractsTab({ step, onNavigateContract, onNavigateTemplate }: Contract
                   ))}
                 </div>
               )}
-              <div className="mt-1 flex items-center gap-3">
-                {onNavigateContract && (
-                  <button
+              <div className="flex items-center gap-3">
+                <a
+                  href={`/contracts/${encodeURIComponent(cid)}`}
+                  className="flex items-center gap-1 text-[10px] text-primary hover:underline"
+                >
+                  <HugeiconsIcon icon={LinkSquare01Icon} className="size-2.5" strokeWidth={2} />
+                  View Lifecycle
+                </a>
+                {templateId && (
+                  <a
+                    href={`/templates?package=${encodeURIComponent(templateId.packageName)}&template=${encodeURIComponent(templateId.moduleName + ":" + templateId.entityName)}`}
                     className="flex items-center gap-1 text-[10px] text-primary hover:underline"
-                    onClick={() => onNavigateContract(cid)}
-                  >
-                    <HugeiconsIcon icon={LinkSquare01Icon} className="size-2.5" strokeWidth={2} />
-                    View Lifecycle
-                  </button>
-                )}
-                {onNavigateTemplate && step?.context.templateId && (
-                  <button
-                    className="flex items-center gap-1 text-[10px] text-primary hover:underline"
-                    onClick={() => {
-                      const tid = step.context.templateId;
-                      if (tid) {
-                        onNavigateTemplate(`${tid.packageName}:${tid.moduleName}:${tid.entityName}`);
-                      }
-                    }}
                   >
                     <HugeiconsIcon icon={LinkSquare01Icon} className="size-2.5" strokeWidth={2} />
                     View Template
-                  </button>
+                  </a>
                 )}
               </div>
             </div>
@@ -140,14 +130,48 @@ function ContractsTab({ step, onNavigateContract, onNavigateTemplate }: Contract
 
 interface AuthorizationTabProps {
   step: TraceStep | null;
+  allSteps: TraceStep[];
+  currentStepIndex: number;
 }
 
-function AuthorizationTab({ step }: AuthorizationTabProps) {
-  const ctx = step?.context;
-  const required = ctx?.requiredAuthority ?? [];
-  const provided = ctx?.providedAuthority ?? [];
+function AuthorizationTab({ step, allSteps, currentStepIndex }: AuthorizationTabProps) {
+  // If current step has auth data, use it directly.
+  // Otherwise, aggregate from the nearest check_authorization step at or before currentStepIndex.
+  const authData = useMemo(() => {
+    const ctx = step?.context;
+    if (ctx?.requiredAuthority?.length || ctx?.providedAuthority?.length) {
+      return { required: ctx.requiredAuthority ?? [], provided: ctx.providedAuthority ?? [] };
+    }
+    // Search backwards for the nearest check_authorization step
+    for (let i = currentStepIndex; i >= 0; i--) {
+      const s = allSteps[i];
+      if (s?.stepType === "check_authorization") {
+        const sCtx = s.context;
+        if (sCtx?.requiredAuthority?.length || sCtx?.providedAuthority?.length) {
+          return { required: sCtx.requiredAuthority ?? [], provided: sCtx.providedAuthority ?? [] };
+        }
+      }
+    }
+    // Also aggregate all unique auth data from all check_authorization steps up to current
+    const allRequired = new Set<string>();
+    const allProvided = new Set<string>();
+    for (let i = 0; i <= currentStepIndex; i++) {
+      const s = allSteps[i];
+      if (s?.stepType === "check_authorization") {
+        for (const r of s.context.requiredAuthority ?? []) allRequired.add(r);
+        for (const p of s.context.providedAuthority ?? []) allProvided.add(p);
+      }
+    }
+    if (allRequired.size > 0 || allProvided.size > 0) {
+      return { required: [...allRequired], provided: [...allProvided] };
+    }
+    return { required: [] as string[], provided: [] as string[] };
+  }, [step, allSteps, currentStepIndex]);
 
-  const allRequired = required.every((r) => provided.includes(r));
+  const required = authData.required;
+  const provided = authData.provided;
+
+  const allRequiredMet = required.every((r) => provided.includes(r));
 
   return (
     <ScrollArea className="max-h-[calc(100vh-360px)]">
@@ -216,12 +240,12 @@ function AuthorizationTab({ step }: AuthorizationTabProps) {
           <div
             className={cn(
               "flex items-center gap-2 rounded-md border p-3",
-              allRequired
+              allRequiredMet
                 ? "border-primary/20 bg-primary/5"
                 : "border-destructive/20 bg-destructive/5"
             )}
           >
-            {allRequired ? (
+            {allRequiredMet ? (
               <>
                 <HugeiconsIcon icon={Tick02Icon} className="size-4 text-primary" strokeWidth={2} />
                 <span className="text-xs font-medium text-primary">
@@ -244,8 +268,20 @@ function AuthorizationTab({ step }: AuthorizationTabProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Transaction Tree tab (ReactFlow)
+// Transaction Tree tab — simple indented text tree
 // ---------------------------------------------------------------------------
+
+const STEP_TYPE_ICONS: Record<string, typeof Add01Icon> = {
+  create_contract: Add01Icon,
+  exercise_choice: PlayIcon,
+  archive_contract: Delete01Icon,
+};
+
+const STEP_TYPE_COLORS: Record<string, string> = {
+  create_contract: "text-primary",
+  exercise_choice: "text-foreground",
+  archive_contract: "text-destructive",
+};
 
 interface TransactionTreeTabProps {
   steps: TraceStep[];
@@ -256,66 +292,17 @@ function TransactionTreeTab({
   steps,
   currentStepIndex,
 }: TransactionTreeTabProps) {
-  const { nodes, edges } = useMemo(() => {
-    const treeNodes: Node[] = [];
-    const treeEdges: Edge[] = [];
+  const actionSteps = useMemo(
+    () =>
+      steps.filter((s) =>
+        ["create_contract", "exercise_choice", "archive_contract"].includes(
+          s.stepType
+        )
+      ),
+    [steps]
+  );
 
-    const actionSteps = steps.filter((s) =>
-      ["create_contract", "exercise_choice", "archive_contract"].includes(
-        s.stepType
-      )
-    );
-
-    let prevId: string | null = null;
-    actionSteps.forEach((step, idx) => {
-      const nodeId = `step-${step.stepNumber}`;
-      const isFuture = step.stepNumber > currentStepIndex + 1;
-
-      let label = step.summary;
-      if (label.length > 40) label = label.slice(0, 37) + "...";
-
-      const bgColor = isFuture
-        ? "#f3f4f6"
-        : step.stepType === "create_contract"
-        ? "#dcfce7"
-        : step.stepType === "archive_contract"
-        ? "#fee2e2"
-        : "#dbeafe";
-
-      treeNodes.push({
-        id: nodeId,
-        position: { x: 20, y: idx * 80 },
-        data: { label },
-        style: {
-          background: bgColor,
-          border: isFuture ? "1px dashed #d1d5db" : "1px solid #9ca3af",
-          borderRadius: "6px",
-          padding: "8px 12px",
-          fontSize: "11px",
-          opacity: isFuture ? 0.5 : 1,
-          width: 220,
-        },
-        sourcePosition: Position.Bottom,
-        targetPosition: Position.Top,
-      });
-
-      if (prevId) {
-        treeEdges.push({
-          id: `e-${prevId}-${nodeId}`,
-          source: prevId,
-          target: nodeId,
-          animated: !isFuture,
-          style: { stroke: isFuture ? "#d1d5db" : "#6b7280" },
-        });
-      }
-
-      prevId = nodeId;
-    });
-
-    return { nodes: treeNodes, edges: treeEdges };
-  }, [steps, currentStepIndex]);
-
-  if (nodes.length === 0) {
+  if (actionSteps.length === 0) {
     return (
       <Empty className="py-8">
         <EmptyMedia variant="icon">
@@ -331,78 +318,52 @@ function TransactionTreeTab({
   }
 
   return (
-    <div className="h-[calc(100vh-360px)]">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        fitView
-        panOnDrag
-        zoomOnScroll
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable={false}
-        proOptions={{ hideAttribution: true }}
-      >
-        <Background />
-        <Controls showInteractive={false} />
-      </ReactFlow>
-    </div>
-  );
-}
+    <ScrollArea className="max-h-[calc(100vh-360px)]">
+      <div className="flex flex-col gap-0.5 p-2">
+        {actionSteps.map((step) => {
+          const isCurrent = step.stepNumber === currentStepIndex + 1;
+          const isFuture = step.stepNumber > currentStepIndex + 1;
+          const Icon = STEP_TYPE_ICONS[step.stepType] ?? ArrowRight01Icon;
+          const colorClass = STEP_TYPE_COLORS[step.stepType] ?? "text-foreground";
 
-// ---------------------------------------------------------------------------
-// Profiler tab
-// ---------------------------------------------------------------------------
+          let label = step.summary;
+          if (label.length > 55) label = label.slice(0, 52) + "...";
 
-interface ProfilerTabProps {
-  profilerData: unknown;
-  steps: TraceStep[];
-}
-
-function ProfilerTab({ profilerData, steps }: ProfilerTabProps) {
-  if (!profilerData) {
-    return (
-      <Empty className="py-8">
-        <EmptyMedia variant="icon">
-          <HugeiconsIcon icon={BarChartIcon} strokeWidth={2} />
-        </EmptyMedia>
-        <EmptyHeader>
-          <EmptyDescription>
-            Profiling data not available. Enterprise Sandbox feature. The step-by-step trace still works fully.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    );
-  }
-
-  const stepCounts = steps.reduce(
-    (acc, s) => {
-      acc[s.stepType] = (acc[s.stepType] || 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>
-  );
-
-  const chartData = Object.entries(stepCounts).map(([type, count]) => ({
-    name: type.replace(/_/g, " "),
-    count,
-  }));
-
-  return (
-    <div className="flex flex-col gap-3 p-3">
-      <h3 className="text-xs font-medium text-muted-foreground">
-        Step Distribution
-      </h3>
-      <ResponsiveContainer width="100%" height={250}>
-        <BarChart data={chartData} layout="vertical">
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis type="number" />
-          <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 10 }} />
-          <RechartsTooltip />
-          <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
+          return (
+            <div
+              key={step.stepNumber}
+              className={cn(
+                "flex items-start gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
+                isCurrent
+                  ? "bg-primary/10 border border-primary/20"
+                  : "border border-transparent",
+                isFuture && "opacity-40"
+              )}
+            >
+              <HugeiconsIcon
+                icon={Icon}
+                className={cn("mt-0.5 size-3 flex-shrink-0", colorClass)}
+                strokeWidth={2}
+              />
+              <div className="flex flex-col gap-0.5 overflow-hidden">
+                <span
+                  className={cn(
+                    "font-mono text-[11px] leading-tight",
+                    isCurrent ? "font-semibold text-foreground" : "text-foreground"
+                  )}
+                >
+                  {label}
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  Step {step.stepNumber}
+                  {step.passed ? "" : " — failed"}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </ScrollArea>
   );
 }
 
@@ -414,21 +375,17 @@ export interface ContextPanelProps {
   trace: ExecutionTrace | null;
   currentStep: TraceStep | null;
   currentStepIndex: number;
-  onNavigateContract?: (contractId: string) => void;
-  onNavigateTemplate?: (templateId: string) => void;
 }
 
 export function ContextPanel({
   trace,
   currentStep,
   currentStepIndex,
-  onNavigateContract,
-  onNavigateTemplate,
 }: ContextPanelProps) {
   if (!trace) {
     return (
-      <div className="flex h-full flex-col">
-        <div className="flex items-center gap-2 border-b px-3 py-2">
+      <div className="flex h-full flex-col bg-background">
+        <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-2">
           <span className="text-xs font-medium text-muted-foreground">
             Context
           </span>
@@ -448,9 +405,9 @@ export function ContextPanel({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-background">
       <Tabs defaultValue="contracts" className="flex flex-1 flex-col">
-        <TabsList className="mx-2 mt-2 grid w-auto grid-cols-4">
+        <TabsList className="mx-2 mt-2 grid w-auto grid-cols-3">
           <TabsTrigger value="contracts" className="text-[10px]">
             Contracts
           </TabsTrigger>
@@ -460,34 +417,24 @@ export function ContextPanel({
           <TabsTrigger value="tree" className="text-[10px]">
             Tx Tree
           </TabsTrigger>
-          <TabsTrigger value="profiler" className="text-[10px]">
-            Profiler
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="contracts" className="flex-1">
-          <ContractsTab
-            step={currentStep}
-            onNavigateContract={onNavigateContract}
-            onNavigateTemplate={onNavigateTemplate}
-          />
+          <ContractsTab step={currentStep} />
         </TabsContent>
 
         <TabsContent value="auth" className="flex-1">
-          <AuthorizationTab step={currentStep} />
+          <AuthorizationTab
+            step={currentStep}
+            allSteps={trace.steps}
+            currentStepIndex={currentStepIndex}
+          />
         </TabsContent>
 
         <TabsContent value="tree" className="flex-1">
           <TransactionTreeTab
             steps={trace.steps}
             currentStepIndex={currentStepIndex}
-          />
-        </TabsContent>
-
-        <TabsContent value="profiler" className="flex-1">
-          <ProfilerTab
-            profilerData={trace.profilerData}
-            steps={trace.steps}
           />
         </TabsContent>
       </Tabs>

@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { BookOpen01Icon, FileCodeIcon } from "@hugeicons/core-free-icons";
+import { PageHeader } from "@/components/page-header";
 import {
   Empty,
   EmptyHeader,
@@ -94,15 +95,12 @@ export default function TemplateExplorerPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Page header */}
-      <div className="flex shrink-0 items-center gap-3 border-b px-6 py-4">
-        <HugeiconsIcon icon={BookOpen01Icon} strokeWidth={2} className="size-5 shrink-0 text-primary" />
-        <div className="min-w-0">
-          <h1 className="text-lg font-semibold">Template Explorer</h1>
-          <p className="truncate text-xs text-muted-foreground">
-            Browse packages, modules, and template definitions
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        icon={BookOpen01Icon}
+        title="Template Explorer"
+        subtitle="Browse packages, modules, and template definitions"
+        className="shrink-0"
+      />
 
       {/* Body: sidebar + content */}
       <div className="flex min-h-0 flex-1">
