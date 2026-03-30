@@ -67,16 +67,9 @@ export function PartyBadge({ party, variant = "default", className }: PartyBadge
           </TooltipTrigger>
           <TooltipContent
             side="top"
-            className="max-w-[400px] break-all font-mono text-xs"
+            className="z-[100] max-w-[320px] break-all font-mono text-xs"
           >
-            {copied ? (
-              <span className="text-primary">Copied!</span>
-            ) : (
-              <>
-                <span className="text-muted-foreground">Click to copy: </span>
-                {party}
-              </>
-            )}
+            {copied ? "Copied!" : party}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>

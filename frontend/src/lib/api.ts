@@ -104,7 +104,7 @@ class ApiClient {
   // ============================================================
 
   async getBootstrap(): Promise<ApiResponse<BootstrapInfo>> {
-    return this.get("/bootstrap");
+    return this.get("/connect");
   }
 
   async connect(config: ConnectionConfig): Promise<ApiResponse<BootstrapInfo>> {

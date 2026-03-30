@@ -18,11 +18,19 @@ const dashboardRoute = createRoute({
   ),
 });
 
-const acsRoute = createRoute({
+const contractsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/acs",
+  path: "/contracts",
   component: lazyRouteComponent(
-    () => import("@/features/acs-inspector/page")
+    () => import("@/features/contracts/page")
+  ),
+});
+
+const contractDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/contracts/$contractId",
+  component: lazyRouteComponent(
+    () => import("@/features/contracts/page")
   ),
 });
 
@@ -38,7 +46,7 @@ const eventsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/events",
   component: lazyRouteComponent(
-    () => import("@/features/event-stream/page")
+    () => import("@/features/events/page")
   ),
 });
 
@@ -46,7 +54,7 @@ const transactionsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/transactions",
   component: lazyRouteComponent(
-    () => import("@/features/transaction-explorer/page")
+    () => import("@/features/transactions/page")
   ),
 });
 
@@ -54,71 +62,15 @@ const transactionDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/transactions/$updateId",
   component: lazyRouteComponent(
-    () => import("@/features/transaction-explorer/page")
+    () => import("@/features/transactions/page")
   ),
 });
 
-const errorsRoute = createRoute({
+const debuggerRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/errors",
+  path: "/debugger",
   component: lazyRouteComponent(
-    () => import("@/features/error-debugger/page")
-  ),
-});
-
-const contractsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/contracts",
-  component: lazyRouteComponent(
-    () => import("@/features/contract-lifecycle/page")
-  ),
-});
-
-const contractDetailRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/contracts/$contractId",
-  component: lazyRouteComponent(
-    () => import("@/features/contract-lifecycle/page")
-  ),
-});
-
-const traceRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/trace",
-  component: lazyRouteComponent(
-    () => import("@/features/execution-trace/page")
-  ),
-});
-
-const simulateRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/simulate",
-  component: lazyRouteComponent(
-    () => import("@/features/simulator/page")
-  ),
-});
-
-const workflowsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/workflows",
-  component: lazyRouteComponent(
-    () => import("@/features/workflow-debugger/page")
-  ),
-});
-
-const privacyRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/privacy",
-  component: lazyRouteComponent(
-    () => import("@/features/privacy-visualizer/page")
-  ),
-});
-
-const privacyDetailRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/privacy/$updateId",
-  component: lazyRouteComponent(
-    () => import("@/features/privacy-visualizer/page")
+    () => import("@/features/debugger/page")
   ),
 });
 
@@ -127,14 +79,6 @@ const sandboxRoute = createRoute({
   path: "/sandbox",
   component: lazyRouteComponent(
     () => import("@/features/sandbox-manager/page")
-  ),
-});
-
-const reassignmentsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/reassignments",
-  component: lazyRouteComponent(
-    () => import("@/features/reassignment-tracker/page")
   ),
 });
 
@@ -148,21 +92,14 @@ const settingsRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   dashboardRoute,
-  acsRoute,
+  contractsRoute,
+  contractDetailRoute,
   templatesRoute,
   eventsRoute,
   transactionsRoute,
   transactionDetailRoute,
-  errorsRoute,
-  contractsRoute,
-  contractDetailRoute,
-  traceRoute,
-  simulateRoute,
-  workflowsRoute,
-  privacyRoute,
-  privacyDetailRoute,
+  debuggerRoute,
   sandboxRoute,
-  reassignmentsRoute,
   settingsRoute,
 ]);
 

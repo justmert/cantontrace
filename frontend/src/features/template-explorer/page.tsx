@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { BookOpen01Icon, FileCodeIcon } from "@hugeicons/core-free-icons";
 import { PageHeader } from "@/components/page-header";
@@ -10,6 +10,7 @@ import {
   EmptyDescription,
 } from "@/components/ui/empty";
 import type { PackageDetail, TemplateDefinition } from "@/lib/types";
+import { partitionPackages } from "@/lib/utils";
 import { usePackages, usePackageDetail } from "./hooks";
 import {
   PackageSidebar,
@@ -28,31 +29,122 @@ export default function TemplateExplorerPage() {
   );
   const [selected, setSelected] = useState<SelectedTemplate | null>(null);
 
-  const activePackageId = selected?.packageId ?? expandedPackageId;
-  const { data: activePackageDetail } = usePackageDetail(activePackageId);
+  // Fetch detail for both selected and expanded packages independently
+  const selectedPackageId = selected?.packageId ?? null;
+  const { data: selectedPackageDetail } = usePackageDetail(selectedPackageId);
+  const { data: expandedPackageDetail } = usePackageDetail(
+    expandedPackageId !== selectedPackageId ? expandedPackageId : null
+  );
 
   const [detailsMap, setDetailsMap] = useState<Map<string, PackageDetail>>(
     new Map()
   );
 
+  // Store fetched details in the map for both selected and expanded packages
   React.useEffect(() => {
-    if (activePackageDetail && activePackageId) {
-      setDetailsMap((prev) => {
-        if (prev.get(activePackageId) === activePackageDetail) return prev;
-        const summary = packages?.find((p) => p.packageId === activePackageId);
-        const merged: PackageDetail = {
-          ...activePackageDetail,
-          packageName:
-            activePackageDetail.packageName ?? summary?.packageName,
-          packageVersion:
-            activePackageDetail.packageVersion ?? summary?.packageVersion,
-        };
-        const next = new Map(prev);
-        next.set(activePackageId, merged);
-        return next;
-      });
+    const updates: Array<[string, PackageDetail]> = [];
+    if (selectedPackageDetail && selectedPackageId) {
+      updates.push([selectedPackageId, selectedPackageDetail]);
     }
-  }, [activePackageDetail, activePackageId, packages]);
+    if (expandedPackageDetail && expandedPackageId) {
+      updates.push([expandedPackageId, expandedPackageDetail]);
+    }
+    if (updates.length === 0) return;
+
+    setDetailsMap((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const [pkgId, detail] of updates) {
+        if (prev.get(pkgId) === detail) continue;
+        const summary = packages?.find((p) => p.packageId === pkgId);
+        next.set(pkgId, {
+          ...detail,
+          packageName: detail.packageName ?? summary?.packageName,
+          packageVersion: detail.packageVersion ?? summary?.packageVersion,
+        });
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [selectedPackageDetail, selectedPackageId, expandedPackageDetail, expandedPackageId, packages]);
+
+  // Partition packages so we can auto-select the first user template
+  const [userPackages] = useMemo(
+    () => (packages ? partitionPackages(packages) : [[], []]),
+    [packages]
+  );
+
+  // Parse URL params: /templates?template=Module:Entity or /templates?package=name&template=Module:Entity
+  const urlTarget = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    const templateParam = params.get("template"); // e.g., "Main:AliceOnly"
+    const packageParam = params.get("package"); // e.g., "cantontrace-test"
+    if (!templateParam) return null;
+    const parts = templateParam.split(":");
+    return {
+      moduleName: parts.length >= 2 ? parts[0] : "Main",
+      templateName: parts.length >= 2 ? parts[1] : parts[0],
+      packageName: packageParam ?? undefined,
+    };
+  }, []);
+
+  // Auto-select from URL params when packages load
+  const [urlHandled, setUrlHandled] = useState(false);
+
+  useEffect(() => {
+    if (urlHandled || !urlTarget || !packages || packages.length === 0) return;
+
+    // Find matching package
+    let targetPkg = urlTarget.packageName
+      ? packages.find((p) => p.packageName === urlTarget.packageName)
+      : undefined;
+
+    // If no specific package, find the first user package
+    if (!targetPkg) {
+      targetPkg = userPackages[0];
+    }
+
+    if (targetPkg) {
+      setExpandedPackageId(targetPkg.packageId);
+      setLoadedPackageIds((prev) => new Set(prev).add(targetPkg!.packageId));
+      setSelected({
+        packageId: targetPkg.packageId,
+        moduleName: urlTarget.moduleName,
+        templateName: urlTarget.templateName,
+      });
+      setUrlHandled(true);
+    }
+  }, [urlTarget, urlHandled, packages, userPackages]);
+
+  // Auto-load the first user package detail on initial load (only if no URL target)
+  const firstUserPackageId = userPackages.length > 0 ? userPackages[0].packageId : null;
+
+  useEffect(() => {
+    if (urlTarget) return; // URL target takes priority
+    if (firstUserPackageId && !expandedPackageId && !selected) {
+      setExpandedPackageId(firstUserPackageId);
+      setLoadedPackageIds((prev) => new Set(prev).add(firstUserPackageId));
+    }
+  }, [firstUserPackageId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-select the first template from the first user package when detail loads
+  useEffect(() => {
+    if (selected) return; // user already selected something
+    if (!firstUserPackageId) return;
+    const detail = detailsMap.get(firstUserPackageId);
+    if (!detail) return;
+    // Find the first module with at least one template
+    for (const mod of detail.modules) {
+      if (mod.templates.length > 0) {
+        setSelected({
+          packageId: firstUserPackageId,
+          moduleName: mod.name,
+          templateName: mod.templates[0].name,
+        });
+        return;
+      }
+    }
+  }, [firstUserPackageId, detailsMap, selected]);
 
   const handleExpandPackage = useCallback((packageId: string) => {
     setExpandedPackageId(packageId);

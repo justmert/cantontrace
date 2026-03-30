@@ -2,28 +2,18 @@ import React, { useState, useCallback, useRef } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ServerStackIcon,
-  PlugSocketIcon,
   Delete02Icon,
-  UserGroupIcon,
   FileZipIcon,
-  Clock01Icon,
-  PulseRectangle01Icon,
   RotateLeft01Icon,
   Share01Icon,
   Add01Icon,
   PackageIcon,
+  Plug01Icon,
 } from "@hugeicons/core-free-icons";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -33,12 +23,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   Empty,
   EmptyContent,
   EmptyHeader,
@@ -47,9 +31,11 @@ import {
   EmptyDescription,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
 import { CopyButton } from "@/components/copy-button";
-import { cn, truncateId } from "@/lib/utils";
+import { IdBadge } from "@/components/id-badge";
+import { PartyBadge } from "@/components/party-badge";
+import { cn, formatTimestamp } from "@/lib/utils";
+import { useConnectionStore } from "@/stores/connection-store";
 import type { Sandbox } from "@/lib/types";
 import { CreateSandboxForm } from "./components/create-sandbox";
 import { DarUpload } from "./components/dar-upload";
@@ -62,99 +48,117 @@ import {
 } from "./hooks";
 
 // ---------------------------------------------------------------------------
-// Status badge (shared)
+// Status
 // ---------------------------------------------------------------------------
 
-const STATUS_CONFIG: Record<
-  Sandbox["status"],
-  { label: string; className: string; icon: React.ReactNode }
-> = {
-  provisioning: {
-    label: "Provisioning",
-    className:
-      "border-secondary-foreground/50 bg-secondary/10 text-secondary-foreground",
-    icon: (
-      <HugeiconsIcon
-        icon={PulseRectangle01Icon}
-        strokeWidth={2}
-        className="size-3 animate-pulse"
-      />
-    ),
-  },
-  running: {
-    label: "Running",
-    className: "border-primary/50 bg-primary/10 text-primary",
-    icon: <div className="size-2 rounded-full bg-primary animate-pulse" />,
-  },
-  stopped: {
-    label: "Stopped",
-    className: "border-muted-foreground/30 bg-muted/50 text-muted-foreground",
-    icon: <div className="size-2 rounded-full bg-muted-foreground" />,
-  },
-  error: {
-    label: "Error",
-    className: "border-destructive/50 bg-destructive/10 text-destructive",
-    icon: <div className="size-2 rounded-full bg-destructive" />,
-  },
-};
+function StatusDot({ status }: { status: Sandbox["status"] }) {
+  const cls =
+    status === "running"
+      ? "bg-event-create"
+      : status === "provisioning"
+        ? "bg-amber-400 animate-pulse"
+        : status === "error"
+          ? "bg-destructive"
+          : "bg-muted-foreground/50";
+  return <div className={cn("size-2 shrink-0 rounded-full", cls)} />;
+}
 
-function StatusBadge({ status }: { status: Sandbox["status"] }) {
-  const config = STATUS_CONFIG[status];
+function statusLabel(s: Sandbox["status"]): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// ---------------------------------------------------------------------------
+// Sandbox Row
+// ---------------------------------------------------------------------------
+
+function SandboxRow({
+  sandbox,
+  isSelected,
+  onSelect,
+  onConnect,
+  onDelete,
+}: {
+  sandbox: Sandbox;
+  isSelected: boolean;
+  onSelect: () => void;
+  onConnect: () => void;
+  onDelete: () => void;
+}) {
   return (
-    <Badge
-      variant="outline"
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(e) => { if (e.key === "Enter") onSelect(); }}
       className={cn(
-        "flex items-center gap-1.5 text-[10px]",
-        config.className
+        "flex w-full items-center gap-4 px-4 py-3 text-left transition-colors hover:bg-muted/30 cursor-pointer",
+        isSelected && "bg-primary/5"
       )}
     >
-      {config.icon}
-      {config.label}
-    </Badge>
+      <StatusDot status={sandbox.status} />
+
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <span className="font-mono text-sm">{sandbox.ledgerApiEndpoint}</span>
+        <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+          {statusLabel(sandbox.status)}
+        </Badge>
+      </div>
+
+      <div className="hidden items-center gap-5 text-[11px] text-muted-foreground md:flex">
+        <span>{sandbox.parties.length} parties</span>
+        <span>{sandbox.uploadedDars.length} DARs</span>
+        <span>{formatTimestamp(sandbox.createdAt, "datetime")}</span>
+      </div>
+
+      <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+        <Button
+          size="sm"
+          className="h-7 text-xs"
+          disabled={sandbox.status !== "running"}
+          onClick={onConnect}
+        >
+          <HugeiconsIcon icon={Plug01Icon} strokeWidth={2} data-icon="inline-start" />
+          Connect
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="text-muted-foreground hover:text-destructive"
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            onDelete();
+          }}
+        >
+          <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
+        </Button>
+      </div>
+    </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Sandbox Card (expanded, full-width style)
+// Detail Panel
 // ---------------------------------------------------------------------------
 
-interface SandboxCardProps {
-  sandbox: Sandbox;
-  isExpanded: boolean;
-  onToggleExpand: (id: string) => void;
-  onConnect: (sandbox: Sandbox) => void;
-  onDelete: (sandbox: Sandbox) => void;
-}
-
-function SandboxCard({
+function SandboxDetailPanel({
   sandbox,
-  isExpanded,
-  onToggleExpand,
-  onConnect,
-  onDelete,
-}: SandboxCardProps) {
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  onReset,
+  onShare,
+}: {
+  sandbox: Sandbox;
+  onReset: () => void;
+  onShare: () => void;
+}) {
   const [newPartyName, setNewPartyName] = useState("");
   const [lastUploadedDar, setLastUploadedDar] = useState<string | undefined>();
-  const deleteSandbox = useDeleteSandbox();
-  const resetSandbox = useResetSandbox();
   const uploadDar = useUploadDar();
   const allocateParty = useAllocateParty();
-
-  const handleConfirmDelete = useCallback(async () => {
-    await deleteSandbox.mutateAsync(sandbox.id);
-    onDelete(sandbox);
-    setShowDeleteConfirm(false);
-  }, [deleteSandbox, onDelete, sandbox]);
 
   const handleAllocateParty = useCallback(async () => {
     const trimmed = newPartyName.trim();
     if (!trimmed) return;
-    await allocateParty.mutateAsync({
-      sandboxId: sandbox.id,
-      partyName: trimmed,
-    });
+    await allocateParty.mutateAsync({ sandboxId: sandbox.id, partyName: trimmed });
     setNewPartyName("");
   }, [newPartyName, sandbox.id, allocateParty]);
 
@@ -166,395 +170,111 @@ function SandboxCard({
     [sandbox.id, uploadDar]
   );
 
-  const handleShare = useCallback(async () => {
-    try {
-      const url =
-        sandbox.shareUrl ??
-        `${window.location.origin}/sandbox/${sandbox.id}`;
-      await navigator.clipboard.writeText(url);
-    } catch {
-      // silently ignore
-    }
-  }, [sandbox]);
-
   return (
-    <TooltipProvider>
-      <Card size="sm">
-        {/* Card header row */}
-        <CardHeader
-          className="cursor-pointer"
-          onClick={() => onToggleExpand(sandbox.id)}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <StatusBadge status={sandbox.status} />
-              {sandbox.profilingEnabled && (
-                <Badge variant="outline" className="text-[10px]">
-                  <HugeiconsIcon
-                    icon={PulseRectangle01Icon}
-                    data-icon="inline-start"
-                    strokeWidth={2}
-                  />
-                  Profiling
-                </Badge>
-              )}
-            </div>
-          </div>
-        </CardHeader>
+    <div className="animate-in fade-in slide-in-from-bottom-1 duration-200 fill-mode-forwards rounded-xl border bg-card/30 ring-1 ring-border/30">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-border/30 px-4 py-2.5">
+        <div className="flex items-center gap-3">
+          <StatusDot status={sandbox.status} />
+          <span className="text-xs font-medium">{statusLabel(sandbox.status)}</span>
+          <span className="font-mono text-[10px] text-muted-foreground">{sandbox.ledgerApiEndpoint}</span>
+          {sandbox.profilingEnabled && (
+            <Badge variant="outline" className="text-[9px] px-1.5 py-0">Profiling</Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button variant="ghost" size="xs" onClick={onReset}>
+            <HugeiconsIcon icon={RotateLeft01Icon} strokeWidth={2} data-icon="inline-start" className="size-3" />
+            Reset
+          </Button>
+          <Button variant="ghost" size="xs" onClick={onShare}>
+            <HugeiconsIcon icon={Share01Icon} strokeWidth={2} data-icon="inline-start" className="size-3" />
+            Share
+          </Button>
+        </div>
+      </div>
 
-        <CardContent
-          className="cursor-pointer"
-          onClick={() => onToggleExpand(sandbox.id)}
-        >
-          <div className="flex flex-col gap-2">
-            {/* Endpoint */}
+      {/* Content: 3 columns */}
+      <div className="grid gap-px bg-border/20 lg:grid-cols-3">
+        {/* Info */}
+        <div className="flex flex-col gap-3 bg-background p-4">
+          <h4 className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60">Info</h4>
+          <div className="flex flex-col gap-2.5">
             <div>
-              <div className="text-[10px] font-medium text-muted-foreground">
-                Ledger API
-              </div>
+              <div className="text-[10px] text-muted-foreground/50">Sandbox ID</div>
+              <IdBadge id={sandbox.id} truncateLen={20} />
+            </div>
+            <div>
+              <div className="text-[10px] text-muted-foreground/50">Endpoint</div>
               <div className="flex items-center gap-1">
-                <span className="font-mono text-xs text-primary">
-                  {sandbox.ledgerApiEndpoint}
-                </span>
-                <CopyButton
-                  text={sandbox.ledgerApiEndpoint}
-                  label="Copy endpoint"
-                />
+                <span className="font-mono text-xs text-primary">{sandbox.ledgerApiEndpoint}</span>
+                <CopyButton text={sandbox.ledgerApiEndpoint} size="xs" />
               </div>
             </div>
-
-            {/* Stats row */}
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1">
-                    <HugeiconsIcon
-                      icon={UserGroupIcon}
-                      strokeWidth={2}
-                      className="size-3"
-                    />
-                    <span>{sandbox.parties.length} parties</span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {sandbox.parties.length > 0
-                    ? sandbox.parties.join(", ")
-                    : "No parties allocated"}
-                </TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1">
-                    <HugeiconsIcon
-                      icon={FileZipIcon}
-                      strokeWidth={2}
-                      className="size-3"
-                    />
-                    <span>{sandbox.uploadedDars.length} DARs</span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {sandbox.uploadedDars.length} DARs uploaded
-                </TooltipContent>
-              </Tooltip>
-
-              <div className="flex items-center gap-1">
-                <HugeiconsIcon
-                  icon={Clock01Icon}
-                  strokeWidth={2}
-                  className="size-3"
-                />
-                <span>
-                  {new Date(sandbox.createdAt).toLocaleDateString()}
-                </span>
-              </div>
-            </div>
-
-            {/* Actions row */}
-            <div className="flex items-center gap-2 pt-1">
-              <Button
-                variant="default"
-                size="sm"
-                className="h-7 text-xs"
-                disabled={sandbox.status !== "running"}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onConnect(sandbox);
-                }}
-              >
-                <HugeiconsIcon
-                  icon={PlugSocketIcon}
-                  data-icon="inline-start"
-                  strokeWidth={2}
-                />
-                Connect
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs text-destructive hover:text-destructive"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowDeleteConfirm(true);
-                }}
-              >
-                <HugeiconsIcon
-                  icon={Delete02Icon}
-                  data-icon="inline-start"
-                  strokeWidth={2}
-                />
-                Delete
-              </Button>
+            <div>
+              <div className="text-[10px] text-muted-foreground/50">Created</div>
+              <div className="text-xs">{formatTimestamp(sandbox.createdAt, "datetime")}</div>
             </div>
           </div>
-        </CardContent>
+        </div>
 
-        {/* Expanded detail section */}
-        {isExpanded && (
-          <>
-            <Separator className="mx-6" />
-            <CardContent className="flex flex-col gap-4">
-              {/* Sandbox ID */}
-              <div>
-                <div className="text-[10px] font-medium text-muted-foreground">
-                  Sandbox ID
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="font-mono text-xs">
-                    {sandbox.id}
-                  </span>
-                  <CopyButton text={sandbox.id} label="Copy Sandbox ID" />
-                </div>
-              </div>
-
-              {/* Parties */}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-1.5 text-xs font-medium">
-                  <HugeiconsIcon
-                    icon={UserGroupIcon}
-                    strokeWidth={2}
-                    className="size-3.5 text-muted-foreground"
-                  />
-                  Parties ({sandbox.parties.length})
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {sandbox.parties.length > 0 ? (
-                    sandbox.parties.map((party) => (
-                      <Badge
-                        key={party}
-                        variant="secondary"
-                        className="max-w-full font-mono text-xs"
-                      >
-                        <span className="truncate">{party}</span>
-                      </Badge>
-                    ))
-                  ) : (
-                    <span className="text-xs text-muted-foreground">
-                      No parties allocated
-                    </span>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    className="flex-1 text-xs"
-                    placeholder="Party name"
-                    value={newPartyName}
-                    onChange={(e) => setNewPartyName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleAllocateParty();
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 text-xs"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAllocateParty();
-                    }}
-                    disabled={
-                      !newPartyName.trim() || allocateParty.isPending
-                    }
-                  >
-                    <HugeiconsIcon
-                      icon={Add01Icon}
-                      data-icon="inline-start"
-                      strokeWidth={2}
-                    />
-                    Allocate
-                  </Button>
-                </div>
-              </div>
-
-              {/* DARs */}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-1.5 text-xs font-medium">
-                  <HugeiconsIcon
-                    icon={FileZipIcon}
-                    strokeWidth={2}
-                    className="size-3.5 text-muted-foreground"
-                  />
-                  DARs ({sandbox.uploadedDars.length})
-                </div>
-                {sandbox.uploadedDars.length > 0 && (
-                  <div className="flex flex-col gap-1">
-                    {sandbox.uploadedDars.map((dar, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between rounded-md border bg-muted/20 px-2.5 py-1.5"
-                      >
-                        <div className="flex items-center gap-2">
-                          <HugeiconsIcon
-                            icon={FileZipIcon}
-                            strokeWidth={2}
-                            className="size-3.5 text-muted-foreground"
-                          />
-                          <span className="font-mono text-xs">
-                            {truncateId(dar, 16)}
-                          </span>
-                        </div>
-                        <CopyButton text={dar} label="Copy package ID" />
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div onClick={(e) => e.stopPropagation()}>
-                  <DarUpload
-                    onUpload={handleUploadDar}
-                    isUploading={uploadDar.isPending}
-                    lastUploadedFileName={lastUploadedDar}
-                  />
-                </div>
-              </div>
-
-              {/* Bottom actions */}
-              <div className="flex items-center gap-2 pt-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowResetConfirm(true);
-                  }}
-                >
-                  <HugeiconsIcon
-                    icon={RotateLeft01Icon}
-                    data-icon="inline-start"
-                    strokeWidth={2}
-                  />
-                  Reset
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="ml-auto h-7 text-xs"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleShare();
-                  }}
-                >
-                  <HugeiconsIcon
-                    icon={Share01Icon}
-                    data-icon="inline-start"
-                    strokeWidth={2}
-                  />
-                  Share
-                </Button>
-              </div>
-            </CardContent>
-          </>
-        )}
-      </Card>
-
-      {/* Delete confirmation dialog */}
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Sandbox</DialogTitle>
-            <DialogDescription>
-              This will permanently tear down sandbox{" "}
-              <span className="font-mono">
-                {truncateId(sandbox.id, 12)}
-              </span>{" "}
-              and all its data. This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
+        {/* Parties */}
+        <div className="flex flex-col gap-3 bg-background p-4">
+          <h4 className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60">
+            Parties ({sandbox.parties.length})
+          </h4>
+          {sandbox.parties.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {sandbox.parties.map((p) => <PartyBadge key={p} party={p} />)}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground/50">No parties allocated</p>
+          )}
+          <div className="mt-auto flex gap-2">
+            <Input
+              className="flex-1 text-xs"
+              placeholder="Party name"
+              value={newPartyName}
+              onChange={(e) => setNewPartyName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleAllocateParty(); }}
+            />
             <Button
               variant="outline"
-              onClick={() => setShowDeleteConfirm(false)}
+              size="xs"
+              onClick={handleAllocateParty}
+              disabled={!newPartyName.trim() || allocateParty.isPending}
             >
-              Cancel
+              <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" className="size-3" />
+              Add
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleConfirmDelete}
-              disabled={deleteSandbox.isPending}
-            >
-              {deleteSandbox.isPending ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        </div>
 
-      {/* Reset confirmation dialog */}
-      <Dialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reset Sandbox</DialogTitle>
-            <DialogDescription>
-              This will reset the sandbox to a clean state, removing all
-              transactions and contract state. Uploaded DARs and parties will be
-              preserved.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowResetConfirm(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={async () => {
-                try {
-                  await resetSandbox.mutateAsync(sandbox.id);
-                } catch {
-                  // silently ignore
-                }
-                setShowResetConfirm(false);
-              }}
-              disabled={resetSandbox.isPending}
-            >
-              {resetSandbox.isPending ? "Resetting..." : "Reset"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </TooltipProvider>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Sandbox Card Skeleton
-// ---------------------------------------------------------------------------
-
-function SandboxCardSkeleton() {
-  return (
-    <Card size="sm">
-      <CardHeader>
-        <Skeleton className="h-5 w-24" />
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">
-        <Skeleton className="h-3 w-16" />
-        <Skeleton className="h-4 w-40" />
-        <Skeleton className="h-3 w-32" />
-        <Skeleton className="h-7 w-24" />
-      </CardContent>
-    </Card>
+        {/* DARs */}
+        <div className="flex flex-col gap-3 bg-background p-4">
+          <h4 className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60">
+            DARs ({sandbox.uploadedDars.length})
+          </h4>
+          {sandbox.uploadedDars.length > 0 && (
+            <div className="flex flex-col gap-1">
+              {sandbox.uploadedDars.map((dar, i) => (
+                <div key={i} className="flex items-center gap-2 rounded bg-muted/20 px-2 py-1">
+                  <HugeiconsIcon icon={FileZipIcon} strokeWidth={2} className="size-3 text-muted-foreground" />
+                  <IdBadge id={dar} truncateLen={16} />
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="mt-auto">
+            <DarUpload
+              onUpload={handleUploadDar}
+              isUploading={uploadDar.isPending}
+              lastUploadedFileName={lastUploadedDar}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -564,142 +284,223 @@ function SandboxCardSkeleton() {
 
 export default function SandboxManagerPage() {
   const { data: sandboxes, isLoading, error } = useSandboxes();
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState<string | null>(null);
   const pendingSelectId = useRef<string | null>(null);
+  const deleteSandbox = useDeleteSandbox();
+  const resetSandbox = useResetSandbox();
+  const connectionStore = useConnectionStore();
 
-  const handleToggleExpand = useCallback((id: string) => {
-    setExpandedId((prev) => (prev === id ? null : id));
-  }, []);
+  const selectedSandbox = sandboxes?.find((s) => s.id === selectedId) ?? null;
+  const hasSandboxes = sandboxes && sandboxes.length > 0;
 
-  const handleConnect = useCallback((sandbox: Sandbox) => {
-    console.log("Connecting to sandbox:", sandbox.ledgerApiEndpoint);
-  }, []);
-
-  const handleDelete = useCallback(
-    (sandbox: Sandbox) => {
-      if (expandedId === sandbox.id) {
-        setExpandedId(null);
+  const handleConnect = useCallback(
+    async (sandbox: Sandbox) => {
+      try {
+        // Disconnect first to tear down existing gRPC client
+        connectionStore.disconnect();
+        // Small delay for backend cleanup
+        await new Promise((r) => setTimeout(r, 300));
+        await connectionStore.connect({
+          ledgerApiEndpoint: sandbox.ledgerApiEndpoint,
+          sandboxId: sandbox.id,
+        });
+      } catch {
+        // connection error handled by store
       }
     },
-    [expandedId]
+    [connectionStore]
   );
 
   const handleCreated = useCallback(
     (sandboxId: string) => {
+      setShowCreateDialog(false);
       pendingSelectId.current = sandboxId;
       const created = sandboxes?.find((s) => s.id === sandboxId);
       if (created) {
-        setExpandedId(sandboxId);
+        setSelectedId(sandboxId);
         pendingSelectId.current = null;
       }
     },
     [sandboxes]
   );
 
-  // Auto-expand newly created sandbox once it appears in the list
   React.useEffect(() => {
     if (!sandboxes || !pendingSelectId.current) return;
     const pending = sandboxes.find((s) => s.id === pendingSelectId.current);
     if (pending) {
-      setExpandedId(pending.id);
+      setSelectedId(pending.id);
       pendingSelectId.current = null;
     }
   }, [sandboxes]);
 
-  const hasSandboxes = sandboxes && sandboxes.length > 0;
+  const handleShare = useCallback(async () => {
+    if (!selectedSandbox) return;
+    try {
+      const url = selectedSandbox.shareUrl ?? `${window.location.origin}/sandbox/${selectedSandbox.id}`;
+      await navigator.clipboard.writeText(url);
+    } catch {}
+  }, [selectedSandbox]);
 
   return (
     <div className="flex h-full flex-col">
-      {/* Page header */}
-      <PageHeader
-        icon={ServerStackIcon}
-        title="Sandbox Manager"
-        subtitle="Create, manage, and connect to Canton sandbox instances"
-      />
+      <PageHeader icon={ServerStackIcon} title="Sandbox" subtitle="Manage Canton sandbox instances">
+        <Button size="sm" onClick={() => setShowCreateDialog(true)}>
+          <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
+          Create Sandbox
+        </Button>
+      </PageHeader>
 
-      {/* Scrollable content */}
-      <div className="flex-1 overflow-auto p-4">
-        <div className="flex flex-col gap-4">
-          {/* Error state */}
-          {error && (
-            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-              <p className="font-medium">Failed to load sandboxes</p>
-              <p className="mt-1 text-xs">
-                {error instanceof Error
-                  ? error.message
-                  : "An unexpected error occurred"}
-              </p>
-            </div>
-          )}
+      <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
+        {/* Error */}
+        {error && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+            <p className="font-medium">Failed to load sandboxes</p>
+            <p className="mt-1 text-xs">{error instanceof Error ? error.message : "An unexpected error occurred"}</p>
+          </div>
+        )}
 
-          {/* Loading state */}
-          {isLoading && (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <SandboxCardSkeleton key={i} />
+        {/* Loading */}
+        {isLoading && (
+          <div className="rounded-xl border bg-card/30 ring-1 ring-border/30">
+            <div className="flex flex-col divide-y divide-border/20">
+              {[0, 1].map((i) => (
+                <div key={i} className="flex items-center gap-4 px-4 py-3">
+                  <Skeleton className="size-2 rounded-full" />
+                  <Skeleton className="h-4 w-40" />
+                  <div className="flex-1" />
+                  <Skeleton className="h-6 w-16" />
+                </div>
               ))}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Empty state: show create form as hero */}
-          {!isLoading && !hasSandboxes && (
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <HugeiconsIcon icon={PackageIcon} strokeWidth={2} />
-                </EmptyMedia>
-                <EmptyTitle>Create your first sandbox</EmptyTitle>
-                <EmptyDescription>
-                  Spin up a local Canton sandbox for debugging and testing Daml
-                  applications.
-                </EmptyDescription>
-              </EmptyHeader>
-              <EmptyContent>
-                <CreateSandboxForm onCreated={handleCreated} />
-              </EmptyContent>
-            </Empty>
-          )}
+        {/* Empty */}
+        {!isLoading && !hasSandboxes && (
+          <Empty className="py-20">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <HugeiconsIcon icon={PackageIcon} strokeWidth={2} />
+              </EmptyMedia>
+              <EmptyTitle>No sandboxes</EmptyTitle>
+              <EmptyDescription>Create a Canton sandbox to start debugging.</EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button onClick={() => setShowCreateDialog(true)}>
+                <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
+                Create Sandbox
+              </Button>
+            </EmptyContent>
+          </Empty>
+        )}
 
-          {/* Sandbox list + create form when sandboxes exist */}
-          {!isLoading && hasSandboxes && (
-            <>
-              {/* Sandbox grid */}
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {sandboxes.map((sandbox) => (
-                  <SandboxCard
-                    key={sandbox.id}
-                    sandbox={sandbox}
-                    isExpanded={expandedId === sandbox.id}
-                    onToggleExpand={handleToggleExpand}
-                    onConnect={handleConnect}
-                    onDelete={handleDelete}
-                  />
-                ))}
-              </div>
+        {/* Sandbox list */}
+        {!isLoading && hasSandboxes && (
+          <div className="rounded-xl border bg-card/30 ring-1 ring-border/30">
+            <div className="flex items-center border-b border-border/30 px-4 py-2.5">
+              <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground/60">
+                Sandboxes ({sandboxes.length})
+              </h2>
+            </div>
+            <div className="flex flex-col divide-y divide-border/20">
+              {sandboxes.map((sb) => (
+                <SandboxRow
+                  key={sb.id}
+                  sandbox={sb}
+                  isSelected={selectedId === sb.id}
+                  onSelect={() => setSelectedId(selectedId === sb.id ? null : sb.id)}
+                  onConnect={() => handleConnect(sb)}
+                  onDelete={async () => {
+                    try {
+                      await deleteSandbox.mutateAsync(sb.id);
+                      if (selectedId === sb.id) setSelectedId(null);
+                    } catch (err) {
+                      console.error("Delete failed:", err);
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
-              {/* Create form at the bottom */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <HugeiconsIcon
-                      icon={Add01Icon}
-                      strokeWidth={2}
-                      className="size-4"
-                    />
-                    Create New Sandbox
-                  </CardTitle>
-                  <CardDescription>
-                    Spin up a local Canton sandbox for debugging and testing
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <CreateSandboxForm onCreated={handleCreated} />
-                </CardContent>
-              </Card>
-            </>
-          )}
-        </div>
+        {/* Detail */}
+        {selectedSandbox && (
+          <SandboxDetailPanel
+            sandbox={selectedSandbox}
+            onReset={() => setShowResetConfirm(selectedSandbox.id)}
+            onShare={handleShare}
+          />
+        )}
       </div>
+
+      {/* Create dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create Sandbox</DialogTitle>
+            <DialogDescription>Spin up a local Canton sandbox for debugging and testing.</DialogDescription>
+          </DialogHeader>
+          <CreateSandboxForm onCreated={handleCreated} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation */}
+      <Dialog open={!!showDeleteConfirm} onOpenChange={(open) => { if (!open) setShowDeleteConfirm(null); }}>
+        <DialogContent onInteractOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Delete Sandbox</DialogTitle>
+            <DialogDescription>This will permanently tear down this sandbox and all its data.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteSandbox.isPending}
+              onClick={async () => {
+                const id = showDeleteConfirm;
+                if (!id) return;
+                try {
+                  await deleteSandbox.mutateAsync(id);
+                  if (selectedId === id) setSelectedId(null);
+                } catch (err) {
+                  console.error("Failed to delete sandbox:", err);
+                }
+                setShowDeleteConfirm(null);
+              }}
+            >
+              {deleteSandbox.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset confirmation */}
+      <Dialog open={!!showResetConfirm} onOpenChange={(open) => { if (!open) setShowResetConfirm(null); }}>
+        <DialogContent onInteractOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Reset Sandbox</DialogTitle>
+            <DialogDescription>This will reset to a clean state. DARs and parties are preserved.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowResetConfirm(null)}>Cancel</Button>
+            <Button
+              disabled={resetSandbox.isPending}
+              onClick={async () => {
+                const id = showResetConfirm;
+                if (!id) return;
+                try { await resetSandbox.mutateAsync(id); } catch {}
+                setShowResetConfirm(null);
+              }}
+            >
+              {resetSandbox.isPending ? "Resetting..." : "Reset"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

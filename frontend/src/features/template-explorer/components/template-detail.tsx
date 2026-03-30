@@ -157,18 +157,25 @@ export function TemplateDetail({
                 {template.choices.length}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger value="key" className="gap-1 text-xs">
-              <HugeiconsIcon icon={Key01Icon} strokeWidth={2} className="size-3.5" />
-              Key
-            </TabsTrigger>
+            {template.key && (
+              <TabsTrigger value="key" className="gap-1 text-xs">
+                <HugeiconsIcon icon={Key01Icon} strokeWidth={2} className="size-3.5" />
+                Key
+              </TabsTrigger>
+            )}
             <TabsTrigger value="source" className="gap-1 text-xs">
               <HugeiconsIcon icon={CodeIcon} strokeWidth={2} className="size-3.5" />
               Source
             </TabsTrigger>
-            <TabsTrigger value="interfaces" className="gap-1 text-xs">
-              <HugeiconsIcon icon={InformationCircleIcon} strokeWidth={2} className="size-3.5" />
-              Interfaces
-            </TabsTrigger>
+            {template.implements.length > 0 && (
+              <TabsTrigger value="interfaces" className="gap-1 text-xs">
+                <HugeiconsIcon icon={InformationCircleIcon} strokeWidth={2} className="size-3.5" />
+                Interfaces
+                <Badge variant="secondary" className="ml-1 px-1 py-0 text-[9px]">
+                  {template.implements.length}
+                </Badge>
+              </TabsTrigger>
+            )}
           </TabsList>
         </div>
 

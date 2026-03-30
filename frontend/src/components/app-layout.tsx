@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
@@ -7,14 +7,8 @@ import {
   Package01Icon,
   Activity01Icon,
   GitBranchIcon,
-  Alert02Icon,
-  Clock01Icon,
-  CpuIcon,
-  TestTube01Icon,
-  Flowchart01Icon,
-  EyeIcon,
+  Bug01Icon,
   ServerStack01Icon,
-  ArrowLeftRightIcon,
   Settings02Icon,
   ArrowLeft01Icon,
   ArrowRight01Icon,
@@ -31,6 +25,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ConnectionDialog } from "@/components/connection-dialog";
+import { CommandPalette } from "@/components/command-palette";
 import { useConnectionStore } from "@/stores/connection-store";
 
 interface NavItem {
@@ -39,20 +34,34 @@ interface NavItem {
   icon: IconSvgElement;
 }
 
-const mainNavItems: NavItem[] = [
-  { title: "Dashboard", href: "/", icon: DashboardSquare01Icon },
-  { title: "ACS Inspector", href: "/acs", icon: Database01Icon },
-  { title: "Template Explorer", href: "/templates", icon: Package01Icon },
-  { title: "Event Stream", href: "/events", icon: Activity01Icon },
-  { title: "Transaction Explorer", href: "/transactions", icon: GitBranchIcon },
-  { title: "Error Debugger", href: "/errors", icon: Alert02Icon },
-  { title: "Contract Lifecycle", href: "/contracts", icon: Clock01Icon },
-  { title: "Execution Trace", href: "/trace", icon: CpuIcon },
-  { title: "Simulator", href: "/simulate", icon: TestTube01Icon },
-  { title: "Workflow Debugger", href: "/workflows", icon: Flowchart01Icon },
-  { title: "Privacy Visualizer", href: "/privacy", icon: EyeIcon },
-  { title: "Sandbox Manager", href: "/sandbox", icon: ServerStack01Icon },
-  { title: "Reassignment Tracker", href: "/reassignments", icon: ArrowLeftRightIcon },
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
+  {
+    label: "Explore",
+    items: [
+      { title: "Dashboard", href: "/", icon: DashboardSquare01Icon },
+      { title: "Contracts", href: "/contracts", icon: Database01Icon },
+      { title: "Templates", href: "/templates", icon: Package01Icon },
+      { title: "Events", href: "/events", icon: Activity01Icon },
+      { title: "Transactions", href: "/transactions", icon: GitBranchIcon },
+    ],
+  },
+  {
+    label: "Debug",
+    items: [
+      { title: "Debugger", href: "/debugger", icon: Bug01Icon },
+    ],
+  },
+  {
+    label: "Manage",
+    items: [
+      { title: "Sandbox", href: "/sandbox", icon: ServerStack01Icon },
+    ],
+  },
 ];
 
 const bottomNavItems: NavItem[] = [
@@ -62,9 +71,21 @@ const bottomNavItems: NavItem[] = [
 export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [connectionOpen, setConnectionOpen] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { status, bootstrap, config } = useConnectionStore();
+
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setCommandOpen((open) => !open);
+      }
+    };
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, []);
 
   const isActive = (href: string) => {
     if (href === "/") return location.pathname === "/";
@@ -138,46 +159,59 @@ export function AppLayout() {
         {/* Navigation */}
         <ScrollArea className="flex-1 py-2">
           <nav className="flex flex-col gap-1 px-2">
-            {mainNavItems.map((item) => {
-              const active = isActive(item.href);
+            {navGroups.map((group) => (
+              <div key={group.label}>
+                {collapsed ? (
+                  <div className="mx-3 my-2">
+                    <Separator />
+                  </div>
+                ) : (
+                  <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/50 px-3 pt-4 pb-1">
+                    {group.label}
+                  </div>
+                )}
+                {group.items.map((item) => {
+                  const active = isActive(item.href);
 
-              if (collapsed) {
-                return (
-                  <Tooltip key={item.href} delayDuration={0}>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={() => navigate({ to: item.href })}
-                        className={cn(
-                          "flex w-full items-center justify-center rounded-md p-2 transition-colors",
-                          active
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                        )}
-                      >
-                        <HugeiconsIcon icon={item.icon} strokeWidth={2} className="size-5" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="right">{item.title}</TooltipContent>
-                  </Tooltip>
-                );
-              }
+                  if (collapsed) {
+                    return (
+                      <Tooltip key={item.href} delayDuration={0}>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => navigate({ to: item.href })}
+                            className={cn(
+                              "flex w-full items-center justify-center rounded-md p-2 transition-colors",
+                              active
+                                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                            )}
+                          >
+                            <HugeiconsIcon icon={item.icon} strokeWidth={2} className="size-5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">{item.title}</TooltipContent>
+                      </Tooltip>
+                    );
+                  }
 
-              return (
-                <button
-                  key={item.href}
-                  onClick={() => navigate({ to: item.href })}
-                  className={cn(
-                    "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                    active
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                      : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                  )}
-                >
-                  <HugeiconsIcon icon={item.icon} strokeWidth={2} className="size-4 shrink-0" />
-                  <span className="truncate">{item.title}</span>
-                </button>
-              );
-            })}
+                  return (
+                    <button
+                      key={item.href}
+                      onClick={() => navigate({ to: item.href })}
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                        active
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                          : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      )}
+                    >
+                      <HugeiconsIcon icon={item.icon} strokeWidth={2} className="size-4 shrink-0" />
+                      <span className="truncate">{item.title}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </nav>
         </ScrollArea>
 
@@ -263,6 +297,16 @@ export function AppLayout() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setCommandOpen(true)}
+              className="hidden sm:flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/50 transition-colors"
+            >
+              <span>Search...</span>
+              <kbd className="pointer-events-none rounded border border-border/50 bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                ⌘K
+              </kbd>
+            </button>
+
             {participantParties.length > 0 ? (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span>Party:</span>
@@ -306,11 +350,18 @@ export function AppLayout() {
 
         {/* Content */}
         <main className="flex-1 overflow-auto">
-          <Outlet />
+          <div className="flex-1 animate-in fade-in slide-in-from-bottom-1 duration-200 fill-mode-forwards">
+            <Outlet />
+          </div>
         </main>
       </div>
 
       <ConnectionDialog open={connectionOpen} onOpenChange={setConnectionOpen} />
+      <CommandPalette
+        open={commandOpen}
+        onOpenChange={setCommandOpen}
+        onConnect={() => setConnectionOpen(true)}
+      />
     </div>
   );
 }

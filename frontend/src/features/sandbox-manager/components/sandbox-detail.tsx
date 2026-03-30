@@ -25,8 +25,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CopyButton } from "@/components/copy-button";
+import { IdBadge } from "@/components/id-badge";
+import { PartyBadge } from "@/components/party-badge";
 import { cn } from "@/lib/utils";
-import { truncateId } from "@/lib/utils";
 import type { Sandbox } from "@/lib/types";
 import { DarUpload } from "./dar-upload";
 import { useDeleteSandbox, useUploadDar, useAllocateParty, useResetSandbox } from "../hooks";
@@ -134,10 +135,7 @@ export function SandboxDetail({
           >
             {statusConfig.label}
           </Badge>
-          <span className="font-mono text-sm font-medium">
-            {truncateId(sandbox.id, 16)}
-          </span>
-          <CopyButton text={sandbox.id} label="Copy Sandbox ID" />
+          <IdBadge id={sandbox.id} truncateLen={16} />
         </div>
         <Button variant="ghost" size="icon-sm" onClick={onClose}>
           <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
@@ -198,13 +196,7 @@ export function SandboxDetail({
         <div className="flex flex-wrap gap-1.5">
           {sandbox.parties.length > 0 ? (
             sandbox.parties.map((party) => (
-              <Badge
-                key={party}
-                variant="secondary"
-                className="max-w-full font-mono text-xs"
-              >
-                <span className="truncate">{party}</span>
-              </Badge>
+              <PartyBadge key={party} party={party} />
             ))
           ) : (
             <span className="text-xs text-muted-foreground">
@@ -254,13 +246,12 @@ export function SandboxDetail({
               >
                 <div className="flex items-center gap-2">
                   <HugeiconsIcon icon={FileZipIcon} strokeWidth={2} className="size-3.5 text-muted-foreground" />
-                  <span className="font-mono text-xs">{truncateId(dar, 16)}</span>
+                  <IdBadge id={dar} truncateLen={16} />
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Badge variant="secondary" className="text-[10px]">
                     Source extracted
                   </Badge>
-                  <CopyButton text={dar} label="Copy package ID" />
                 </div>
               </div>
             ))}

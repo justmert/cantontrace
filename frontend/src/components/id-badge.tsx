@@ -47,7 +47,7 @@ export function IdBadge({
   const inner = (
     <span
       className={cn(
-        "inline-flex cursor-pointer items-center rounded-sm px-1 py-0.5 text-xs transition-colors",
+        "inline cursor-pointer rounded-sm px-1 py-0.5 text-xs transition-colors",
         monospace && "font-mono",
         copied
           ? "bg-primary/15 text-primary"
@@ -61,7 +61,7 @@ export function IdBadge({
   );
 
   const content = href ? (
-    <Link to={href} className="no-underline">
+    <Link to={href} className="inline no-underline">
       {inner}
     </Link>
   ) : (
@@ -71,19 +71,16 @@ export function IdBadge({
   return (
     <TooltipProvider>
       <Tooltip delayDuration={300}>
-        <TooltipTrigger asChild>{content}</TooltipTrigger>
+        <TooltipTrigger asChild>
+          <span className="inline">{content}</span>
+        </TooltipTrigger>
         <TooltipContent
-          side="top"
-          className="max-w-[400px] break-all font-mono text-xs"
+          side="bottom"
+          sideOffset={4}
+          collisionPadding={8}
+          className="z-[100] max-w-[320px] break-all font-mono text-xs"
         >
-          {copied ? (
-            <span className="text-primary">Copied!</span>
-          ) : (
-            <>
-              <span className="text-muted-foreground">Click to copy: </span>
-              {id}
-            </>
-          )}
+          {copied ? "Copied!" : id}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

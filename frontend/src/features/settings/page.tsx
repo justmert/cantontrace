@@ -99,8 +99,8 @@ export default function SettingsPage() {
       />
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-auto p-4">
-        <div className="flex flex-col gap-6">
+      <div className="flex-1 overflow-auto p-6">
+        <div className="flex flex-col gap-4">
           {/* ---- Appearance ---- */}
           <Card>
             <CardHeader>
@@ -306,6 +306,33 @@ export default function SettingsPage() {
               </FieldGroup>
             </CardContent>
           </Card>
+
+          {/* ---- Participant Capabilities ---- */}
+          {bootstrap &&
+            bootstrap.featureDescriptors &&
+            bootstrap.featureDescriptors.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Participant Capabilities</CardTitle>
+                  <CardDescription>
+                    Feature descriptors reported by the connected participant
+                    node.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-1.5">
+                    {bootstrap.featureDescriptors.map((f) => (
+                      <span
+                        key={f.name}
+                        className="inline-flex rounded-md bg-muted/60 px-2 py-0.5 font-mono text-[10px] text-muted-foreground ring-1 ring-border/50"
+                      >
+                        {f.name}
+                      </span>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
           <ConnectionDialog
             open={connectionOpen}
