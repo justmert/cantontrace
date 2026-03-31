@@ -520,14 +520,11 @@ export default function TransactionsPage() {
               </div>
 
               {/* Tab content fills remaining space */}
-              <TabsContent
-                value="tree"
-                className="relative min-h-[500px] flex-1"
-              >
-                <div className="absolute inset-0">
+              {activeTab === "tree" && (
+                <div className="h-[calc(100vh-14rem)]">
                   <TransactionTree transaction={transaction} />
                 </div>
-              </TabsContent>
+              )}
 
               <TabsContent
                 value="state-diff"

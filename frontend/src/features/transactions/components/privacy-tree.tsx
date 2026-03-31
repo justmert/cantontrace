@@ -442,8 +442,8 @@ export function PrivacyTree({
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.3 }}
-        minZoom={0.2}
+        fitViewOptions={{ padding: 0.4, maxZoom: 0.8 }}
+        minZoom={0.1}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
       >

@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useDebuggerStore } from "@/stores/debugger-store";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   PlayIcon,
@@ -116,42 +117,57 @@ export function CommandBuilder({
     return raw;
   }, [initialValues?.template]);
 
-  // Form state
-  const [selectedPackageId, setSelectedPackageId] = useState(
-    initialValues?.packageId ?? ""
+  // Persistent form state from Zustand store (survives navigation + refresh)
+  const storeForm = useDebuggerStore((s) => s.form);
+  const setStoreForm = useDebuggerStore((s) => s.setForm);
+
+  // Local state initialized from store (or URL initialValues override)
+  const [selectedPackageId, _setSelectedPackageId] = useState(
+    initialValues?.packageId || storeForm.packageId || ""
   );
-  const [selectedTemplate, setSelectedTemplate] = useState(
-    parsedInitialTemplate
+  const [selectedTemplate, _setSelectedTemplate] = useState(
+    parsedInitialTemplate || storeForm.template || ""
   );
-  const [selectedChoice, setSelectedChoice] = useState(
-    initialValues?.choice ?? ""
+  const [selectedChoice, _setSelectedChoice] = useState(
+    initialValues?.choice || storeForm.choice || ""
   );
-  const [contractId, setContractId] = useState(
-    initialValues?.contractId ?? ""
+  const [contractId, _setContractId] = useState(
+    initialValues?.contractId || storeForm.contractId || ""
   );
-  const [args, setArgs] = useState<Record<string, unknown>>(
-    initialValues?.args ?? {}
+  const [args, _setArgs] = useState<Record<string, unknown>>(
+    initialValues?.args ?? (Object.keys(storeForm.args).length > 0 ? storeForm.args : {})
   );
-  const [actingParties, setActingParties] = useState<string[]>(
+  const [actingParties, _setActingParties] = useState<string[]>(
     initialValues?.actAs
       ? initialValues.actAs.split(",").map((p) => p.trim()).filter(Boolean)
-      : []
+      : storeForm.actingParties.length > 0 ? storeForm.actingParties : []
   );
-  const [readAsParties, setReadAsParties] = useState<string[]>(
+  const [readAsParties, _setReadAsParties] = useState<string[]>(
     initialValues?.readAs
       ? initialValues.readAs.split(",").map((p) => p.trim()).filter(Boolean)
-      : []
+      : storeForm.readAsParties.length > 0 ? storeForm.readAsParties : []
   );
-  const [mode, setMode] = useState<"online" | "offline">(
-    initialValues?.mode ?? "online"
+  const [mode, _setMode] = useState<"online" | "offline">(
+    initialValues?.mode || storeForm.mode || "online"
   );
-  const [historicalOffset, setHistoricalOffset] = useState(
-    initialValues?.offset ?? ""
+  const [historicalOffset, _setHistoricalOffset] = useState(
+    initialValues?.offset || storeForm.historicalOffset || ""
   );
-  const [disclosedEntries, setDisclosedEntries] = useState<DisclosedEntry[]>(
-    []
-  );
+  const [disclosedEntries, setDisclosedEntries] = useState<DisclosedEntry[]>([]);
   const [disclosedOpen, setDisclosedOpen] = useState(false);
+
+  // Wrap setters to also persist to store
+  const setSelectedPackageId = useCallback((v: string) => { _setSelectedPackageId(v); setStoreForm({ packageId: v }); }, [setStoreForm]);
+  const setSelectedTemplate = useCallback((v: string) => { _setSelectedTemplate(v); setStoreForm({ template: v }); }, [setStoreForm]);
+  const setSelectedChoice = useCallback((v: string) => { _setSelectedChoice(v); setStoreForm({ choice: v }); }, [setStoreForm]);
+  const setContractId = useCallback((v: string) => { _setContractId(v); setStoreForm({ contractId: v }); }, [setStoreForm]);
+  const setArgs = useCallback((v: React.SetStateAction<Record<string, unknown>>) => {
+    _setArgs((prev) => { const next = typeof v === "function" ? v(prev) : v; setStoreForm({ args: next }); return next; });
+  }, [setStoreForm]);
+  const setActingParties = useCallback((v: string[]) => { _setActingParties(v); setStoreForm({ actingParties: v }); }, [setStoreForm]);
+  const setReadAsParties = useCallback((v: string[]) => { _setReadAsParties(v); setStoreForm({ readAsParties: v }); }, [setStoreForm]);
+  const setMode = useCallback((v: "online" | "offline") => { _setMode(v); setStoreForm({ mode: v }); }, [setStoreForm]);
+  const setHistoricalOffset = useCallback((v: string) => { _setHistoricalOffset(v); setStoreForm({ historicalOffset: v }); }, [setStoreForm]);
 
   // Fetch packages
   const { data: packages, isLoading: packagesLoading } = useQuery({

@@ -2,7 +2,6 @@ import React, { useMemo, useCallback } from "react";
 import {
   ReactFlow,
   Background,
-  MiniMap,
   useNodesState,
   useEdgesState,
   useReactFlow,
@@ -167,7 +166,7 @@ function TransactionTreeInner({ transaction }: { transaction: TransactionDetail 
   }, [fitView]);
 
   return (
-    <div className="size-full">
+    <div style={{ width: "100%", height: "100%", minHeight: "400px" }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -175,8 +174,8 @@ function TransactionTreeInner({ transaction }: { transaction: TransactionDetail 
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.5 }}
-        defaultViewport={{ x: 0, y: 0, zoom: 0.35 }}
+        fitViewOptions={{ padding: 0.4, maxZoom: 0.8 }}
+        defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
         minZoom={0.05}
         maxZoom={2}
         defaultEdgeOptions={{
@@ -186,23 +185,6 @@ function TransactionTreeInner({ transaction }: { transaction: TransactionDetail 
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={16} size={1} />
-        <MiniMap
-          nodeColor={(node) => {
-            switch (node.type) {
-              case "createNode":
-                return "#4ade80";
-              case "exerciseNode":
-                return "#818cf8";
-              case "archiveNode":
-                return "#f87171";
-              default:
-                return "#64748b";
-            }
-          }}
-          maskColor="rgba(0,0,0,0.6)"
-          style={{ backgroundColor: "#1a1a1a", width: 120, height: 80 }}
-          className="!rounded-lg !border !border-border !shadow-none"
-        />
 
         <Panel position="top-right">
           <Button
