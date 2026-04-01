@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/empty";
 import { IdBadge } from "@/components/id-badge";
 import { PartyBadge } from "@/components/party-badge";
-import { cn, formatTimestamp, formatTemplateId } from "@/lib/utils";
+import { cn, formatTimestamp, formatTemplateId, formatPayloadValue } from "@/lib/utils";
 import type { ActiveContract } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -70,16 +70,18 @@ function KeyFieldsPreview({
   return (
     <div className="flex flex-wrap gap-1 overflow-hidden">
       {visible.map(([key, value]) => {
-        const display =
-          typeof value === "string"
-            ? value.length > 20
-              ? value.slice(0, 20) + "..."
-              : value
-            : JSON.stringify(value);
+        const formatted = typeof value === "object" && value !== null
+          ? JSON.stringify(value)
+          : formatPayloadValue(value);
+        const display = formatted.length > 20
+          ? formatted.slice(0, 20) + "..."
+          : formatted;
+        const fullValue = typeof value === "string" ? value : JSON.stringify(value);
         return (
           <span
             key={key}
             className="inline-flex items-center gap-0.5 rounded bg-muted/50 px-1 py-0.5 text-[10px]"
+            title={`${key}=${fullValue}`}
           >
             <span className="text-muted-foreground">{key}=</span>
             <span className="font-mono text-foreground">{display}</span>

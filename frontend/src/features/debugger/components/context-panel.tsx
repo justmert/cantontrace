@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from "@/components/ui/empty";
-import { cn, truncateId } from "@/lib/utils";
+import { cn, truncateId, formatPayloadValue, formatPartyDisplay } from "@/lib/utils";
 import type {
   TraceStep,
   ExecutionTrace,
@@ -84,18 +84,21 @@ function ContractsTab({ step }: ContractsTabProps) {
               {/* Payload preview */}
               {keyFields.length > 0 && (
                 <div className="flex flex-col gap-0.5 rounded border border-border bg-muted/30 p-2">
-                  {keyFields.map(([k, v]) => (
-                    <span key={k} className="text-[10px] text-foreground">
-                      <span className="text-muted-foreground">{k}:</span>{" "}
-                      <span className="font-mono">
-                        {typeof v === "string"
-                          ? v.length > 30
-                            ? v.slice(0, 30) + "..."
-                            : v
-                          : JSON.stringify(v)}
+                  {keyFields.map(([k, v]) => {
+                    const formatted = typeof v === "object" && v !== null
+                      ? JSON.stringify(v)
+                      : formatPayloadValue(v);
+                    const display = formatted.length > 30
+                      ? formatted.slice(0, 30) + "..."
+                      : formatted;
+                    const fullValue = typeof v === "string" ? v : JSON.stringify(v);
+                    return (
+                      <span key={k} className="text-[10px] text-foreground" title={`${k}: ${fullValue}`}>
+                        <span className="text-muted-foreground">{k}:</span>{" "}
+                        <span className="font-mono">{display}</span>
                       </span>
-                    </span>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
               <div className="flex items-center gap-3">
@@ -190,8 +193,9 @@ function AuthorizationTab({ step, allSteps, currentStepIndex }: AuthorizationTab
                   key={p}
                   variant="outline"
                   className="max-w-full font-mono text-[10px]"
+                  title={p}
                 >
-                  <span className="truncate">{p}</span>
+                  <span className="truncate">{formatPartyDisplay(p)}</span>
                 </Badge>
               ))
             )}
@@ -221,13 +225,14 @@ function AuthorizationTab({ step, allSteps, currentStepIndex }: AuthorizationTab
                         ? "border-primary/30 text-primary"
                         : "border-destructive/30 text-destructive"
                     )}
+                    title={r}
                   >
                     {met ? (
                       <HugeiconsIcon icon={Tick02Icon} className="size-2.5 shrink-0" strokeWidth={2} />
                     ) : (
                       <HugeiconsIcon icon={Cancel01Icon} className="size-2.5 shrink-0" strokeWidth={2} />
                     )}
-                    <span className="truncate">{r}</span>
+                    <span className="truncate">{formatPartyDisplay(r)}</span>
                   </Badge>
                 );
               })

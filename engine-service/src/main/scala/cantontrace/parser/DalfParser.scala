@@ -649,7 +649,7 @@ object DalfParser extends LazyLogging {
         if (depth > 20) return "<...>"
         val rendered = renderExpr2(expr, depth)
         // If result contains compiler-generated names, try extracting field projections instead
-        if (rendered.contains("$$c")) {
+        if (rendered.contains("$$c") || rendered.contains("$$sc") || rendered.contains("$$")) {
           val fields = extractFieldProjections(expr)
           if (fields.nonEmpty) return fields.distinct.mkString(", ")
           // If no field projections found, the expression likely resolves to an empty list
@@ -693,7 +693,7 @@ object DalfParser extends LazyLogging {
           if (choiceName.nonEmpty) {
             val params = extractChoiceParams(choice, dataTypeMap)
             val retType = if (choice.hasRetType) renderType2(choice.getRetType) else "<type>"
-            val ctrlExpr = if (choice.hasControllers) simplifyExpr(renderExpr2(choice.getControllers))
+            val ctrlExpr = if (choice.hasControllers) simplifyExpr(renderExprInlined(choice.getControllers))
                            else "<parsed from DALF>"
             Some(ChoiceDefinition(
               name = choiceName,
@@ -748,7 +748,7 @@ object DalfParser extends LazyLogging {
           if (choiceName.nonEmpty) {
             val params = extractChoiceParams(choice, dataTypeMap)
             val retType = if (choice.hasRetType) renderType2(choice.getRetType) else "<type>"
-            val ctrlExpr = if (choice.hasControllers) simplifyExpr(renderExpr2(choice.getControllers))
+            val ctrlExpr = if (choice.hasControllers) simplifyExpr(renderExprInlined(choice.getControllers))
                            else "<parsed from DALF>"
             Some(ChoiceDefinition(
               name = choiceName,
@@ -778,13 +778,25 @@ object DalfParser extends LazyLogging {
         try {
           val typeName = resolveDN(dt.getNameInternedDname)
           val serializable = dt.getSerializable
-          val representation = dt.getDataConsCase match {
-            case DamlLf2.DefDataType.DataConsCase.RECORD => "record"
-            case DamlLf2.DefDataType.DataConsCase.VARIANT => "variant"
-            case DamlLf2.DefDataType.DataConsCase.ENUM => "enum"
-            case _ => "unknown"
+          val (representation, fields, constructors) = dt.getDataConsCase match {
+            case DamlLf2.DefDataType.DataConsCase.RECORD =>
+              ("record", extractRecordFields(dt), Seq.empty[String])
+            case DamlLf2.DefDataType.DataConsCase.VARIANT =>
+              val ctors = dt.getVariant.getFieldsList.asScala.map { fwt =>
+                val ctorName = resolveStr(fwt.getFieldInternedStr)
+                val ctorType = renderType2(fwt.getType)
+                s"$ctorName $ctorType"
+              }.toSeq
+              ("variant", Seq.empty[FieldDefinition], ctors)
+            case DamlLf2.DefDataType.DataConsCase.ENUM =>
+              val ctors = dt.getEnum.getConstructorsInternedStrList.asScala.map { idx =>
+                resolveStr(idx.intValue())
+              }.toSeq
+              ("enum", Seq.empty[FieldDefinition], ctors)
+            case _ =>
+              ("unknown", Seq.empty[FieldDefinition], Seq.empty[String])
           }
-          if (typeName.nonEmpty) Some(TypeDefinition(typeName, serializable, representation))
+          if (typeName.nonEmpty) Some(TypeDefinition(typeName, serializable, representation, fields, constructors))
           else None
         } catch {
           case _: Exception => None

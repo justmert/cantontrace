@@ -151,7 +151,7 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val choiceDefinitionFormat: RootJsonFormat[ChoiceDefinition] = jsonFormat7(ChoiceDefinition)
   implicit val keyDefinitionFormat: RootJsonFormat[KeyDefinition] = jsonFormat3(KeyDefinition)
   implicit val interfaceDefinitionFormat: RootJsonFormat[InterfaceDefinition] = jsonFormat3(InterfaceDefinition)
-  implicit val typeDefinitionFormat: RootJsonFormat[TypeDefinition] = jsonFormat3(TypeDefinition)
+  implicit val typeDefinitionFormat: RootJsonFormat[TypeDefinition] = jsonFormat5(TypeDefinition)
   implicit val templateDefinitionFormat: RootJsonFormat[TemplateDefinition] = jsonFormat10(TemplateDefinition)
   implicit val moduleDetailFormat: RootJsonFormat[ModuleDetail] = jsonFormat4(ModuleDetail)
   implicit val packageDetailFormat: RootJsonFormat[PackageDetail] = jsonFormat5(PackageDetail)

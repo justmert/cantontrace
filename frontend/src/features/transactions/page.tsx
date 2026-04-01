@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { cn } from "@/lib/utils";
 import { useParams, useNavigate } from "@tanstack/react-router";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -146,28 +147,86 @@ function PrivacyTabContent({ updateId }: { updateId: string }) {
   }
 
   return (
-    <div className="grid h-full grid-cols-[1fr_340px] gap-4 overflow-auto p-4">
-      {/* Left: visualization area */}
-      <div className="flex flex-col gap-4">
-        <Tabs defaultValue="tree">
-          <TabsList>
-            <TabsTrigger value="tree">Privacy Tree</TabsTrigger>
-            <TabsTrigger value="matrix">Visibility Matrix</TabsTrigger>
-            <TabsTrigger value="comparison">Multi-Party Comparison</TabsTrigger>
-          </TabsList>
+    <div className="flex h-full flex-col overflow-hidden">
+      {/* Party selector bar */}
+      <div className="flex flex-col gap-2 border-b px-4 py-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium">
+            Parties ({selectedParties.size}/{parties.length})
+          </span>
+          <div className="flex items-center gap-2">
+            <button onClick={handleSelectAll} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Select All</button>
+            <span className="text-muted-foreground/30">·</span>
+            <button onClick={handleSelectNone} className="text-xs text-muted-foreground hover:text-foreground transition-colors">None</button>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {parties.map((party) => {
+            const isSelected = selectedParties.has(party);
+            const color = partyColors[party] ?? "#888";
+            const isHighlighted = highlightedParty === party;
+            const shortName = party.split("::")[0];
+            const shortId = party.split("::")[1]?.slice(0, 8) ?? "";
+            return (
+              <button
+                key={party}
+                onClick={() => handleToggleParty(party)}
+                onDoubleClick={() => handleHighlightParty(isHighlighted ? null : party)}
+                title={`${party}\n\nClick to toggle · Double-click to highlight`}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg border px-3 py-1.5 transition-all",
+                  isSelected
+                    ? "border-border bg-card text-foreground shadow-sm"
+                    : "border-transparent text-muted-foreground/40 hover:text-muted-foreground",
+                  isHighlighted && "ring-2 ring-primary border-primary/30"
+                )}
+              >
+                <span
+                  className="size-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: isSelected ? color : "var(--muted-foreground)" }}
+                />
+                <div className="flex flex-col items-start">
+                  <span className="text-xs font-medium">{shortName}</span>
+                  {shortId && (
+                    <span className="font-mono text-[9px] text-muted-foreground">{shortId}...</span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-          <TabsContent value="tree">
-            <PrivacyTree
-              events={analysis.events}
-              partyColors={partyColors}
-              selectedParties={selectedParties}
-              highlightedParty={highlightedParty}
-              disclosedBoundaries={analysis.disclosedContractBoundaries}
-              isLoading={isLoading}
-            />
+      {/* Visualization tabs — fill remaining space */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <Tabs defaultValue="tree" className="flex flex-1 flex-col overflow-hidden">
+          <div className="border-b px-4">
+            <TabsList>
+              <TabsTrigger value="tree">Privacy Tree</TabsTrigger>
+              <TabsTrigger value="matrix">Visibility Matrix</TabsTrigger>
+              <TabsTrigger value="comparison">Multi-Party Comparison</TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="tree" className="flex-1">
+            <div ref={(el) => {
+              if (el) {
+                const top = el.getBoundingClientRect().top;
+                el.style.height = `${window.innerHeight - top}px`;
+              }
+            }}>
+              <PrivacyTree
+                events={analysis.events}
+                partyColors={partyColors}
+                selectedParties={selectedParties}
+                highlightedParty={highlightedParty}
+                disclosedBoundaries={analysis.disclosedContractBoundaries}
+                isLoading={isLoading}
+              />
+            </div>
           </TabsContent>
 
-          <TabsContent value="matrix">
+          <TabsContent value="matrix" className="flex-1 overflow-auto p-4">
             <VisibilityMatrix
               events={analysis.events}
               parties={parties}
@@ -176,7 +235,7 @@ function PrivacyTabContent({ updateId }: { updateId: string }) {
             />
           </TabsContent>
 
-          <TabsContent value="comparison">
+          <TabsContent value="comparison" className="flex-1 overflow-auto p-4">
             <MultiPartyComparison
               events={analysis.events}
               parties={parties}
@@ -186,18 +245,6 @@ function PrivacyTabContent({ updateId }: { updateId: string }) {
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Right: party selector sidebar */}
-      <PartySelector
-        parties={parties}
-        partyColors={partyColors}
-        selectedParties={selectedParties}
-        highlightedParty={highlightedParty}
-        onToggleParty={handleToggleParty}
-        onSelectAll={handleSelectAll}
-        onSelectNone={handleSelectNone}
-        onHighlightParty={handleHighlightParty}
-      />
     </div>
   );
 }
@@ -521,7 +568,13 @@ export default function TransactionsPage() {
 
               {/* Tab content fills remaining space */}
               {activeTab === "tree" && (
-                <div className="h-[calc(100vh-14rem)]">
+                <div ref={(el) => {
+                  if (el) {
+                    const rect = el.parentElement?.getBoundingClientRect();
+                    const top = el.getBoundingClientRect().top;
+                    if (rect) el.style.height = `${window.innerHeight - top}px`;
+                  }
+                }}>
                   <TransactionTree transaction={transaction} />
                 </div>
               )}

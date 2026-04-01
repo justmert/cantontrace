@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Tick02Icon,
@@ -14,9 +14,12 @@ import {
   LockIcon,
   Search01Icon,
   ShieldEnergyIcon,
+  Add01Icon,
+  PlayIcon,
+  Delete01Icon,
+  ArrowDataTransferVerticalIcon,
 } from "@hugeicons/core-free-icons";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Tooltip,
@@ -25,9 +28,15 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { CopyButton } from "@/components/copy-button";
-import { cn, truncateId, formatTemplateId } from "@/lib/utils";
-import type { SimulationResult, ActiveContract, CommandError } from "@/lib/types";
-import { TransactionTree } from "@/features/transactions/components/transaction-tree";
+import { cn, truncateId, formatTemplateId, formatPartyDisplay, formatJsonForDisplay } from "@/lib/utils";
+import type {
+  SimulationResult,
+  ActiveContract,
+  CommandError,
+  TransactionDetail,
+  LedgerEvent,
+  ExercisedEvent,
+} from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Contract card
@@ -115,8 +124,8 @@ function ContractCard({
             <div className="flex flex-wrap gap-1">
               <span className="shrink-0 text-muted-foreground">Signatories:</span>
               {contract.signatories.map((s) => (
-                <Badge key={s} variant="outline" className="max-w-full font-mono text-[9px]">
-                  <span className="truncate">{s}</span>
+                <Badge key={s} variant="outline" className="max-w-full font-mono text-[9px]" title={s}>
+                  <span className="truncate">{formatPartyDisplay(s)}</span>
                 </Badge>
               ))}
             </div>
@@ -128,13 +137,108 @@ function ContractCard({
               </span>
               <div className="overflow-hidden rounded border bg-muted/30 p-2">
                 <pre className="whitespace-pre-wrap break-all font-mono text-[10px]">
-                  {JSON.stringify(contract.payload, null, 2)}
+                  {formatJsonForDisplay(contract.payload)}
                 </pre>
               </div>
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Simple indented transaction tree (text-based, no ReactFlow)
+// ---------------------------------------------------------------------------
+
+const EVENT_ICONS: Record<string, typeof Add01Icon> = {
+  created: Add01Icon,
+  exercised: PlayIcon,
+  archived: Delete01Icon,
+};
+
+const EVENT_COLORS: Record<string, string> = {
+  created: "text-primary",
+  exercised: "text-foreground",
+  archived: "text-destructive",
+};
+
+function SimpleTransactionTree({
+  transaction,
+}: {
+  transaction: TransactionDetail;
+}) {
+  const rows = useMemo(() => {
+    const result: Array<{
+      event: LedgerEvent;
+      depth: number;
+    }> = [];
+
+    function walk(eventId: string, depth: number) {
+      const event = transaction.eventsById[eventId];
+      if (!event) return;
+      result.push({ event, depth });
+      if (event.eventType === "exercised") {
+        const ex = event as ExercisedEvent;
+        for (const childId of ex.childEventIds) {
+          walk(childId, depth + 1);
+        }
+      }
+    }
+
+    for (const rootId of transaction.rootEventIds) {
+      walk(rootId, 0);
+    }
+    return result;
+  }, [transaction]);
+
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      {rows.map(({ event, depth }) => {
+        const Icon = EVENT_ICONS[event.eventType] ?? ArrowRight01Icon;
+        const colorClass = EVENT_COLORS[event.eventType] ?? "text-foreground";
+
+        let label = "";
+        let detail = "";
+
+        if (event.eventType === "exercised") {
+          const ex = event as ExercisedEvent;
+          label = `Exercise ${ex.choice}`;
+          detail = `${ex.templateId.entityName} ${truncateId(ex.contractId, 8)}`;
+          if (ex.consuming) detail += " [consuming]";
+        } else if (event.eventType === "created") {
+          label = `Create ${event.templateId.entityName}`;
+          detail = truncateId(event.contractId, 8);
+        } else if (event.eventType === "archived") {
+          label = `Archive ${event.templateId.entityName}`;
+          detail = truncateId(event.contractId, 8);
+        }
+
+        const eventKey = "eventId" in event ? event.eventId : `${depth}-${label}`;
+
+        return (
+          <div
+            key={eventKey}
+            className="flex items-start gap-2 rounded-md px-2 py-1 text-xs"
+            style={{ paddingLeft: `${depth * 20 + 8}px` }}
+          >
+            <HugeiconsIcon
+              icon={Icon}
+              className={cn("mt-0.5 size-3 flex-shrink-0", colorClass)}
+              strokeWidth={2}
+            />
+            <div className="flex flex-col gap-0.5 overflow-hidden min-w-0">
+              <span className={cn("font-medium", colorClass)}>{label}</span>
+              <span className="truncate font-mono text-[10px] text-muted-foreground">
+                {detail}
+              </span>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -231,7 +335,7 @@ export interface SimulationResultViewProps {
 export function SimulationResultView({
   result,
   onNavigateContract,
-  onNavigateTransaction,
+  onNavigateTransaction: _onNavigateTransaction,
 }: SimulationResultViewProps) {
   return (
     <div className="flex flex-col gap-4">
@@ -332,69 +436,79 @@ export function SimulationResultView({
           );
         })()}
 
-        {/* Transaction tree -- reuses the ReactFlow tree from Transaction Explorer */}
+        {/* Transaction tree — simple indented list */}
         {result.transactionTree && (
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Transaction Tree</CardTitle>
             </CardHeader>
-            <CardContent className="p-0">
-              <div className="h-[360px] w-full">
-                <TransactionTree transaction={result.transactionTree} />
-              </div>
-              {result.transactionTree.updateId && onNavigateTransaction && (
-                <div className="px-6 pb-4">
-                  <Button
-                    size="sm"
-                    variant="link"
-                    className="mt-2 h-auto p-0 text-xs"
-                    onClick={() =>
-                      onNavigateTransaction(
-                        result.transactionTree!.updateId
-                      )
-                    }
-                  >
-                    <HugeiconsIcon icon={LinkSquare01Icon} data-icon="inline-start" strokeWidth={2} />
-                    View in Transaction Explorer
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Inputs consumed */}
-        {result.inputContracts && result.inputContracts.length > 0 && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Inputs Consumed</CardTitle>
-            </CardHeader>
             <CardContent>
-              <div className="flex flex-col gap-2">
-                {result.inputContracts.map((ic) => (
-                  <ContractCard
-                    key={ic.contract.contractId}
-                    contract={ic.contract}
-                    label="Input"
-                    variant="input"
-                    onNavigateContract={onNavigateContract}
-                  />
-                ))}
-              </div>
+              <SimpleTransactionTree
+                transaction={result.transactionTree}
+              />
             </CardContent>
           </Card>
         )}
 
-        {/* Outputs created */}
-        {result.transactionTree?.stateDiff.outputs &&
-          result.transactionTree.stateDiff.outputs.length > 0 && (
+        {/* Net change summary */}
+        {result.transactionTree?.stateDiff && (
+          <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
+            <HugeiconsIcon
+              icon={ArrowDataTransferVerticalIcon}
+              className="size-3.5 flex-shrink-0 text-muted-foreground"
+              strokeWidth={2}
+            />
+            <span className="text-xs font-medium">
+              {result.transactionTree.stateDiff.netChange}
+            </span>
+          </div>
+        )}
+
+        {/* Inputs consumed (state diff) */}
+        {result.success && (() => {
+          const inputs =
+            result.transactionTree?.stateDiff?.inputs ??
+            result.inputContracts?.map((ic) => ic.contract) ??
+            [];
+          if (inputs.length === 0) return null;
+          return (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Outputs Created</CardTitle>
+                <CardTitle className="text-sm">
+                  Inputs Consumed ({inputs.length})
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col gap-2">
-                  {result.transactionTree.stateDiff.outputs.map((c) => (
+                  {inputs.map((c) => (
+                    <ContractCard
+                      key={c.contractId}
+                      contract={c}
+                      label="Input"
+                      variant="input"
+                      onNavigateContract={onNavigateContract}
+                    />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
+
+        {/* Outputs created (state diff) */}
+        {result.success && (() => {
+          const outputs = result.transactionTree?.stateDiff?.outputs ?? [];
+          if (outputs.length === 0) return null;
+          return (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">
+                  Outputs Created ({outputs.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col gap-2">
+                  {outputs.map((c) => (
                     <ContractCard
                       key={c.contractId}
                       contract={c}
@@ -406,7 +520,8 @@ export function SimulationResultView({
                 </div>
               </CardContent>
             </Card>
-          )}
+          );
+        })()}
 
         {/* Cost estimation — only show when there's actual data */}
         {result.costEstimation && result.costEstimation.estimatedCost && (

@@ -157,12 +157,12 @@ function TransactionTreeInner({ transaction }: { transaction: TransactionDetail 
     setEdges(l.edges);
     // Wait a tick for React Flow to render new nodes, then fit
     requestAnimationFrame(() => {
-      fitView({ padding: 0.2 });
+      fitView({ padding: 0.15, maxZoom: 1.1 });
     });
   }, [transaction, setNodes, setEdges, fitView]);
 
   const handleFitView = useCallback(() => {
-    fitView({ padding: 0.2 });
+    fitView({ padding: 0.15, maxZoom: 1.1 });
   }, [fitView]);
 
   return (
@@ -173,9 +173,7 @@ function TransactionTreeInner({ transaction }: { transaction: TransactionDetail 
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.4, maxZoom: 0.8 }}
-        defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
+        defaultViewport={{ x: 50, y: 50, zoom: 0.25 }}
         minZoom={0.05}
         maxZoom={2}
         defaultEdgeOptions={{

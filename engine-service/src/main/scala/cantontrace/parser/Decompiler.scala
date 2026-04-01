@@ -216,7 +216,7 @@ object Decompiler extends LazyLogging {
     }
 
     // Controller
-    sb.append(s"${indent}controller ${choice.controllerExpression}\n")
+    sb.append(s"${indent}controller ${cleanControllerExpression(choice.controllerExpression)}\n")
 
     // Body
     sb.append(s"${indent}do\n")
@@ -269,21 +269,37 @@ object Decompiler extends LazyLogging {
     typeDef.representation match {
       case "record" =>
         sb.append(s"data ${typeDef.name} = ${typeDef.name}\n")
-        sb.append(s"  -- <record fields>\n")
+        if (typeDef.fields.nonEmpty) {
+          sb.append(s"  { ${typeDef.fields.head.name} : ${renderFieldType(typeDef.fields.head)}\n")
+          for (field <- typeDef.fields.tail) {
+            sb.append(s"  , ${field.name} : ${renderFieldType(field)}\n")
+          }
+          sb.append(s"  }\n")
+        }
         if (typeDef.serializable) {
           sb.append(s"  deriving (Eq, Show)\n")
         }
 
       case "variant" =>
         sb.append(s"data ${typeDef.name}\n")
-        sb.append(s"  -- <variant constructors>\n")
+        if (typeDef.constructors.nonEmpty) {
+          sb.append(s"  = ${typeDef.constructors.head}\n")
+          for (ctor <- typeDef.constructors.tail) {
+            sb.append(s"  | $ctor\n")
+          }
+        }
         if (typeDef.serializable) {
           sb.append(s"  deriving (Eq, Show)\n")
         }
 
       case "enum" =>
         sb.append(s"data ${typeDef.name}\n")
-        sb.append(s"  -- <enum values>\n")
+        if (typeDef.constructors.nonEmpty) {
+          sb.append(s"  = ${typeDef.constructors.head}\n")
+          for (ctor <- typeDef.constructors.tail) {
+            sb.append(s"  | $ctor\n")
+          }
+        }
         if (typeDef.serializable) {
           sb.append(s"  deriving (Eq, Show, Enum)\n")
         }
@@ -293,6 +309,46 @@ object Decompiler extends LazyLogging {
     }
 
     sb.toString()
+  }
+
+  /** Render a field type, prepending "Optional" if flagged. */
+  private def renderFieldType(field: FieldDefinition): String = {
+    if (field.optional) s"Optional ${field.fieldType}" else field.fieldType
+  }
+
+  // -----------------------------------------------------------------------
+  // Controller expression cleanup
+  // -----------------------------------------------------------------------
+
+  /**
+   * Clean up a controller expression for display. If the DalfParser
+   * couldn't fully resolve a compiler-generated name, this applies
+   * heuristic transformations:
+   *
+   *   - Simple field projections like "this.owner" become "owner"
+   *   - Compiler-generated names (`$$sc_*`, `$$c*`) fall back to "<controller>"
+   *   - "signatory" is preserved as-is
+   */
+  private def cleanControllerExpression(expr: String): String = {
+    val trimmed = expr.trim
+
+    // If it's a simple field name with no spaces or special chars, use it directly
+    if (trimmed.nonEmpty && !trimmed.contains("$$") && !trimmed.contains("<")) {
+      return trimmed
+    }
+
+    // If it contains compiler-generated names, try to extract something useful
+    if (trimmed.contains("$$")) {
+      // Try to find a field projection pattern like "this.fieldName" embedded in the expression
+      val fieldProjPattern = """(?:this|arg)\.([\w]+)""".r
+      val fields = fieldProjPattern.findAllMatchIn(trimmed).map(_.group(1)).toSeq.distinct
+      if (fields.nonEmpty) return fields.mkString(", ")
+
+      // Otherwise, fall back to a clean placeholder
+      return "<controller>"
+    }
+
+    trimmed
   }
 
   // -----------------------------------------------------------------------

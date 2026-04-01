@@ -119,6 +119,105 @@ export function stringToHue(str: string): number {
   return ((hash % 360) + 360) % 360;
 }
 
+// ---------------------------------------------------------------------------
+// Party display helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Return just the human-readable display name from a Canton party ID.
+ * e.g. `"alice::122068eb..."` -> `"alice"`
+ */
+export function formatPartyDisplay(partyId: string): string {
+  const parts = partyId.split("::");
+  return parts[0] || partyId;
+}
+
+/**
+ * Return structured parts of a Canton party ID for flexible rendering.
+ */
+export function formatPartyShort(partyId: string): { name: string; id: string; full: string } {
+  const parts = partyId.split("::");
+  return {
+    name: parts[0] || partyId,
+    id: parts[1]?.slice(0, 8) ?? "",
+    full: partyId,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Numeric formatting
+// ---------------------------------------------------------------------------
+
+/**
+ * Format a numeric string by removing excessive trailing zeros while keeping
+ * at least one decimal place.
+ * e.g. `"45.0000000000"` -> `"45.0"`, `"3.14000"` -> `"3.14"`
+ */
+export function formatNumeric(value: string | number): string {
+  const s = String(value);
+  if (!s.includes(".")) return s;
+  // Remove trailing zeros but keep at least one decimal place
+  const trimmed = s.replace(/\.?0+$/, "");
+  if (!trimmed.includes(".")) return trimmed + ".0";
+  return trimmed;
+}
+
+// ---------------------------------------------------------------------------
+// Payload value formatting
+// ---------------------------------------------------------------------------
+
+/**
+ * Format a single payload value for display — shortens party IDs and trims
+ * excessive numeric precision.
+ */
+export function formatPayloadValue(value: unknown): string {
+  if (typeof value === "string" && value.includes("::")) {
+    return formatPartyDisplay(value);
+  }
+  if (typeof value === "string" && /^-?\d+\.\d{4,}$/.test(value)) {
+    return formatNumeric(value);
+  }
+  return String(value);
+}
+
+/**
+ * Format an entire payload object for display in previews.
+ * Party IDs are shortened to display names, numeric values are trimmed.
+ * The original payload should still be kept around for copy/API use.
+ */
+export function formatPayloadForDisplay(payload: Record<string, unknown>): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(payload)) {
+    if (typeof value === "string" && value.includes("::")) {
+      result[key] = formatPartyDisplay(value);
+    } else if (typeof value === "string" && /^-?\d+\.\d{4,}$/.test(value)) {
+      result[key] = formatNumeric(value);
+    } else if (typeof value === "object" && value !== null) {
+      result[key] = JSON.stringify(value);
+    } else {
+      result[key] = String(value);
+    }
+  }
+  return result;
+}
+
+/**
+ * Smart JSON stringifier that formats party IDs and numeric values inline.
+ * Returns a pretty-printed JSON string with party display names and trimmed
+ * numbers, suitable for read-only display in `<pre>` blocks.
+ */
+export function formatJsonForDisplay(value: unknown, indent = 2): string {
+  return JSON.stringify(value, (_key, val) => {
+    if (typeof val === "string" && val.includes("::")) {
+      return formatPartyDisplay(val);
+    }
+    if (typeof val === "string" && /^-?\d+\.\d{4,}$/.test(val)) {
+      return formatNumeric(val);
+    }
+    return val;
+  }, indent);
+}
+
 /**
  * Format a timestamp in various compact modes.
  * - "relative": "2m ago", "1h ago"

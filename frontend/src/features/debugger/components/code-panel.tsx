@@ -232,6 +232,9 @@ export function CodePanel({
   const monacoRef = useRef<Monaco | null>(null);
   const decorationsRef = useRef<editor.IEditorDecorationsCollection | null>(null);
 
+  // Incremented when the editor mounts so decoration effects re-run
+  const [editorMountKey, setEditorMountKey] = useState(0);
+
   // On-demand decompiled source when backend didn't provide it
   const [decompiledSource, setDecompiledSource] = useState<string | null>(null);
   const [decompiledLoading, setDecompiledLoading] = useState(false);
@@ -403,32 +406,37 @@ export function CodePanel({
     return decorations;
   }, [currentStep, variables, previousVariables]);
 
-  // Update decorations when step changes
+  // Update decorations when step changes or editor mounts
   useEffect(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
+    const ed = editorRef.current;
+    if (!ed) return;
 
     if (decorationsRef.current) {
       decorationsRef.current.clear();
     }
 
     if (variableDecorations.length > 0) {
-      decorationsRef.current = editor.createDecorationsCollection(variableDecorations);
+      decorationsRef.current = ed.createDecorationsCollection(variableDecorations);
     }
 
-    // Scroll to current line
+    // Scroll to current line and briefly flash the range for visibility
     if (currentStep?.sourceLocation) {
-      editor.revealLineInCenter(currentStep.sourceLocation.startLine);
+      const loc = currentStep.sourceLocation;
+      ed.revealLineInCenter(loc.startLine);
+      // Also set the cursor so the user has a clear focus point
+      ed.setPosition({ lineNumber: loc.startLine, column: loc.startCol || 1 });
     }
-  }, [variableDecorations, currentStep]);
+  }, [variableDecorations, currentStep, editorMountKey]);
 
   const handleEditorMount = (
-    editor: editor.IStandaloneCodeEditor,
+    ed: editor.IStandaloneCodeEditor,
     monaco: Monaco
   ) => {
-    editorRef.current = editor;
+    editorRef.current = ed;
     monacoRef.current = monaco;
     registerDamlLanguage(monaco);
+    // Bump mount key so the decoration useEffect re-runs now that the ref is set
+    setEditorMountKey((k) => k + 1);
   };
 
   // Variable inspector collapse state
@@ -538,14 +546,16 @@ export function CodePanel({
         </div>
       )}
 
-      {/* Inject CSS for decorations */}
+      {/* Inject CSS for decorations — these classes are applied by Monaco
+          to its own DOM elements which live in the same document tree. */}
       <style>{`
         .execution-line-highlight {
-          background-color: rgba(251, 191, 36, 0.15) !important;
+          background-color: rgba(251, 191, 36, 0.18) !important;
           border-left: 3px solid rgb(245, 158, 11) !important;
         }
         .dark .execution-line-highlight {
-          background-color: rgba(251, 191, 36, 0.08) !important;
+          background-color: rgba(251, 191, 36, 0.10) !important;
+          border-left: 3px solid rgb(251, 191, 36) !important;
         }
         .execution-line-glyph {
           background-color: rgb(245, 158, 11);
@@ -553,6 +563,9 @@ export function CodePanel({
           margin-left: 4px;
           width: 8px !important;
           height: 8px !important;
+        }
+        .dark .execution-line-glyph {
+          background-color: rgb(251, 191, 36);
         }
         .variable-annotation {
           color: rgba(156, 163, 175, 0.7);

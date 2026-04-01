@@ -66,5 +66,7 @@ final case class InterfaceDefinition(
 final case class TypeDefinition(
   name: String,
   serializable: Boolean,
-  representation: String
+  representation: String,
+  fields: Seq[FieldDefinition] = Seq.empty,
+  constructors: Seq[String] = Seq.empty
 )

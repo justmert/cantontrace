@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
+import { cn, formatPartyDisplay } from "@/lib/utils";
 import type { PrivacyEvent } from "@/lib/types";
 import type { PartyColor } from "@/features/transactions/hooks";
 
@@ -81,7 +81,7 @@ export function MultiPartyComparison({
                         partyColors[p]?.bg
                       )}
                     />
-                    <span className="font-mono text-xs">{p}</span>
+                    <span className="font-mono text-xs" title={p}>{formatPartyDisplay(p)}</span>
                   </div>
                 </SelectItem>
               ))}
@@ -109,7 +109,7 @@ export function MultiPartyComparison({
                         partyColors[p]?.bg
                       )}
                     />
-                    <span className="font-mono text-xs">{p}</span>
+                    <span className="font-mono text-xs" title={p}>{formatPartyDisplay(p)}</span>
                   </div>
                 </SelectItem>
               ))}
@@ -148,7 +148,7 @@ export function MultiPartyComparison({
                 partyColors[partyA]?.bg
               )}
             />
-            <span className="font-mono text-sm font-medium">{partyA}</span>
+            <span className="font-mono text-sm font-medium" title={partyA}>{formatPartyDisplay(partyA)}</span>
             <span className="text-xs text-muted-foreground">
               ({bothCount + onlyACount} of {events.length} events visible)
             </span>
@@ -213,7 +213,7 @@ export function MultiPartyComparison({
                 partyColors[partyB]?.bg
               )}
             />
-            <span className="font-mono text-sm font-medium">{partyB}</span>
+            <span className="font-mono text-sm font-medium" title={partyB}>{formatPartyDisplay(partyB)}</span>
             <span className="text-xs text-muted-foreground">
               ({bothCount + onlyBCount} of {events.length} events visible)
             </span>

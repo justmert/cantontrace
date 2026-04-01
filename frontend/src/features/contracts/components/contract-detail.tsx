@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { IdBadge } from "@/components/id-badge";
 import { PartyBadge } from "@/components/party-badge";
-import { cn, formatTemplateId } from "@/lib/utils";
+import { cn, formatTemplateId, formatPartyDisplay, formatNumeric } from "@/lib/utils";
 import type { ActiveContract } from "@/lib/types";
 import { useContractLifecycle } from "@/features/contracts/hooks";
 import { LifecycleTimeline } from "./lifecycle-timeline";
@@ -128,6 +128,20 @@ function JsonNode({
   const isBool = typeof value === "boolean";
   const isNumber = typeof value === "number";
 
+  // Format party IDs and numeric values for display
+  const isPartyId = isString && (value as string).includes("::");
+  const isNumericStr = isString && /^-?\d+\.\d{4,}$/.test(value as string);
+  let displayValue: string;
+  if (isPartyId) {
+    displayValue = `"${formatPartyDisplay(value as string)}"`;
+  } else if (isNumericStr) {
+    displayValue = `"${formatNumeric(value as string)}"`;
+  } else if (isString) {
+    displayValue = `"${value}"`;
+  } else {
+    displayValue = String(value);
+  }
+
   return (
     <div className="flex items-baseline gap-1" style={{ paddingLeft: depth * 16 }}>
       {keyName !== undefined && (
@@ -140,8 +154,9 @@ function JsonNode({
           isBool && "text-accent-foreground",
           isNumber && "text-muted-foreground"
         )}
+        title={isPartyId ? (value as string) : undefined}
       >
-        {isString ? `"${value}"` : String(value)}
+        {displayValue}
       </span>
     </div>
   );

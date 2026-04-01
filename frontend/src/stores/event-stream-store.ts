@@ -32,7 +32,7 @@ const DEFAULT_FILTER: EventStreamFilter = {
   templates: undefined,
   parties: undefined,
   eventTypes: undefined,
-  transactionShape: "ACS_DELTA",
+  transactionShape: "LEDGER_EFFECTS",
 };
 
 // ---------------------------------------------------------------------------

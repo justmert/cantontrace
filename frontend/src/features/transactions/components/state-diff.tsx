@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { IdBadge } from "@/components/id-badge";
 
+import { formatPayloadValue, formatJsonForDisplay } from "@/lib/utils";
 import type { StateDiff, ActiveContract } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -62,18 +63,21 @@ function ContractCard({
           {/* Key field preview */}
           {keyFields.length > 0 && (
             <div className="flex min-w-0 flex-wrap gap-x-3 gap-y-0.5 overflow-hidden">
-              {keyFields.map(([key, value]) => (
-                <span key={key} className="block max-w-full truncate text-xs">
-                  <span className="text-muted-foreground">{key}:</span>{" "}
-                  <span className="font-mono">
-                    {typeof value === "string"
-                      ? value.length > 20
-                        ? value.slice(0, 20) + "..."
-                        : value
-                      : JSON.stringify(value)}
+              {keyFields.map(([key, value]) => {
+                const formatted = typeof value === "object" && value !== null
+                  ? JSON.stringify(value)
+                  : formatPayloadValue(value);
+                const display = formatted.length > 20
+                  ? formatted.slice(0, 20) + "..."
+                  : formatted;
+                const fullValue = typeof value === "string" ? value : JSON.stringify(value);
+                return (
+                  <span key={key} className="block max-w-full truncate text-xs" title={`${key}: ${fullValue}`}>
+                    <span className="text-muted-foreground">{key}:</span>{" "}
+                    <span className="font-mono">{display}</span>
                   </span>
-                </span>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -101,7 +105,7 @@ function ContractCard({
 
           {expanded && !emptyPayload && (
             <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-muted p-2 font-mono text-xs leading-relaxed text-foreground">
-              {JSON.stringify(contract.payload, null, 2)}
+              {formatJsonForDisplay(contract.payload)}
             </pre>
           )}
         </div>

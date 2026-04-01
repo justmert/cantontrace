@@ -67,7 +67,7 @@ export function registerEventRoutes(app: FastifyInstance, cache: CacheService): 
     const updates = await client.updateService.getRecentUpdates(
       currentOffset,
       parties,
-      'ACS_DELTA',
+      'LEDGER_EFFECTS',
       limit,
     );
 

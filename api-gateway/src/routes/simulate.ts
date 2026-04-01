@@ -12,7 +12,13 @@ import { requireCantonContext } from '../middleware/canton-context.js';
 import type { CacheService } from '../services/cache.js';
 import type {
   SimulationRequest,
+  SimulationCommand,
   SimulationResult,
+  TransactionDetail,
+  StateDiff,
+  LedgerEvent,
+  ActiveContract,
+  TemplateId,
   ApiResponse,
 } from '../types.js';
 import crypto from 'crypto';
@@ -134,10 +140,20 @@ async function simulateOnline(
       body.disclosedContracts,
     );
 
+    // Build a synthetic transaction tree from the online simulation data
+    // so the frontend can visualize what the transaction would do
+    const transactionTree = buildOnlineTransactionTree(
+      resolvedCommands,
+      body.commands,
+      result.inputContracts,
+      body.actAs,
+    );
+
     const response: ApiResponse<SimulationResult> = {
       data: {
         mode: 'online',
         success: true,
+        transactionTree,
         hashInfo: {
           ...result.hashInfo,
           // ADVISORY: Canton 3.5 warns about this
@@ -299,11 +315,21 @@ async function simulateOffline(
 
     const engineResult = await engineResponse.json() as Record<string, unknown>;
 
+    // Transform engine TransactionTree → frontend TransactionDetail shape
+    const engineTree = engineResult.transactionTree as Record<string, unknown> | undefined;
+    const transactionTree = engineTree ? transformEngineTree(engineTree, contracts) : undefined;
+
+    // Extract input contracts from the transformed tree
+    const inputContracts = transactionTree
+      ? transactionTree.stateDiff.inputs
+      : [];
+
     const response: ApiResponse<SimulationResult> = {
       data: {
         mode: 'offline',
         success: true,
-        transactionTree: engineResult.transactionTree as SimulationResult['transactionTree'],
+        transactionTree,
+        inputContracts: inputContracts.map((c) => ({ contract: c, createdAt: '' })),
         simulatedAt: new Date().toISOString(),
         atOffset: snapshotOffset,
         stateDriftWarning: body.historicalOffset
@@ -328,3 +354,249 @@ async function simulateOffline(
     });
   }
 }
+
+// ============================================================
+// Transformation helpers
+// ============================================================
+
+/**
+ * Parse a colon-delimited template ID string ("pkg:Module:Entity")
+ * into the structured TemplateId shape expected by the frontend.
+ */
+function parseTemplateIdString(tid: string): TemplateId {
+  const parts = tid.split(':');
+  return {
+    packageName: parts[0] ?? '',
+    moduleName: parts[1] ?? '',
+    entityName: parts[2] ?? '',
+  };
+}
+
+/**
+ * Transform an engine-service TransactionTree (flat string templateIds,
+ * Map[String,String] payloads, no stateDiff) into the frontend
+ * TransactionDetail shape (structured templateIds, object payloads,
+ * stateDiff computed from events).
+ */
+function transformEngineTree(
+  engineTree: Record<string, unknown>,
+  acsContracts: ActiveContract[],
+): TransactionDetail {
+  const eventsById: Record<string, LedgerEvent> = {};
+  const engineEvents = (engineTree.eventsById ?? {}) as Record<string, Record<string, unknown>>;
+
+  const inputContracts: ActiveContract[] = [];
+  const outputContracts: ActiveContract[] = [];
+
+  for (const [eventId, event] of Object.entries(engineEvents)) {
+    const eventType = event.eventType as string;
+
+    if (eventType === 'created') {
+      const templateId = parseTemplateIdString(event.templateId as string);
+      const payload = (event.payload ?? {}) as Record<string, unknown>;
+      const signatories = (event.signatories ?? []) as string[];
+      const observers = (event.observers ?? []) as string[];
+
+      eventsById[eventId] = {
+        eventType: 'created',
+        eventId,
+        contractId: event.contractId as string,
+        templateId,
+        payload,
+        signatories,
+        observers,
+        witnesses: signatories,
+      };
+
+      outputContracts.push({
+        contractId: event.contractId as string,
+        templateId,
+        payload,
+        signatories,
+        observers,
+        createdAt: '',
+      });
+    } else if (eventType === 'exercised') {
+      const templateId = parseTemplateIdString(event.templateId as string);
+      const actingParties = [...(event.actingParties ?? []) as string[]];
+
+      eventsById[eventId] = {
+        eventType: 'exercised',
+        eventId,
+        contractId: event.contractId as string,
+        templateId,
+        choice: event.choice as string,
+        choiceArgument: (event.choiceArgument ?? {}) as Record<string, unknown>,
+        actingParties,
+        consuming: event.consuming as boolean ?? true,
+        witnesses: actingParties,
+        childEventIds: (event.childEventIds ?? []) as string[],
+        exerciseResult: event.exerciseResult,
+      };
+
+      // If consuming, the exercised contract is an input
+      if (event.consuming !== false) {
+        const cid = event.contractId as string;
+        const acsMatch = acsContracts.find((c) => c.contractId === cid);
+        inputContracts.push(acsMatch ?? {
+          contractId: cid,
+          templateId,
+          payload: {},
+          signatories: actingParties,
+          observers: [],
+          createdAt: '',
+        });
+      }
+    } else if (eventType === 'archived') {
+      const templateId = parseTemplateIdString(event.templateId as string);
+      eventsById[eventId] = {
+        eventType: 'archived',
+        eventId,
+        contractId: event.contractId as string,
+        templateId,
+        witnesses: [],
+      };
+    }
+  }
+
+  const consumedCount = inputContracts.length;
+  const createdCount = outputContracts.length;
+  const stateDiff: StateDiff = {
+    inputs: inputContracts,
+    outputs: outputContracts,
+    netChange: `${consumedCount} contract${consumedCount !== 1 ? 's' : ''} consumed, ${createdCount} contract${createdCount !== 1 ? 's' : ''} created`,
+  };
+
+  return {
+    updateId: engineTree.updateId as string ?? `sim-${crypto.randomUUID().slice(0, 8)}`,
+    commandId: engineTree.commandId as string | undefined,
+    workflowId: engineTree.workflowId as string | undefined,
+    offset: '',
+    recordTime: new Date().toISOString(),
+    effectiveAt: (engineTree.effectiveAt as string) ?? new Date().toISOString(),
+    rootEventIds: (engineTree.rootEventIds ?? []) as string[],
+    eventsById,
+    stateDiff,
+  };
+}
+
+/**
+ * Build a synthetic TransactionDetail for online (PrepareSubmission) results.
+ *
+ * The PrepareSubmission response gives us input contracts but not the full
+ * transaction tree. We reconstruct a tree from the original commands and
+ * input contracts so the frontend has something to display.
+ */
+function buildOnlineTransactionTree(
+  _resolvedCommands: SimulationCommand[],
+  originalCommands: SimulationCommand[],
+  inputContracts: Array<{ contract: ActiveContract; createdAt: string }>,
+  actAs: string[],
+): TransactionDetail {
+  const txId = `sim-${crypto.randomUUID().slice(0, 8)}`;
+  const now = new Date().toISOString();
+  const eventsById: Record<string, LedgerEvent> = {};
+  const rootEventIds: string[] = [];
+  const outputs: ActiveContract[] = [];
+  const inputs: ActiveContract[] = inputContracts.map((ic) => ic.contract);
+  let eventCounter = 0;
+
+  for (const cmd of originalCommands) {
+    const templateId = cmd.templateId;
+
+    if (cmd.choice && cmd.contractId) {
+      // Exercise command
+      const exerciseEventId = `#${txId}:${eventCounter++}`;
+      const createEventId = `#${txId}:${eventCounter++}`;
+      const newContractId = `00${crypto.randomUUID().replace(/-/g, '')}`;
+
+      const inputContract = inputContracts.find(
+        (ic) => ic.contract.contractId === cmd.contractId
+      );
+
+      eventsById[exerciseEventId] = {
+        eventType: 'exercised',
+        eventId: exerciseEventId,
+        contractId: cmd.contractId,
+        templateId,
+        choice: cmd.choice,
+        choiceArgument: cmd.arguments,
+        actingParties: actAs,
+        consuming: true,
+        witnesses: actAs,
+        childEventIds: [createEventId],
+        exerciseResult: `ContractId(${newContractId})`,
+      };
+
+      const signatories = inputContract?.contract.signatories ?? actAs;
+      const observers = inputContract?.contract.observers ?? [];
+
+      eventsById[createEventId] = {
+        eventType: 'created',
+        eventId: createEventId,
+        contractId: newContractId,
+        templateId,
+        payload: cmd.arguments,
+        signatories,
+        observers,
+        witnesses: signatories,
+      };
+
+      outputs.push({
+        contractId: newContractId,
+        templateId,
+        payload: cmd.arguments,
+        signatories,
+        observers,
+        createdAt: now,
+      });
+
+      rootEventIds.push(exerciseEventId);
+    } else {
+      // Create command
+      const createEventId = `#${txId}:${eventCounter++}`;
+      const newContractId = `00${crypto.randomUUID().replace(/-/g, '')}`;
+
+      eventsById[createEventId] = {
+        eventType: 'created',
+        eventId: createEventId,
+        contractId: newContractId,
+        templateId,
+        payload: cmd.arguments,
+        signatories: actAs,
+        observers: [],
+        witnesses: actAs,
+      };
+
+      outputs.push({
+        contractId: newContractId,
+        templateId,
+        payload: cmd.arguments,
+        signatories: actAs,
+        observers: [],
+        createdAt: now,
+      });
+
+      rootEventIds.push(createEventId);
+    }
+  }
+
+  const consumedCount = inputs.length;
+  const createdCount = outputs.length;
+
+  return {
+    updateId: txId,
+    commandId: `sim-cmd-${txId.slice(-8)}`,
+    offset: '',
+    recordTime: now,
+    effectiveAt: now,
+    rootEventIds,
+    eventsById,
+    stateDiff: {
+      inputs,
+      outputs,
+      netChange: `${consumedCount} contract${consumedCount !== 1 ? 's' : ''} consumed, ${createdCount} contract${createdCount !== 1 ? 's' : ''} created`,
+    },
+  };
+}
+

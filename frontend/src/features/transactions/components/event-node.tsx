@@ -11,8 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { IdBadge } from "@/components/id-badge";
 import { PartyBadge } from "@/components/party-badge";
-import { cn } from "@/lib/utils";
-import { formatTemplateId } from "@/lib/utils";
+import { cn, formatTemplateId, formatJsonForDisplay } from "@/lib/utils";
 import type {
   LedgerEvent,
   CreatedEvent,
@@ -80,7 +79,7 @@ export function CreateNode({ data }: NodeProps) {
 
         {expanded && (
           <pre className="mt-1 whitespace-pre-wrap break-all rounded-lg bg-muted p-2 font-mono text-[9px] leading-relaxed">
-            {JSON.stringify(event.payload, null, 2)}
+            {formatJsonForDisplay(event.payload)}
           </pre>
         )}
       </div>
@@ -165,7 +164,7 @@ export function ExerciseNode({ data }: NodeProps) {
 
         {expanded && (
           <pre className="mt-1 whitespace-pre-wrap break-all rounded-lg bg-muted p-2 font-mono text-[9px] leading-relaxed">
-            {JSON.stringify(event.choiceArgument, null, 2)}
+            {formatJsonForDisplay(event.choiceArgument)}
           </pre>
         )}
       </div>

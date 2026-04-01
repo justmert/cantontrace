@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IdBadge } from "@/components/id-badge";
 import { PartyBadge } from "@/components/party-badge";
-import { cn, formatTemplateId } from "@/lib/utils";
+import { cn, formatTemplateId, formatPartyDisplay, formatNumeric } from "@/lib/utils";
 import type { ContractLifecycle } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -30,7 +30,18 @@ function JsonTree({ data, depth = 0 }: { data: unknown; depth?: number }) {
 
   if (typeof data !== "object") {
     if (typeof data === "string") {
-      return <span className="break-all text-primary">&quot;{data}&quot;</span>;
+      const isPartyId = data.includes("::");
+      const isNumericStr = /^-?\d+\.\d{4,}$/.test(data);
+      const displayStr = isPartyId
+        ? formatPartyDisplay(data)
+        : isNumericStr
+          ? formatNumeric(data)
+          : data;
+      return (
+        <span className="break-all text-primary" title={isPartyId ? data : undefined}>
+          &quot;{displayStr}&quot;
+        </span>
+      );
     }
     if (typeof data === "boolean") {
       return (

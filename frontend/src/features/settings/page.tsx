@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/native-select";
 import { ConnectionDialog } from "@/components/connection-dialog";
 import { useConnectionStore } from "@/stores/connection-store";
-import { cn, truncateId } from "@/lib/utils";
+import { cn, truncateId, formatPartyDisplay } from "@/lib/utils";
 
 type Theme = "light" | "dark" | "system";
 
@@ -260,8 +260,8 @@ export default function SettingsPage() {
                           >
                             {right.type}
                             {"party" in right && (
-                              <span className="ml-1 font-mono opacity-70">
-                                {right.party}
+                              <span className="ml-1 font-mono opacity-70" title={right.party}>
+                                {formatPartyDisplay(right.party)}
                               </span>
                             )}
                           </Badge>

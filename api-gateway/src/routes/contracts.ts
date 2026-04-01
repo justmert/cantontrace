@@ -150,9 +150,33 @@ export function registerContractRoutes(app: FastifyInstance): void {
     }
 
     const createdEvent = contractEvents.created.event;
+    const createdAtOffset = contractEvents.created.createdAtOffset;
     const exercises: ContractExercise[] = [];
     let archival: ContractLifecycle['archival'] = undefined;
     let isDivulged = false;
+
+    // Resolve creation transaction metadata (updateId, offset, recordTime)
+    // The EventQueryService only returns event wrappers without update_id/recordTime.
+    // Use the createdAt offset to look up the creating transaction via UpdateService.
+    let creationUpdateId = '';
+    let creationOffset = createdAtOffset || '';
+    let creationRecordTime = '';
+
+    if (createdAtOffset) {
+      try {
+        const creationMeta = await client.updateService.getUpdateMetadataAtOffset(
+          createdAtOffset,
+          parties,
+        );
+        if (creationMeta) {
+          creationUpdateId = creationMeta.updateId;
+          creationOffset = creationMeta.offset;
+          creationRecordTime = creationMeta.recordTime;
+        }
+      } catch (err) {
+        request.log.warn({ err, contractId, createdAtOffset }, 'Failed to resolve creation transaction metadata');
+      }
+    }
 
     // Step 2: If archived, get the archiving transaction for exercise details
     if (contractEvents.archived) {
@@ -260,9 +284,9 @@ export function registerContractRoutes(app: FastifyInstance): void {
       contractId,
       templateId: createdEvent.templateId,
       creation: {
-        updateId: '',
-        offset: '',
-        recordTime: '',
+        updateId: creationUpdateId,
+        offset: creationOffset,
+        recordTime: creationRecordTime,
         payload: createdEvent.payload,
         signatories: createdEvent.signatories,
         observers: createdEvent.observers,

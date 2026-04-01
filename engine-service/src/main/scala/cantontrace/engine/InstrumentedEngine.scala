@@ -1,6 +1,7 @@
 package cantontrace.engine
 
 import cantontrace.model._
+import cantontrace.parser.DalfParser
 import com.typesafe.scalalogging.LazyLogging
 
 import java.time.Instant
@@ -454,9 +455,27 @@ class InstrumentedEngine extends EngineExecutor with LazyLogging {
     )
 
     // 5. Guard (ensure) evaluation
+    // Resolve the actual ensure expression from the DALF if available.
+    val ensureExpr = resolveEnsureExpression(command.templateId, packages)
+    val guardExpression = ensureExpr match {
+      case Some(expr) =>
+        // Substitute argument values into the expression for a readable trace.
+        // e.g., "amount > 0.0" with {amount -> "100.0"} becomes
+        //       "ensure (amount > 0.0) with amount = 100.0 → True"
+        val substitutions = command.arguments.collect {
+          case (k, v) if expr.contains(k) => s"$k = $v"
+        }
+        if (substitutions.nonEmpty)
+          s"ensure ($expr) with ${substitutions.mkString(", ")} → True"
+        else
+          s"ensure $expr"
+      case None =>
+        "ensure <clause>"
+    }
+
     hooks.onGuardEvaluation(
       location = None,
-      expression = "ensure <clause>",
+      expression = guardExpression,
       result = true,
       variables = command.arguments
     )
@@ -506,6 +525,63 @@ class InstrumentedEngine extends EngineExecutor with LazyLogging {
           resultContractId = Some(newContractId)
         )
     }
+  }
+
+  /**
+   * Look up the ensure clause expression for a template by parsing
+   * the DALF packages.
+   *
+   * @param templateId Fully-qualified template ID (e.g., "Main:SimpleToken" or
+   *                   "ModuleName:TemplateName").
+   * @param packages   Base64-encoded DALF bytes keyed by package ID.
+   * @return The ensure expression string if found, or None.
+   */
+  private def resolveEnsureExpression(
+    templateId: String,
+    packages: Map[String, String]
+  ): Option[String] = {
+    // templateId format: "ModuleName:TemplateName" or "PackageName:ModuleName:TemplateName"
+    val templateName = templateId.split(':').lastOption.getOrElse(templateId)
+    val moduleName = {
+      val parts = templateId.split(':')
+      if (parts.length >= 2) Some(parts(parts.length - 2)) else None
+    }
+
+    // Iterate through packages and parse each one looking for the template
+    for ((pkgId, dalfBase64) <- packages) {
+      try {
+        DalfParser.parse(dalfBase64) match {
+          case Right(pkg) =>
+            for (module <- pkg.modules) {
+              // Match by module name if available, otherwise search all modules
+              val moduleMatches = moduleName.forall(mn =>
+                module.name == mn || module.name.endsWith(s".$mn") || module.name.split('.').last == mn
+              )
+              if (moduleMatches) {
+                for (template <- module.templates) {
+                  if (template.name == templateName || template.name.endsWith(s".$templateName")) {
+                    template.ensureExpression match {
+                      case some @ Some(_) =>
+                        logger.debug(s"Resolved ensure expression for $templateId: ${some.get}")
+                        return some
+                      case None =>
+                        logger.debug(s"Template $templateId found but has no ensure clause")
+                    }
+                  }
+                }
+              }
+            }
+          case Left(err) =>
+            logger.debug(s"Failed to parse package $pkgId for ensure resolution: $err")
+        }
+      } catch {
+        case ex: Exception =>
+          logger.debug(s"Error parsing package $pkgId for ensure resolution: ${ex.getMessage}")
+      }
+    }
+
+    logger.debug(s"Could not resolve ensure expression for $templateId")
+    None
   }
 
   private def buildSimulatedTransaction(

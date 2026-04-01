@@ -30,7 +30,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
+import { cn, formatJsonForDisplay, formatPartyDisplay } from "@/lib/utils";
 import type { TraceStep, TraceStepType } from "@/lib/types";
 import type { TraceNavigation } from "@/features/debugger/hooks";
 
@@ -76,7 +76,7 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
           </span>
           <div className="overflow-hidden rounded-md border border-border/50 p-2">
             <pre className="whitespace-pre-wrap break-all font-mono text-[11px]">
-              {JSON.stringify(step.variables, null, 2)}
+              {formatJsonForDisplay(step.variables)}
             </pre>
           </div>
         </div>
@@ -91,7 +91,7 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
             </span>
             <div className="overflow-hidden rounded-md border border-border/50 p-2">
               <pre className="whitespace-pre-wrap break-all font-mono text-[11px]">
-                {JSON.stringify(ctx.contractPayloads, null, 2)}
+                {formatJsonForDisplay(ctx.contractPayloads)}
               </pre>
             </div>
           </div>
@@ -111,8 +111,9 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
                     key={a}
                     variant="outline"
                     className="max-w-full font-mono text-[9px]"
+                    title={a}
                   >
-                    <span className="truncate">{a}</span>
+                    <span className="truncate">{formatPartyDisplay(a)}</span>
                   </Badge>
                 ))}
               </div>
@@ -129,8 +130,9 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
                     key={a}
                     variant="outline"
                     className="max-w-full font-mono text-[9px]"
+                    title={a}
                   >
-                    <span className="truncate">{a}</span>
+                    <span className="truncate">{formatPartyDisplay(a)}</span>
                   </Badge>
                 ))}
               </div>

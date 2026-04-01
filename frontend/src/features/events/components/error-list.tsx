@@ -42,7 +42,7 @@ import {
   EmptyTitle,
   EmptyDescription,
 } from "@/components/ui/empty";
-import { cn, truncateId } from "@/lib/utils";
+import { cn, truncateId, formatPartyDisplay } from "@/lib/utils";
 import type { ErrorCategory } from "@/lib/types";
 import { ErrorCategoryBadge } from "./error-category-badge";
 import { ErrorDetail } from "./error-detail";
@@ -453,8 +453,9 @@ export function ErrorList() {
                               <span
                                 key={p}
                                 className="block truncate font-mono text-xs"
+                                title={p}
                               >
-                                {p}
+                                {formatPartyDisplay(p)}
                               </span>
                             ))}
                           </div>

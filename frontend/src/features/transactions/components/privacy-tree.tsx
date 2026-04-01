@@ -434,7 +434,7 @@ export function PrivacyTree({
   }
 
   return (
-    <div className="h-[500px] overflow-hidden rounded-lg border bg-background">
+    <div style={{ width: "100%", height: "100%" }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -442,7 +442,7 @@ export function PrivacyTree({
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.4, maxZoom: 0.8 }}
+        fitViewOptions={{ padding: 0.15, maxZoom: 1.1 }}
         minZoom={0.1}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}

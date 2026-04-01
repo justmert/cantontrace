@@ -34,8 +34,7 @@ import {
 } from "@/components/ui/empty";
 import { IdBadge } from "@/components/id-badge";
 import { PartyBadge } from "@/components/party-badge";
-import { cn, formatTimestamp } from "@/lib/utils";
-import { formatTemplateId } from "@/lib/utils";
+import { cn, formatTimestamp, formatTemplateId, formatJsonForDisplay } from "@/lib/utils";
 import type {
   LedgerUpdate,
   LedgerEvent,
@@ -164,7 +163,7 @@ function EventDetail({ event }: { event: LedgerEvent }) {
           <div className="flex flex-col gap-1">
             <span className="text-xs font-medium text-muted-foreground">Payload</span>
             <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2 font-mono text-[10px]">
-              {JSON.stringify(e.payload, null, 2).slice(0, 800)}
+              {formatJsonForDisplay(e.payload).slice(0, 800)}
             </pre>
           </div>
         </div>
@@ -195,7 +194,7 @@ function EventDetail({ event }: { event: LedgerEvent }) {
           <div className="flex flex-col gap-1">
             <span className="text-xs font-medium text-muted-foreground">Choice Argument</span>
             <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2 font-mono text-[10px]">
-              {JSON.stringify(e.choiceArgument, null, 2).slice(0, 800)}
+              {formatJsonForDisplay(e.choiceArgument).slice(0, 800)}
             </pre>
           </div>
         </div>
@@ -221,7 +220,7 @@ function EventDetail({ event }: { event: LedgerEvent }) {
     default:
       return (
         <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2 font-mono text-[10px]">
-          {JSON.stringify(event, null, 2)}
+          {formatJsonForDisplay(event)}
         </pre>
       );
   }

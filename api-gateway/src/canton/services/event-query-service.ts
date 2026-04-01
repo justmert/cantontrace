@@ -19,6 +19,8 @@ export interface ContractEvents {
   created?: {
     event: CreatedEvent;
     synchronizerId: string;
+    /** The offset at which this contract was created (from CreatedEvent.created_at). */
+    createdAtOffset: string;
   };
   /** The archival event wrapper — present only if contract has been archived. */
   archived?: {
@@ -102,6 +104,7 @@ function mapContractEvents(response: GetEventsByContractIdResponse): ContractEve
           : undefined,
       },
       synchronizerId: response.created.synchronizer_id ?? '',
+      createdAtOffset: ce.created_at ?? '',
     };
   }
 

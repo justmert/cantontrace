@@ -236,6 +236,79 @@ export class UpdateServiceClient {
 
     return null;
   }
+
+  /**
+   * Look up the update (transaction) at a specific offset.
+   *
+   * Canton 3.4+ offsets are int64 strings. This queries GetUpdates with
+   * beginExclusive = offset - 1 and endInclusive = offset, which returns
+   * exactly the update at that offset (if it exists and is visible).
+   *
+   * Returns the update metadata (updateId, offset, recordTime) without
+   * needing the full transaction detail.
+   *
+   * @param offset - The offset string (int64) to look up.
+   * @param parties - Requesting parties.
+   */
+  async getUpdateMetadataAtOffset(
+    offset: string,
+    parties: string[],
+  ): Promise<{ updateId: string; offset: string; recordTime: string } | null> {
+    if (!offset) return null;
+
+    // Compute beginExclusive = offset - 1 (int64 arithmetic on strings)
+    const offsetNum = BigInt(offset);
+    const beginExclusive = offsetNum > 0n ? (offsetNum - 1n).toString() : '0';
+
+    return new Promise((resolve, reject) => {
+      let result: { updateId: string; offset: string; recordTime: string } | null = null;
+      let resolved = false;
+
+      const streamRef = this.getUpdates(
+        beginExclusive,
+        parties,
+        'ACS_DELTA', // Lighter shape — we only need metadata
+        offset, // endInclusive
+        undefined, // no template filter
+        (update) => {
+          if (resolved) return;
+          // Accept any transaction-type update at this offset
+          if (update.updateId) {
+            result = {
+              updateId: update.updateId,
+              offset: update.offset,
+              recordTime: update.recordTime,
+            };
+            // Got what we need — cancel the stream early
+            resolved = true;
+            streamRef.cancel();
+            resolve(result);
+          }
+        },
+        (error) => {
+          if (!resolved) {
+            resolved = true;
+            reject(error);
+          }
+        },
+        () => {
+          if (!resolved) {
+            resolved = true;
+            resolve(result);
+          }
+        },
+      );
+
+      // Safety timeout — don't hang forever
+      setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          streamRef.cancel();
+          resolve(result);
+        }
+      }, 5000);
+    });
+  }
 }
 
 // ============================================================
