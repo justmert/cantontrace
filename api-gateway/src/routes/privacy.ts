@@ -43,12 +43,18 @@ export function registerPrivacyRoutes(app: FastifyInstance): void {
     const { client, bootstrapInfo } = requireCantonContext(request);
     const { updateId } = request.params;
 
-    // Canton 3.4+ requires parties in the event_format filter
-    let requestingParties = bootstrapInfo.userRights
-      .filter((r): r is { type: 'CanReadAs'; party: string } => 'party' in r)
-      .map(r => r.party);
-    if (requestingParties.length === 0 && bootstrapInfo.knownParties?.length > 0) {
+    // Canton 3.4+ requires parties in the event_format filter.
+    // For privacy analysis we need ALL parties' views so we can build a
+    // complete visibility matrix. Prefer knownParties (all local parties
+    // discovered during bootstrap) over userRights (which may be a single
+    // admin party).
+    let requestingParties: string[] = [];
+    if (bootstrapInfo.knownParties?.length > 0) {
       requestingParties = bootstrapInfo.knownParties;
+    } else {
+      requestingParties = bootstrapInfo.userRights
+        .filter((r): r is { type: 'CanReadAs'; party: string } => 'party' in r)
+        .map(r => r.party);
     }
 
     // Fetch with LEDGER_EFFECTS to get full witness information

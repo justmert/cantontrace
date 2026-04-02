@@ -538,6 +538,21 @@ export default function EventsPage() {
     loadRecent,
   } = useEventStream(filter);
 
+  // Derive event counts by shape (created / archived / exercised)
+  const shapeCounts = useMemo(() => {
+    let created = 0;
+    let archived = 0;
+    let exercised = 0;
+    for (const update of events) {
+      for (const event of update.events ?? []) {
+        if (event.eventType === "created") created++;
+        else if (event.eventType === "archived") archived++;
+        else if (event.eventType === "exercised") exercised++;
+      }
+    }
+    return { created, archived, exercised };
+  }, [events]);
+
   return (
     <div className="flex h-full flex-col">
       {/* Page header with stream controls */}
@@ -550,6 +565,7 @@ export default function EventsPage() {
           status={status}
           isPaused={isPaused}
           eventCount={eventCount}
+          shapeCounts={shapeCounts}
           isLoadingRecent={isLoadingRecent}
           onPause={pause}
           onResume={resume}

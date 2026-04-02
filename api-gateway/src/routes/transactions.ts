@@ -80,6 +80,34 @@ export function registerTransactionRoutes(app: FastifyInstance): void {
     // rootEventIds lists the top-level events.
     // stateDiff is computed from the events.
 
+    // C3: Enrich consumed contract payloads in the state diff.
+    // Canton's archive events don't include the contract payload, so we
+    // fetch it from EventQueryService.GetEventsByContractId which returns
+    // the original Created event with full payload.
+    if (txDetail.stateDiff.inputs.length > 0 && parties.length > 0) {
+      const enrichPromises = txDetail.stateDiff.inputs.map(async (input) => {
+        // Skip if payload is already populated
+        if (input.payload && Object.keys(input.payload).length > 0) return;
+
+        try {
+          const contractEvents = await client.eventQueryService.getEventsByContractId(
+            input.contractId,
+            parties,
+          );
+          if (contractEvents.created) {
+            const createdEvent = contractEvents.created.event;
+            input.payload = createdEvent.payload;
+            input.signatories = createdEvent.signatories;
+            input.observers = createdEvent.observers;
+            input.templateId = createdEvent.templateId;
+          }
+        } catch {
+          // Best-effort: if the lookup fails (e.g. pruned), leave payload empty
+        }
+      });
+      await Promise.all(enrichPromises);
+    }
+
     const response: ApiResponse<TransactionDetail> = {
       data: txDetail,
       meta: {

@@ -44,7 +44,7 @@ const ENGINE_SERVICE_URL = process.env.ENGINE_SERVICE_URL ?? 'http://localhost:3
  *   - field 3: payload bytes (the ArchivePayload)
  *   - field 4: hash string (the package ID)
  */
-function wrapAsArchive(archivePayloadBase64: string, packageId: string): string {
+export function wrapAsArchive(archivePayloadBase64: string, packageId: string): string {
   const archivePayloadBytes = Buffer.from(archivePayloadBase64, 'base64');
   const hashBytes = Buffer.from(packageId, 'utf-8');
 

@@ -12,13 +12,16 @@ import type { FastifyInstance } from 'fastify';
 import { requireCantonContext } from '../middleware/canton-context.js';
 import type { CacheService } from '../services/cache.js';
 import type { TraceRequest, ExecutionTrace, ApiResponse, ActiveContract, TemplateId, DisclosedContract, TraceStep, TraceStepContext } from '../types.js';
+import { wrapAsArchive } from '../services/package-parser.js';
 
 /**
  * Serialize a TemplateId object to a colon-delimited string for the engine-service.
- * Engine expects "PackageName:Module:Entity".
+ * Engine expects "PackageId:Module:Entity" where PackageId is the hex hash.
+ * If only packageName is available, the caller must resolve it to packageId first.
  */
-function templateIdToString(tid: TemplateId): string {
-  return `${tid.packageName}:${tid.moduleName}:${tid.entityName}`;
+function templateIdToString(tid: TemplateId, resolvedPackageId?: string): string {
+  const pkgId = resolvedPackageId ?? tid.packageName;
+  return `${pkgId}:${tid.moduleName}:${tid.entityName}`;
 }
 
 /**
@@ -36,12 +39,16 @@ function flattenPayload(payload: Record<string, unknown>): Record<string, string
  * Convert an ActiveContract (Canton format) to a ContractRequest (engine format)
  * keyed by contractId in a map.
  */
-function acsToContractsMap(contracts: ActiveContract[]): Record<string, unknown> {
+function acsToContractsMap(
+  contracts: ActiveContract[],
+  packageResolver?: (name: string) => string | undefined,
+): Record<string, unknown> {
   const map: Record<string, unknown> = {};
   for (const c of contracts) {
+    const resolvedPkgId = packageResolver?.(c.templateId.packageName) ?? c.templateId.packageName;
     map[c.contractId] = {
       contractId: c.contractId,
-      templateId: templateIdToString(c.templateId),
+      templateId: templateIdToString(c.templateId, resolvedPkgId),
       payload: flattenPayload(c.payload),
       signatories: c.signatories,
       observers: c.observers,
@@ -126,6 +133,28 @@ function normalizeStepContext(rawContext: Record<string, unknown>): TraceStepCon
 /**
  * Parse a "Package:Module:Entity" string into a TemplateId, or return undefined.
  */
+/**
+ * Normalize the engine's resultTransaction: parse string templateIds into objects,
+ * ensure events have proper structure for frontend rendering.
+ */
+function normalizeResultTransaction(
+  raw: Record<string, unknown> | undefined
+): ExecutionTrace['resultTransaction'] {
+  if (!raw) return undefined;
+
+  const eventsById = raw.eventsById as Record<string, Record<string, unknown>> | undefined;
+  if (eventsById) {
+    for (const [, event] of Object.entries(eventsById)) {
+      // Parse string templateId to object
+      if (typeof event.templateId === 'string') {
+        event.templateId = parseTemplateIdString(event.templateId) ?? event.templateId;
+      }
+    }
+  }
+
+  return raw as unknown as ExecutionTrace['resultTransaction'];
+}
+
 function parseTemplateIdString(s: string | undefined): TemplateId | undefined {
   if (!s) return undefined;
   const parts = s.split(':');
@@ -187,10 +216,154 @@ function normalizeEngineTrace(raw: Record<string, unknown>, actAs?: string[]): E
     steps,
     sourceFiles: (raw.sourceFiles ?? {}) as Record<string, string>,
     sourceAvailable: (raw.sourceAvailable ?? false) as boolean,
-    resultTransaction: raw.resultTransaction as ExecutionTrace['resultTransaction'],
+    resultTransaction: normalizeResultTransaction(raw.resultTransaction as Record<string, unknown> | undefined),
     error: raw.error as string | undefined,
     profilerData: raw.profilerData,
   };
+}
+
+/**
+ * Compute approximate source locations for trace steps by scanning the
+ * decompiled Daml-LF source for structural keywords.
+ *
+ * The Decompiler produces a predictable structure:
+ *   line N:   template TemplateName
+ *   line N+1:   with
+ *   line N+k:   where
+ *   line N+k+1:     signatory ...
+ *   line N+k+2:     observer ...
+ *   line N+k+3:     ensure ...
+ *   line N+m:     choice ChoiceName : ReturnType
+ *   ...
+ *
+ * We scan for these keywords and map step types to the matching lines.
+ */
+function computeSourceLocations(
+  sourceContent: string,
+  sourceFileName: string,
+  templateName: string | undefined,
+  choiceName: string | undefined,
+  steps: TraceStep[],
+): void {
+  const lines = sourceContent.split('\n');
+
+  // Build a keyword→line map by scanning the decompiled source
+  let templateLine = 0;
+  let signatoryLine = 0;
+  let ensureLine = 0;
+  let choiceLine = 0;
+  let createLine = 0;
+  let withFieldsLine = 0;
+  let inTargetTemplate = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!.trim();
+    const lineNum = i + 1; // 1-based
+
+    // Detect template definition
+    if (line.startsWith('template ')) {
+      const name = line.replace('template ', '').trim();
+      if (!templateName || name === templateName) {
+        templateLine = lineNum;
+        inTargetTemplate = true;
+      } else {
+        inTargetTemplate = false;
+      }
+      continue;
+    }
+
+    if (!inTargetTemplate) continue;
+
+    // Detect "with" block (fields)
+    if (line === 'with' && !withFieldsLine && templateLine > 0) {
+      withFieldsLine = lineNum;
+      continue;
+    }
+
+    if (line.startsWith('signatory ')) {
+      signatoryLine = lineNum;
+      continue;
+    }
+
+    if (line.startsWith('ensure ')) {
+      ensureLine = lineNum;
+      continue;
+    }
+
+    // Detect choice definition — match optional "nonconsuming" prefix
+    if (line.startsWith('choice ') || line.startsWith('nonconsuming choice ') || line.startsWith('preconsuming choice ') || line.startsWith('postconsuming choice ')) {
+      const nameMatch = line.match(/choice\s+(\w+)/);
+      if (nameMatch) {
+        if (!choiceName || nameMatch[1] === choiceName) {
+          choiceLine = lineNum;
+        }
+      }
+      continue;
+    }
+
+    // Detect create in choice body
+    if ((line.startsWith('create ') || line === 'create') && choiceLine > 0 && !createLine) {
+      createLine = lineNum;
+      continue;
+    }
+  }
+
+  // Fall back: if no specific lines found, use the template line
+  if (!templateLine) templateLine = 1;
+  if (!signatoryLine) signatoryLine = templateLine;
+  if (!ensureLine) ensureLine = signatoryLine;
+  if (!choiceLine) choiceLine = templateLine;
+  if (!createLine) createLine = choiceLine;
+  if (!withFieldsLine) withFieldsLine = templateLine;
+
+  // Map step types to source locations
+  for (const step of steps) {
+    // Skip if already has a source location
+    if (step.sourceLocation) continue;
+
+    let targetLine: number;
+    switch (step.stepType) {
+      case 'fetch_package':
+        targetLine = 1; // top of file
+        break;
+      case 'evaluate_expression':
+        // Command interpretation → template or choice header
+        if (step.summary.includes('choice_body')) {
+          targetLine = choiceLine;
+        } else {
+          targetLine = templateLine;
+        }
+        break;
+      case 'fetch_contract':
+        targetLine = withFieldsLine; // template data definition
+        break;
+      case 'check_authorization':
+        targetLine = signatoryLine;
+        break;
+      case 'evaluate_guard':
+        targetLine = ensureLine;
+        break;
+      case 'exercise_choice':
+        targetLine = choiceLine;
+        break;
+      case 'create_contract':
+        targetLine = createLine || choiceLine;
+        break;
+      case 'archive_contract':
+        targetLine = choiceLine;
+        break;
+      default:
+        targetLine = templateLine;
+    }
+
+    step.sourceLocation = {
+      file: sourceFileName,
+      startLine: targetLine,
+      startCol: 1,
+      endLine: targetLine,
+      endCol: (lines[targetLine - 1]?.length ?? 0) + 1,
+    };
+  }
 }
 
 const ENGINE_SERVICE_URL = process.env.ENGINE_SERVICE_URL ?? 'http://localhost:3002';
@@ -273,19 +446,32 @@ export function registerTraceRoutes(app: FastifyInstance, cache: CacheService): 
         pkgBytes = Buffer.from(pkg.archivePayload);
         await cache.setPackageBytes(pkgId, pkgBytes);
       }
-      packages[pkgId] = pkgBytes.toString('base64');
+      // Canton's GetPackage returns the ArchivePayload (inner bytes), not the
+      // full DamlLf.Archive. The engine expects a complete Archive protobuf,
+      // so wrap the payload in the Archive envelope.
+      const payloadBase64 = pkgBytes.toString('base64');
+      packages[pkgId] = wrapAsArchive(payloadBase64, pkgId);
     }
+
+    // Resolve package name to package ID (hex hash) for the real engine
+    const templatePkgName = body.command.templateId.packageName;
+    const resolvedPkgId = bootstrapInfo.packages.find(
+      (p) => p.packageName === templatePkgName
+    )?.packageId ?? templatePkgName;
 
     // Transform command for engine-service format
     const engineCommand = {
-      templateId: templateIdToString(body.command.templateId),
+      templateId: templateIdToString(body.command.templateId, resolvedPkgId),
       choice: body.command.choice ?? null,
       contractId: body.command.contractId ?? null,
       arguments: flattenPayload(body.command.arguments),
     };
 
     // Transform ACS contracts to engine-service format (keyed by contractId)
-    const engineContracts = acsToContractsMap(contracts);
+    // Build a resolver to convert package names → package IDs
+    const pkgResolver = (name: string) =>
+      bootstrapInfo.packages.find((p) => p.packageName === name)?.packageId;
+    const engineContracts = acsToContractsMap(contracts, pkgResolver);
 
     // Transform disclosed contracts
     const engineDisclosed = disclosedToEngine(body.disclosedContracts ?? []);
@@ -331,15 +517,35 @@ export function registerTraceRoutes(app: FastifyInstance, cache: CacheService): 
             const decompileResponse = await fetch(`${ENGINE_SERVICE_URL}/api/v1/decompile`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ dalfBase64: packages[pkgId] }),
+              body: JSON.stringify({ dalfBytes: packages[pkgId] }),
             });
 
             if (decompileResponse.ok) {
               const decompiled = await decompileResponse.json() as Record<string, unknown>;
-              const decompiledSource = (decompiled as { decompiledSource?: string }).decompiledSource;
-              if (decompiledSource && typeof decompiledSource === 'string') {
-                const fileName = `${templateParts.moduleName}.daml (decompiled)`;
-                traceResult.sourceFiles = { [fileName]: decompiledSource };
+              // The engine returns { sources: { "Module/Name.daml": "..." }, moduleCount, totalChars }
+              const sources = decompiled.sources as Record<string, string> | undefined;
+              if (sources && typeof sources === 'object') {
+                // Use all decompiled module sources
+                const sourceEntries = Object.entries(sources);
+                if (sourceEntries.length > 0) {
+                  // Pick the module matching the traced template, or use the first one
+                  const modulePath = templateParts.moduleName.replace(/\./g, '/');
+                  const matchingEntry = sourceEntries.find(([k]) => k.includes(modulePath));
+                  const [fileName, content] = matchingEntry ?? sourceEntries[0]!;
+                  const displayName = `${fileName} (decompiled)`;
+                  traceResult.sourceFiles = { [displayName]: content };
+                  // Also store under the bare filename for sourceLocation.file matching
+                  traceResult.sourceFiles[fileName] = content;
+
+                  // Compute source locations for steps that don't have them
+                  computeSourceLocations(
+                    content,
+                    displayName,
+                    templateParts.entityName,
+                    body.command.choice ?? undefined,
+                    traceResult.steps,
+                  );
+                }
               }
             }
           } catch {

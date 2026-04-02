@@ -444,7 +444,7 @@ export function EventList({ events, isPaused }: EventListProps) {
     for (const update of events) {
       const updateEvents = update.events ?? [];
       if (updateEvents.length === 0) {
-        // Topology / checkpoint with no sub-events -- create a synthetic event card
+        // Topology / checkpoint with no sub-events -- create a summary event card
         result.push({
           update,
           event: {

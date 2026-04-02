@@ -95,89 +95,105 @@ function PrivacyEventNode({
     bgColor: "bg-muted",
   };
 
+  // Build a CSS gradient for the left-side party color strip
+  const partyStripColors = visibleParties.map((p) => partyColors[p]?.hex ?? "#888");
+  const partyStripGradient =
+    partyStripColors.length > 1
+      ? `linear-gradient(to bottom, ${partyStripColors.map((c, i) => `${c} ${(i / partyStripColors.length) * 100}%, ${c} ${((i + 1) / partyStripColors.length) * 100}%`).join(", ")})`
+      : partyStripColors[0] ?? "var(--muted-foreground)";
+
   return (
     <TooltipProvider>
       <div
         className={cn(
-          "min-w-[200px] max-w-[260px] rounded-md border-2 bg-card p-3 shadow-sm transition-all",
-          typeConfig.borderColor,
+          "flex min-w-[200px] max-w-[260px] overflow-hidden rounded-md border bg-card shadow-sm transition-all",
           isGrayed && "opacity-40",
           event.isDisclosed && "border-dashed"
         )}
       >
-        {/* Event type badge */}
-        <div className="mb-2 flex items-center justify-between">
-          <Badge
-            variant="outline"
-            className={cn("text-[10px]", typeConfig.bgColor)}
-          >
-            {typeConfig.label}
-          </Badge>
-          {event.isDisclosed && disclosedBoundary && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-0.5">
-                  <HugeiconsIcon icon={ShieldEnergyIcon} strokeWidth={2} className="size-3 text-secondary-foreground" />
-                  <span className="text-[9px] text-secondary-foreground">
-                    Disclosed
-                  </span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <p className="text-xs">
-                  Accessed via explicit disclosure &mdash;{" "}
-                  <PartyBadge party={disclosedBoundary.accessedBy} variant="compact" />{" "}
-                  is not a stakeholder but accessed it through an attached
-                  disclosed contract.
-                </p>
-              </TooltipContent>
-            </Tooltip>
+        {/* Left-side party color strip */}
+        <div
+          className="w-1.5 shrink-0"
+          style={{
+            background: isGrayed ? "var(--muted-foreground)" : partyStripGradient,
+          }}
+        />
+
+        <div className="flex-1 p-3">
+          {/* Event type badge */}
+          <div className="mb-2 flex items-center justify-between">
+            <Badge
+              variant="outline"
+              className={cn("text-[10px]", typeConfig.bgColor)}
+            >
+              {typeConfig.label}
+            </Badge>
+            {event.isDisclosed && disclosedBoundary && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-0.5">
+                    <HugeiconsIcon icon={ShieldEnergyIcon} strokeWidth={2} className="size-3 text-secondary-foreground" />
+                    <span className="text-[9px] text-secondary-foreground">
+                      Disclosed
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="text-xs">
+                    Accessed via explicit disclosure &mdash;{" "}
+                    <PartyBadge party={disclosedBoundary.accessedBy} variant="compact" />{" "}
+                    is not a stakeholder but accessed it through an attached
+                    disclosed contract.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+
+          {/* Template name */}
+          <div className="mb-1 text-sm font-medium">
+            {event.templateId.entityName}
+          </div>
+
+          {/* Event ID */}
+          <div className="mb-2 truncate font-mono text-[10px] text-muted-foreground" title={event.eventId}>
+            {event.eventId}
+          </div>
+
+          {/* Party visibility dots */}
+          {isGrayed ? (
+            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+              <HugeiconsIcon icon={ViewOffIcon} strokeWidth={2} className="size-3" />
+              <span className="italic">
+                {highlightedParty
+                  ? `Not in ${highlightedParty.split("::")[0]}'s projection`
+                  : "Not in selected parties' projection"}
+              </span>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-1">
+              {visibleParties.map((party) => {
+                const color = partyColors[party];
+                return (
+                  <Tooltip key={party}>
+                    <TooltipTrigger asChild>
+                      <div
+                        className={cn(
+                          "size-3 rounded-full ring-1 ring-offset-1 ring-offset-background",
+                          color?.bg,
+                          color?.ring
+                        )}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <PartyBadge party={party} variant="compact" />
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
           )}
         </div>
-
-        {/* Template name */}
-        <div className="mb-1 text-sm font-medium">
-          {event.templateId.entityName}
-        </div>
-
-        {/* Event ID */}
-        <div className="mb-2 truncate font-mono text-[10px] text-muted-foreground" title={event.eventId}>
-          {event.eventId}
-        </div>
-
-        {/* Party visibility dots */}
-        {isGrayed ? (
-          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-            <HugeiconsIcon icon={ViewOffIcon} strokeWidth={2} className="size-3" />
-            <span className="italic">
-              {highlightedParty
-                ? `Not in ${highlightedParty}'s projection`
-                : "Not in selected parties' projection"}
-            </span>
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-1">
-            {visibleParties.map((party) => {
-              const color = partyColors[party];
-              return (
-                <Tooltip key={party}>
-                  <TooltipTrigger asChild>
-                    <div
-                      className={cn(
-                        "size-3 rounded-full ring-1 ring-offset-1 ring-offset-background",
-                        color?.bg,
-                        color?.ring
-                      )}
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <PartyBadge party={party} variant="compact" />
-                  </TooltipContent>
-                </Tooltip>
-              );
-            })}
-          </div>
-        )}
 
         {/* Handles */}
         <Handle
@@ -316,19 +332,37 @@ function buildTreeLayout(
     });
   }
 
-  // Create edges from parent-child relationships
+  // Create edges from parent-child relationships, colored by shared party visibility
   for (const [parentId, childIds] of childrenOf.entries()) {
+    const parentEvent = eventMap.get(parentId);
     for (const childId of childIds) {
+      const childEvent = eventMap.get(childId);
+      // Find the first selected party visible in both parent and child to color the edge
+      let edgeColor: string | undefined;
+      if (parentEvent && childEvent) {
+        const parentWitnesses = new Set(parentEvent.witnesses);
+        const sharedParty = childEvent.witnesses.find(
+          (p) => parentWitnesses.has(p) && selectedParties.has(p)
+        );
+        if (sharedParty && partyColors[sharedParty]) {
+          edgeColor = partyColors[sharedParty].hex;
+        }
+      }
+
       edges.push({
         id: `edge-${parentId}-${childId}`,
         source: parentId,
         target: childId,
         type: "smoothstep",
-        style: { strokeWidth: 1.5 },
+        style: {
+          strokeWidth: 1.5,
+          ...(edgeColor ? { stroke: edgeColor } : {}),
+        },
         markerEnd: {
           type: MarkerType.ArrowClosed,
           width: 12,
           height: 12,
+          ...(edgeColor ? { color: edgeColor } : {}),
         },
       });
     }

@@ -21,6 +21,7 @@ import { PartyManagementServiceClient } from './services/party-management-servic
 import { UserManagementServiceClient } from './services/user-management-service.js';
 import { PruningServiceClient } from './services/pruning-service.js';
 import { CANTON_SERVICES } from './proto/types.js';
+import type * as protoLoader from '@grpc/proto-loader';
 import { loadCantonProtos, getServiceConstructor } from './proto-loader.js';
 import { runBootstrapSequence, type BootstrapOptions } from './bootstrap.js';
 import type { BootstrapInfo } from '../types.js';
@@ -64,6 +65,8 @@ export class CantonClient {
 
   // Raw gRPC clients per service
   private grpcClients: Map<string, grpc.Client> = new Map();
+  // Proto package definition — used for decoding nested protobuf bytes
+  private _packageDefinition: protoLoader.PackageDefinition | null = null;
 
   constructor(endpoint: string, options?: CantonClientOptions) {
     this.endpoint = endpoint;
@@ -96,6 +99,7 @@ export class CantonClient {
     // Load proto definitions from the Canton server via gRPC Server Reflection.
     // This fetches the FileDescriptorSet and builds proper protobuf serializers.
     const cantonProtos = await loadCantonProtos(this.endpoint, credentials, channelOptions);
+    this._packageDefinition = cantonProtos.packageDefinition;
 
     // Create a gRPC client for each Canton service using the real proto definitions.
     for (const [key, servicePath] of Object.entries(CANTON_SERVICES)) {
@@ -217,6 +221,7 @@ export class CantonClient {
       this._interactiveSubmissionService = new InteractiveSubmissionServiceClient(
         this.getGrpcClient('INTERACTIVE_SUBMISSION_SERVICE'),
         () => this.token,
+        this._packageDefinition ?? undefined,
       );
     }
     return this._interactiveSubmissionService;

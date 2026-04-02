@@ -18,10 +18,17 @@ import {
 import { cn } from "@/lib/utils";
 import type { ConnectionStatus } from "../hooks";
 
+export interface EventShapeCounts {
+  created: number;
+  archived: number;
+  exercised: number;
+}
+
 export interface StreamControlsProps {
   status: ConnectionStatus;
   isPaused: boolean;
   eventCount: number;
+  shapeCounts?: EventShapeCounts;
   isLoadingRecent?: boolean;
   onPause: () => void;
   onResume: () => void;
@@ -61,6 +68,7 @@ export function StreamControls({
   status,
   isPaused,
   eventCount,
+  shapeCounts,
   isLoadingRecent,
   onPause,
   onResume,
@@ -79,6 +87,20 @@ export function StreamControls({
       <Badge variant="secondary" className="font-mono text-xs">
         {eventCount.toLocaleString()} event{eventCount !== 1 ? "s" : ""}
       </Badge>
+
+      {/* Event shape counts */}
+      {shapeCounts && eventCount > 0 && (
+        <span className="flex items-center gap-1.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+          <span className="text-event-create">{shapeCounts.created}</span>
+          <span className="text-muted-foreground/40">c</span>
+          <span className="text-muted-foreground/30">/</span>
+          <span className="text-event-archive">{shapeCounts.archived}</span>
+          <span className="text-muted-foreground/40">a</span>
+          <span className="text-muted-foreground/30">/</span>
+          <span className="text-event-exercise">{shapeCounts.exercised}</span>
+          <span className="text-muted-foreground/40">e</span>
+        </span>
+      )}
 
       <div className="h-4 w-px bg-border" />
 

@@ -104,7 +104,11 @@ function mapContractEvents(response: GetEventsByContractIdResponse): ContractEve
           : undefined,
       },
       synchronizerId: response.created.synchronizer_id ?? '',
-      createdAtOffset: ce.created_at ?? '',
+      createdAtOffset: typeof ce.created_at === 'string'
+        ? ce.created_at
+        : ce.created_at?.seconds
+          ? String(ce.created_at.seconds)
+          : '',
     };
   }
 

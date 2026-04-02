@@ -127,13 +127,17 @@ object Decompiler extends LazyLogging {
     sb.append(s"module ${module.name} where\n")
     sb.append('\n')
 
-    // Type definitions (data types, enums)
-    for (typeDef <- module.typeDefinitions) {
+    // Collect template names so we can suppress duplicate data definitions
+    val templateNames = module.templates.map(_.name).toSet
+
+    // Type definitions (data types, enums) — skip types that have a matching
+    // template block, since the template block already includes the fields
+    for (typeDef <- module.typeDefinitions if !templateNames.contains(typeDef.name)) {
       sb.append(decompileTypeDef(typeDef))
       sb.append('\n')
     }
 
-    // Templates
+    // Templates (includes fields, signatory, observer, ensure, choices)
     for (template <- module.templates) {
       sb.append(decompileTemplate(template))
       sb.append('\n')
@@ -171,7 +175,10 @@ object Decompiler extends LazyLogging {
 
     // Signatory/observer
     sb.append(s"$indent${indent}signatory ${template.signatoryExpression}\n")
-    sb.append(s"$indent${indent}observer ${template.observerExpression}\n")
+    val obs = template.observerExpression.trim
+    if (obs.nonEmpty && obs != "[]" && obs != "<parsed from DALF>") {
+      sb.append(s"$indent${indent}observer $obs\n")
+    }
 
     // Ensure clause
     template.ensureExpression.foreach { ensure =>

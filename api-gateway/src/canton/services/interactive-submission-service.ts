@@ -9,6 +9,9 @@
  */
 
 import type * as grpc from '@grpc/grpc-js';
+import type * as protoLoader from '@grpc/proto-loader';
+import protobuf from 'protobufjs';
+import descriptor from 'protobufjs/ext/descriptor/index.js';
 import type {
   PrepareSubmissionResponse,
   PreparedTransaction,
@@ -27,23 +30,44 @@ import type {
 import { valueToObject } from './state-service.js';
 
 export class InteractiveSubmissionServiceClient {
+  private protobufRoot: protobuf.Root | null = null;
+
   constructor(
     private readonly client: grpc.Client,
     private readonly getToken: () => string | null,
-  ) {}
+    private readonly packageDefinition?: protoLoader.PackageDefinition,
+  ) {
+    // Build a protobufjs Root from the package definition's FileDescriptorProtos
+    // so we can properly decode PreparedTransaction bytes
+    if (packageDefinition) {
+      try {
+        const allFdProtos = new Set<Buffer>();
+        for (const entry of Object.values(packageDefinition) as Array<{ fileDescriptorProtos?: Buffer[] }>) {
+          if (entry.fileDescriptorProtos) {
+            for (const fd of entry.fileDescriptorProtos) {
+              allFdProtos.add(fd);
+            }
+          }
+        }
+        if (allFdProtos.size > 0) {
+          const decodedFiles = [...allFdProtos].map(buf =>
+            descriptor.FileDescriptorProto.decode(buf)
+          );
+          const fdsMessage = descriptor.FileDescriptorSet.create({ file: decodedFiles });
+          this.protobufRoot = (protobuf.Root as unknown as { fromDescriptor(desc: unknown): protobuf.Root }).fromDescriptor(fdsMessage);
+          this.protobufRoot.resolveAll();
+          // protobufjs Root built for PreparedTransaction decoding
+        }
+      } catch (err) {
+        console.warn('Failed to build protobufjs Root for PreparedTransaction decoding:', err);
+      }
+    }
+  }
 
   /**
    * Prepare a submission without executing it.
    *
    * NEVER calls ExecuteSubmission — pure simulation.
-   *
-   * @param commands - Simulation commands (using package-name format, NOT package-id).
-   * @param actAs - Acting parties.
-   * @param readAs - Read-only parties.
-   * @param applicationId - Application identifier.
-   * @param commandId - Unique command identifier.
-   * @param synchronizerId - Optional synchronizer ID.
-   * @param disclosedContracts - Optional disclosed contracts.
    */
   async prepareSubmission(
     commands: SimulationCommand[],
@@ -56,14 +80,13 @@ export class InteractiveSubmissionServiceClient {
   ): Promise<PrepareResult> {
     const metadata = createMetadata(this.getToken());
 
-    // Build Commands using package-name format
     const grpcCommands = commands.map(buildGrpcCommand);
 
     // Canton 3.4: PrepareSubmissionRequest has flat fields (not nested Commands message)
     const request: Record<string, unknown> = {
       user_id: applicationId,
       command_id: commandId,
-      commands: grpcCommands, // repeated Command (flat array, not nested)
+      commands: grpcCommands,
       act_as: actAs,
       read_as: readAs,
       synchronizer_id: synchronizerId || undefined,
@@ -85,7 +108,92 @@ export class InteractiveSubmissionServiceClient {
       metadata,
     );
 
-    return mapPrepareResponse(response);
+    return this.mapPrepareResponse(response);
+  }
+
+  // ============================================================
+  // Response Mapping
+  // ============================================================
+
+  private mapPrepareResponse(response: PrepareSubmissionResponse): PrepareResult {
+    const hashVersionMap: Record<number, string> = {
+      [HashingSchemeVersion.HASHING_SCHEME_VERSION_V1]: 'V1',
+      [HashingSchemeVersion.HASHING_SCHEME_VERSION_V2]: 'V2',
+    };
+
+    // Decode PreparedTransaction from bytes using real protobuf decoding
+    const decoded = this.decodePreparedTransaction(response.prepared_transaction);
+    const { inputContracts, globalKeyMapping } = decoded
+      ? extractMetadata(decoded)
+      : { inputContracts: [] as PrepareResult['inputContracts'], globalKeyMapping: [] as PrepareResult['globalKeyMapping'] };
+
+    return {
+      preparedTransactionBytes: response.prepared_transaction,
+      hashInfo: {
+        transactionHash: bufferToHex(response.prepared_transaction_hash),
+        hashingSchemeVersion:
+          hashVersionMap[response.hashing_scheme_version] ??
+          `VERSION_${response.hashing_scheme_version}`,
+        hashingDetails: response.hashing_details ?? undefined,
+        isAdvisory: true,
+      },
+      costEstimation: response.cost_estimation
+        ? {
+            estimatedCost: response.cost_estimation.estimated_cost,
+            unit: response.cost_estimation.unit,
+          }
+        : undefined,
+      inputContracts,
+      globalKeyMapping,
+    };
+  }
+
+  /**
+   * Decode prepared_transaction protobuf bytes using the packageDefinition
+   * loaded from Canton's gRPC server reflection.
+   *
+   * The packageDefinition maps fully-qualified message names to definitions.
+   * Each definition has a protobufjs `type` with .decode() method.
+   */
+  /**
+   * Decode prepared_transaction protobuf bytes using the protobufjs Root
+   * built from Canton's server reflection descriptors.
+   */
+  private decodePreparedTransaction(bytes: Uint8Array): PreparedTransaction | null {
+    if (!bytes || bytes.length === 0) return null;
+
+    // Use the protobufjs Root for proper binary protobuf decoding
+    if (this.protobufRoot) {
+      try {
+        const PreparedTransactionType = this.protobufRoot.lookupType(
+          'com.daml.ledger.api.v2.interactive.PreparedTransaction'
+        );
+        const message = PreparedTransactionType.decode(
+          bytes instanceof Buffer ? new Uint8Array(bytes) : bytes
+        );
+        const obj = PreparedTransactionType.toObject(message, {
+          longs: String,
+          enums: String,
+          defaults: true,
+          arrays: true,
+          objects: true,
+        }) as unknown as PreparedTransaction;
+        // protobufjs decode succeeded
+        if (obj?.metadata) return obj;
+      } catch (err) {
+        console.warn('PreparedTransaction protobuf decode failed:', (err as Error).message);
+      }
+    }
+
+    // Last attempt: bytes might already be auto-decoded by proto-loader
+    try {
+      const maybeDecoded = bytes as unknown as PreparedTransaction;
+      if (maybeDecoded?.metadata?.input_contracts) return maybeDecoded;
+    } catch {
+      // Not auto-decoded
+    }
+
+    return null;
   }
 }
 
@@ -99,16 +207,12 @@ export interface PrepareResult {
     transactionHash: string;
     hashingSchemeVersion: string;
     hashingDetails?: string;
-    isAdvisory: boolean; // Always true for Canton 3.5
+    isAdvisory: boolean;
   };
   costEstimation?: {
     estimatedCost: string;
     unit: string;
   };
-  /**
-   * Input contracts are nested inside PreparedTransaction.Metadata (CORRECT PATH).
-   * These are decoded from the prepared_transaction bytes.
-   */
   inputContracts: Array<{
     contract: ActiveContract;
     createdAt: string;
@@ -120,116 +224,106 @@ export interface PrepareResult {
 }
 
 // ============================================================
-// Mapping Helpers
+// Metadata Extraction
 // ============================================================
 
-function mapPrepareResponse(response: PrepareSubmissionResponse): PrepareResult {
-  const hashVersionMap: Record<number, string> = {
-    [HashingSchemeVersion.HASHING_SCHEME_VERSION_V1]: 'V1',
-    [HashingSchemeVersion.HASHING_SCHEME_VERSION_V2]: 'V2',
-  };
-
-  // Decode PreparedTransaction from bytes to extract Metadata.input_contracts
-  // In a full implementation, this would use protobuf deserialization
-  // For now, we attempt to decode the bytes as a PreparedTransaction
-  const { inputContracts, globalKeyMapping } = decodePreparedTransactionMetadata(
-    response.prepared_transaction,
-  );
-
-  return {
-    preparedTransactionBytes: response.prepared_transaction,
-    hashInfo: {
-      transactionHash: bufferToHex(response.prepared_transaction_hash),
-      hashingSchemeVersion:
-        hashVersionMap[response.hashing_scheme_version] ??
-        `VERSION_${response.hashing_scheme_version}`,
-      hashingDetails: response.hashing_details ?? undefined,
-      // ADVISORY: Canton 3.5 warns that clients must recompute hash if participant not trusted
-      isAdvisory: true,
-    },
-    costEstimation: response.cost_estimation
-      ? {
-          estimatedCost: response.cost_estimation.estimated_cost,
-          unit: response.cost_estimation.unit,
-        }
-      : undefined,
-    inputContracts,
-    globalKeyMapping,
-  };
-}
-
-/**
- * Decode PreparedTransaction protobuf bytes to extract Metadata.
- *
- * CORRECT PATH: PreparedTransaction -> Metadata -> input_contracts
- * NOT a top-level field.
- */
-function decodePreparedTransactionMetadata(
-  bytes: Uint8Array,
-): {
+function extractMetadata(decoded: PreparedTransaction): {
   inputContracts: PrepareResult['inputContracts'];
   globalKeyMapping: PrepareResult['globalKeyMapping'];
 } {
-  // In production, this would be full protobuf deserialization.
-  // The PreparedTransaction message has Metadata as a field containing
-  // repeated InputContract and repeated GlobalKeyMappingEntry.
-  //
-  // Since we're using dynamic gRPC loading, the response may already
-  // be decoded by @grpc/proto-loader into a JS object. We handle both cases.
-
   const inputContracts: PrepareResult['inputContracts'] = [];
   const globalKeyMapping: PrepareResult['globalKeyMapping'] = [];
 
-  try {
-    // If the bytes are actually a decoded JS object (proto-loader auto-decode)
-    const decoded = bytes as unknown as PreparedTransaction;
-    if (decoded?.metadata) {
-      for (const ic of decoded.metadata.input_contracts ?? []) {
-        if (ic.contract?.created_event) {
-          const event = ic.contract.created_event;
+  if (decoded?.metadata) {
+    for (const ic of decoded.metadata.input_contracts ?? []) {
+      // Canton 3.4.11 wraps input contracts under a "v1" key
+      const contractData = (ic as Record<string, unknown>).v1 as Record<string, unknown> | undefined;
+
+      if (contractData) {
+        // v1 format: { contract_id, package_name, template_id, argument: { record: { fields } }, signatories, stakeholders }
+        const contractId = contractData.contract_id as string;
+        const templateIdRaw = contractData.template_id as Identifier | undefined;
+        const packageName = contractData.package_name as string | undefined;
+        // argument has a "record" wrapper (protobuf oneof): argument.record.fields
+        const argument = contractData.argument as Record<string, unknown> | undefined;
+        const recordArg = (argument?.record ?? argument) as { fields?: Array<{ label: string; value: unknown }> } | undefined;
+        const signatories = (contractData.signatories ?? []) as string[];
+        // stakeholders = signatories + observers; extract observers as stakeholders - signatories
+        const stakeholders = (contractData.stakeholders ?? []) as string[];
+        const observers = stakeholders.filter(s => !signatories.includes(s));
+        const createdAt = (contractData.created_at ?? (ic as Record<string, unknown>).created_at ?? '') as string;
+
+        const payload = recordArg?.fields
+          ? recordToPlain(recordArg as { fields: Array<{ label: string; value: unknown }> })
+          : {};
+
+        const templateId = templateIdRaw
+          ? {
+              packageName: packageName ?? templateIdRaw.package_id ?? '',
+              moduleName: templateIdRaw.module_name ?? '',
+              entityName: templateIdRaw.entity_name ?? '',
+            }
+          : { packageName: packageName ?? '', moduleName: '', entityName: '' };
+
+        inputContracts.push({
+          contract: {
+            contractId,
+            templateId,
+            payload,
+            signatories,
+            observers,
+            createdAt,
+          },
+          createdAt,
+        });
+      } else if ((ic as Record<string, unknown>).contract) {
+        // Legacy format: { contract: { created_event: { ... } } }
+        const legacyContract = (ic as Record<string, unknown>).contract as Record<string, unknown>;
+        const event = legacyContract.created_event as Record<string, unknown> | undefined;
+        if (event) {
           inputContracts.push({
             contract: {
-              contractId: event.contract_id,
-              templateId: identifierToTemplateId(event.template_id),
+              contractId: event.contract_id as string,
+              templateId: identifierToTemplateId(event.template_id as Identifier | undefined),
               payload: event.create_arguments
-                ? recordToPlain(event.create_arguments)
+                ? recordToPlain(event.create_arguments as { fields: Array<{ label: string; value: unknown }> })
                 : {},
-              signatories: event.signatories ?? [],
-              observers: event.observers ?? [],
-              createdAt: event.created_at ?? '',
+              signatories: (event.signatories ?? []) as string[],
+              observers: (event.observers ?? []) as string[],
+              createdAt: (event.created_at ?? '') as string,
             },
-            createdAt: ic.created_at ?? '',
+            createdAt: ((ic as Record<string, unknown>).created_at ?? '') as string,
           });
         }
       }
-
-      for (const gkm of decoded.metadata.global_key_mapping ?? []) {
-        globalKeyMapping.push({
-          key: gkm.key ? (valueToObject(gkm.key) as Record<string, unknown>) : {},
-          contractId: gkm.contract_id ?? undefined,
-        });
-      }
     }
-  } catch {
-    // If bytes are raw protobuf, we cannot decode without full proto definitions.
-    // This path would require additional protobuf deserialization logic.
+
+    for (const gkm of decoded.metadata.global_key_mapping ?? []) {
+      const gkmObj = gkm as Record<string, unknown>;
+      globalKeyMapping.push({
+        key: gkmObj.key ? (valueToObject(gkmObj.key) as Record<string, unknown>) : {},
+        contractId: (gkmObj.contract_id as string) ?? undefined,
+      });
+    }
   }
 
   return { inputContracts, globalKeyMapping };
 }
 
+// ============================================================
+// Command Building
+// ============================================================
+
 function buildGrpcCommand(cmd: SimulationCommand): Command {
   const templateId = templateIdToIdentifier(cmd.templateId);
 
   if (cmd.choice && cmd.contractId) {
-    // Exercise command
     return {
       exercise: {
         template_id: templateId,
         contract_id: cmd.contractId,
         choice: cmd.choice,
         choice_argument: objectToValue(cmd.arguments),
-        // Package-name format: use package_id_selection_preference
         package_id_selection_preference: cmd.templateId.packageName
           ? [cmd.templateId.packageName]
           : undefined,
@@ -237,7 +331,6 @@ function buildGrpcCommand(cmd: SimulationCommand): Command {
     };
   }
 
-  // Create command
   return {
     create: {
       template_id: templateId,
@@ -249,10 +342,12 @@ function buildGrpcCommand(cmd: SimulationCommand): Command {
   };
 }
 
+// ============================================================
+// Proto ↔ JS Conversion
+// ============================================================
+
 function templateIdToIdentifier(tid: TemplateId): Identifier {
   return {
-    // Canton 3.4 requires actual package ID. The caller should resolve
-    // packageName → packageId before reaching here.
     package_id: tid.packageName || '',
     module_name: tid.moduleName,
     entity_name: tid.entityName,
@@ -271,9 +366,7 @@ function identifierToTemplateId(id: Identifier | undefined): TemplateId {
 function objectToValue(obj: unknown): Value {
   if (obj === null || obj === undefined) return { unit: {} };
   if (typeof obj === 'string') {
-    // Canton party IDs contain '::' — detect and use party value type
     if (obj.includes('::')) return { party: obj };
-    // Numeric strings (Decimal/Numeric fields)
     if (/^-?\d+(\.\d+)?$/.test(obj)) return { numeric: obj };
     return { text: obj };
   }
@@ -283,9 +376,7 @@ function objectToValue(obj: unknown): Value {
     return { list: { elements: obj.map(objectToValue) } };
   }
   if (typeof obj === 'object') {
-    return {
-      record: objectToRecord(obj as Record<string, unknown>),
-    };
+    return { record: objectToRecord(obj as Record<string, unknown>) };
   }
   return { text: String(obj) };
 }

@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ArrowDataTransferHorizontalIcon,
   Tick01Icon,
   ViewOffIcon,
+  AlertCircleIcon,
 } from "@hugeicons/core-free-icons";
 import {
   Select,
@@ -37,6 +38,40 @@ export function MultiPartyComparison({
 }: MultiPartyComparisonProps) {
   const [partyA, setPartyA] = useState<string>(parties[0] ?? "");
   const [partyB, setPartyB] = useState<string>(parties[1] ?? parties[0] ?? "");
+
+  // Sync defaults when parties arrive asynchronously (initial render has [])
+  useEffect(() => {
+    if (parties.length >= 2) {
+      setPartyA((prev) => (prev && parties.includes(prev) ? prev : parties[0]));
+      setPartyB((prev) => (prev && parties.includes(prev) ? prev : parties[1]));
+    } else if (parties.length === 1) {
+      setPartyA((prev) => (prev && parties.includes(prev) ? prev : parties[0]));
+      setPartyB((prev) => (prev && parties.includes(prev) ? prev : parties[0]));
+    }
+  }, [parties]);
+
+  // Show a message when fewer than 2 parties are available
+  if (parties.length < 2) {
+    return (
+      <div className="flex h-[200px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed">
+        <HugeiconsIcon
+          icon={AlertCircleIcon}
+          strokeWidth={2}
+          className="size-6 text-muted-foreground"
+        />
+        <div className="text-center">
+          <p className="text-sm font-medium">
+            Multi-party comparison requires 2+ parties
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {parties.length === 0
+              ? "No parties found in this transaction."
+              : `Only 1 party found (${parties[0]}). This view compares what different parties can see.`}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const canSee = (eventId: string, party: string): boolean => {
     const viewers = visibilityMatrix[eventId];

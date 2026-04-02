@@ -206,28 +206,12 @@ export default function DashboardPage() {
     staleTime: 15_000,
   });
 
-  if (status !== "connected" || !bootstrap) {
-    return (
-      <>
-        <WelcomeView onConnect={() => setConnectionOpen(true)} />
-        <ConnectionDialog open={connectionOpen} onOpenChange={setConnectionOpen} />
-      </>
-    );
-  }
-
-  const recentEvents = events.slice(0, 20);
-  const knownParties = bootstrap.knownParties ?? [];
-  const userRights = bootstrap.userRights ?? [];
-  const hasAuth = userRights.length > 0;
-  const endpoint = config?.ledgerApiEndpoint ?? "—";
-  const isStreaming = streamStatus === "connected";
-
   // Compute event type breakdown from accumulated events
   const eventBreakdown = useMemo(() => {
     let creates = 0, archives = 0, exercises = 0, other = 0;
     for (const update of events) {
       for (const evt of update.events ?? []) {
-        const t = (evt as any).eventType;
+        const t = (evt as { eventType?: string }).eventType;
         if (t === "created") creates++;
         else if (t === "archived") archives++;
         else if (t === "exercised") exercises++;
@@ -243,7 +227,7 @@ export default function DashboardPage() {
     for (const update of events) {
       for (const evt of update.events ?? []) {
         if ("templateId" in evt) {
-          const name = formatTemplateId((evt as any).templateId);
+          const name = formatTemplateId((evt as { templateId: string }).templateId);
           counts.set(name, (counts.get(name) ?? 0) + 1);
         }
       }
@@ -252,6 +236,22 @@ export default function DashboardPage() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5);
   }, [events]);
+
+  if (status !== "connected" || !bootstrap) {
+    return (
+      <>
+        <WelcomeView onConnect={() => setConnectionOpen(true)} />
+        <ConnectionDialog open={connectionOpen} onOpenChange={setConnectionOpen} />
+      </>
+    );
+  }
+
+  const recentEvents = events.slice(0, 20);
+  const knownParties = bootstrap.knownParties ?? [];
+  const userRights = bootstrap.userRights ?? [];
+  const hasAuth = userRights.length > 0;
+  const endpoint = config?.ledgerApiEndpoint ?? "—";
+  const isStreaming = streamStatus === "connected";
 
   const contractCount = acsData?.contracts?.length ?? "—";
   const failedCount = failedCompletions?.length ?? 0;

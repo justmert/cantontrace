@@ -57,7 +57,7 @@ function ContractCard({
             >
               {contract.templateId.entityName}
             </Badge>
-            <IdBadge id={contract.contractId} truncateLen={8} />
+            <IdBadge id={contract.contractId} truncateLen={8} href={`/contracts/${encodeURIComponent(contract.contractId)}`} />
           </div>
 
           {/* Key field preview */}

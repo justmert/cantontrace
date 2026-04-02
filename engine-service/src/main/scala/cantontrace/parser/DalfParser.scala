@@ -339,6 +339,8 @@ object DalfParser extends LazyLogging {
                 s"\"${resolveStr(lit.getTextInternedStr)}\""
               case DamlLf2.BuiltinLit.SumCase.NUMERIC_INTERNED_STR =>
                 resolveStr(lit.getNumericInternedStr)
+              case DamlLf2.BuiltinLit.SumCase.INT64 =>
+                lit.getInt64.toString
               case DamlLf2.BuiltinLit.SumCase.TIMESTAMP =>
                 lit.getTimestamp.toString
               case DamlLf2.BuiltinLit.SumCase.DATE =>
@@ -644,6 +646,236 @@ object DalfParser extends LazyLogging {
         }
       }
 
+      /**
+       * Render a builtin function as an infix operator symbol, if applicable.
+       * Returns None if the builtin is not a recognized comparison/arithmetic operator.
+       */
+      def builtinToOperator(bf: DamlLf2.BuiltinFunction): Option[String] = {
+        val name = bf.name()
+        if (name.startsWith("GREATER_EQ")) Some(">=")
+        else if (name.startsWith("GREATER")) Some(">")
+        else if (name.startsWith("LESS_EQ")) Some("<=")
+        else if (name.startsWith("LESS")) Some("<")
+        else if (name.startsWith("EQUAL")) Some("==")
+        else if (name.startsWith("ADD")) Some("+")
+        else if (name.startsWith("SUB")) Some("-")
+        else if (name.startsWith("MUL")) Some("*")
+        else if (name.startsWith("DIV")) Some("/")
+        else None
+      }
+
+      /**
+       * Try to render a comparison/arithmetic expression from the AST as `lhs op rhs`.
+       * Walks through type applications, lambdas, and application nodes to find
+       * a builtin applied to two arguments, rendering them as an infix expression.
+       *
+       * @param varBindings local variable bindings from enclosing let expressions,
+       *                    mapping variable names to their simplified string form
+       * @return the rendered infix expression, or None if pattern not recognized
+       */
+      def tryRenderComparison(expr: DamlLf2.Expr, depth: Int = 0,
+                              varBindings: Map[String, String] = Map.empty): Option[String] = {
+        if (depth > 30) return None
+        val resolved = resolveExpr(expr)
+        resolved.getSumCase match {
+          case DamlLf2.Expr.SumCase.APP =>
+            val app = resolved.getApp
+            val fun = resolveExpr(app.getFun)
+            val args = app.getArgsList.asScala.toSeq
+
+            def renderOperand(e: DamlLf2.Expr): String = renderExprWithBindings(e, depth + 1, varBindings)
+
+            // Unwrap nested applications: builtin comparison is often
+            // APP(APP(TY_APP(BUILTIN, ...), lhs), rhs)
+            fun.getSumCase match {
+              case DamlLf2.Expr.SumCase.APP =>
+                // Nested application — the inner app's fun might be the builtin
+                val innerApp = fun.getApp
+                var innerFun = resolveExpr(innerApp.getFun)
+                // Peel type applications
+                while (innerFun.getSumCase == DamlLf2.Expr.SumCase.TY_APP)
+                  innerFun = resolveExpr(innerFun.getTyApp.getExpr)
+                if (innerFun.getSumCase == DamlLf2.Expr.SumCase.BUILTIN) {
+                  builtinToOperator(innerFun.getBuiltin).flatMap { op =>
+                    val innerArgs = innerApp.getArgsList.asScala.toSeq
+                    // The lhs is the arg of the inner app, rhs is the arg of the outer app
+                    if (innerArgs.size == 1 && args.size == 1) {
+                      val lhs = renderOperand(innerArgs.head)
+                      val rhs = renderOperand(args.head)
+                      Some(s"$lhs $op $rhs")
+                    } else if (innerArgs.size >= 2) {
+                      val lhs = renderOperand(innerArgs(innerArgs.size - 2))
+                      val rhs = renderOperand(innerArgs.last)
+                      Some(s"$lhs $op $rhs")
+                    } else None
+                  }
+                } else {
+                  // Inner fun is not a builtin — try resolving it as a value
+                  None
+                }
+
+              case DamlLf2.Expr.SumCase.TY_APP =>
+                // TY_APP wrapping a builtin directly applied to args
+                var innerFun = resolveExpr(fun.getTyApp.getExpr)
+                while (innerFun.getSumCase == DamlLf2.Expr.SumCase.TY_APP)
+                  innerFun = resolveExpr(innerFun.getTyApp.getExpr)
+                if (innerFun.getSumCase == DamlLf2.Expr.SumCase.BUILTIN && args.size >= 2) {
+                  builtinToOperator(innerFun.getBuiltin).map { op =>
+                    val lhs = renderOperand(args(args.size - 2))
+                    val rhs = renderOperand(args.last)
+                    s"$lhs $op $rhs"
+                  }
+                } else None
+
+              case DamlLf2.Expr.SumCase.BUILTIN =>
+                if (args.size >= 2) {
+                  builtinToOperator(fun.getBuiltin).map { op =>
+                    val lhs = renderOperand(args(args.size - 2))
+                    val rhs = renderOperand(args.last)
+                    s"$lhs $op $rhs"
+                  }
+                } else None
+
+              case _ => None
+            }
+
+          case DamlLf2.Expr.SumCase.ABS =>
+            // Lambda — try the body
+            tryRenderComparison(resolved.getAbs.getBody, depth + 1, varBindings)
+
+          case DamlLf2.Expr.SumCase.TY_APP =>
+            tryRenderComparison(resolved.getTyApp.getExpr, depth + 1, varBindings)
+
+          case DamlLf2.Expr.SumCase.TY_ABS =>
+            tryRenderComparison(resolved.getTyAbs.getBody, depth + 1, varBindings)
+
+          case DamlLf2.Expr.SumCase.LET =>
+            // Let binding — collect variable bindings and recurse into body
+            val block = resolved.getLet
+            val newBindings = block.getBindingsList.asScala.foldLeft(varBindings) { (bindings, binding) =>
+              val varName = resolveStr(binding.getBinder.getVarInternedStr)
+              val varValue = renderExprWithBindings(binding.getBound, depth + 1, bindings)
+              bindings + (varName -> varValue)
+            }
+            tryRenderComparison(block.getBody, depth + 1, newBindings)
+
+          case DamlLf2.Expr.SumCase.CASE =>
+            // Case expression — the compiler wraps ensure clauses as:
+            //   case <predicate_call> of { True -> (); _ -> error "..." }
+            // So the scrutinee IS the predicate. Try it first, then alternatives.
+            val caseExpr = resolved.getCase
+            val scrutResult = tryRenderComparison(caseExpr.getScrut, depth + 1, varBindings)
+            if (scrutResult.isDefined) scrutResult
+            else {
+              val alts = caseExpr.getAltsList.asScala
+              alts.flatMap(a => tryRenderComparison(a.getBody, depth + 1, varBindings)).headOption
+            }
+
+          case DamlLf2.Expr.SumCase.VAL =>
+            // Value reference — resolve and recurse
+            val valName = resolveDN(resolved.getVal.getNameInternedDname)
+            valueExprMap.get(valName).flatMap(body => tryRenderComparison(body, depth + 1, varBindings))
+
+          case _ => None
+        }
+      }
+
+      /**
+       * Render an expression in simplified form, resolving local variable bindings.
+       * Used for comparison operands — prefers field names over `this.field`,
+       * renders literals directly, and substitutes let-bound variables.
+       */
+      def renderExprWithBindings(expr: DamlLf2.Expr, depth: Int = 0,
+                                 varBindings: Map[String, String] = Map.empty): String = {
+        if (depth > 20) return "<...>"
+        val resolved = resolveExpr(expr)
+        resolved.getSumCase match {
+          case DamlLf2.Expr.SumCase.REC_PROJ =>
+            val proj = resolved.getRecProj
+            resolveStr(proj.getFieldInternedStr)
+          case DamlLf2.Expr.SumCase.VAR_INTERNED_STR =>
+            val name = resolveStr(resolved.getVarInternedStr)
+            // Look up variable in local bindings first (from let expressions)
+            varBindings.getOrElse(name, if (name == "this") "this" else name)
+          case DamlLf2.Expr.SumCase.BUILTIN_LIT =>
+            val lit = resolved.getBuiltinLit
+            lit.getSumCase match {
+              case DamlLf2.BuiltinLit.SumCase.NUMERIC_INTERNED_STR =>
+                resolveStr(lit.getNumericInternedStr)
+              case DamlLf2.BuiltinLit.SumCase.TEXT_INTERNED_STR =>
+                s"\"${resolveStr(lit.getTextInternedStr)}\""
+              case DamlLf2.BuiltinLit.SumCase.INT64 =>
+                lit.getInt64.toString
+              case _ => renderExpr2(resolved, depth)
+            }
+          case DamlLf2.Expr.SumCase.BUILTIN_CON =>
+            resolved.getBuiltinCon match {
+              case DamlLf2.BuiltinCon.CON_TRUE  => "True"
+              case DamlLf2.BuiltinCon.CON_FALSE => "False"
+              case DamlLf2.BuiltinCon.CON_UNIT  => "()"
+              case _                             => renderExpr2(resolved, depth)
+            }
+          case _ => renderExpr2(resolved, depth)
+        }
+      }
+
+      /**
+       * Render an ensure expression. The Daml-LF compiler wraps ensure clauses
+       * in generated functions named `$$censure_N`. This method detects that pattern
+       * and extracts the actual predicate (typically a comparison like `amount > 0`).
+       */
+      def renderEnsureExpr(expr: DamlLf2.Expr, depth: Int = 0): Option[String] = {
+        if (depth > 20) return None
+        val resolved = resolveExpr(expr)
+        // First, try to extract a comparison from the raw expression
+        tryRenderComparison(resolved, depth) match {
+          case Some(comparison) => return Some(comparison)
+          case None =>
+        }
+        // Walk into lambdas / type abstractions
+        resolved.getSumCase match {
+          case DamlLf2.Expr.SumCase.ABS =>
+            renderEnsureExpr(resolved.getAbs.getBody, depth + 1)
+          case DamlLf2.Expr.SumCase.TY_ABS =>
+            renderEnsureExpr(resolved.getTyAbs.getBody, depth + 1)
+          case DamlLf2.Expr.SumCase.APP =>
+            val app = resolved.getApp
+            var funExpr = resolveExpr(app.getFun)
+            while (funExpr.getSumCase == DamlLf2.Expr.SumCase.TY_APP)
+              funExpr = resolveExpr(funExpr.getTyApp.getExpr)
+            if (funExpr.getSumCase == DamlLf2.Expr.SumCase.VAL) {
+              val valName = resolveDN(funExpr.getVal.getNameInternedDname)
+              // Detect $$censure pattern
+              if (valName.contains("$$censure") || valName.contains("$$cen")) {
+                valueExprMap.get(valName).flatMap(body => renderEnsureExpr(body, depth + 1))
+              } else {
+                // Try resolving other value references too
+                valueExprMap.get(valName) match {
+                  case Some(body) => tryRenderComparison(body, depth + 1)
+                  case None => None
+                }
+              }
+            } else None
+          case DamlLf2.Expr.SumCase.VAL =>
+            val valName = resolveDN(resolved.getVal.getNameInternedDname)
+            valueExprMap.get(valName).flatMap(body => renderEnsureExpr(body, depth + 1))
+          case DamlLf2.Expr.SumCase.LET =>
+            renderEnsureExpr(resolved.getLet.getBody, depth + 1)
+          case DamlLf2.Expr.SumCase.CASE =>
+            // The compiler wraps ensure clauses as:
+            //   case <predicate_call> of { True -> (); _ -> error "..." }
+            // The scrutinee IS the actual predicate application. Try it first.
+            val caseExpr = resolved.getCase
+            val scrutResult = renderEnsureExpr(caseExpr.getScrut, depth + 1)
+            if (scrutResult.isDefined) scrutResult
+            else {
+              val alts = caseExpr.getAltsList.asScala
+              alts.flatMap(a => renderEnsureExpr(a.getBody, depth + 1)).headOption
+            }
+          case _ => None
+        }
+      }
+
       /** Render an expression, falling back to field projection extraction for compiler-generated functions. */
       def renderExprInlined(expr: DamlLf2.Expr, depth: Int = 0): String = {
         if (depth > 20) return "<...>"
@@ -713,8 +945,24 @@ object DalfParser extends LazyLogging {
         val obsExpr = if (tmpl.hasObservers) simplifyExpr(renderExprInlined(tmpl.getObservers))
                       else "<parsed from DALF>"
         val ensureExpr = if (tmpl.hasPrecond) {
-          val rendered = renderExprInlined(tmpl.getPrecond)
-          if (rendered == "True" || rendered == "<expr>") None else Some(rendered)
+          // First try to extract a clean comparison from the ensure AST
+          renderEnsureExpr(tmpl.getPrecond) match {
+            case Some(comparison) => Some(comparison)
+            case None =>
+              // Fall back to generic expression rendering
+              val rendered = renderExprInlined(tmpl.getPrecond)
+              if (rendered == "True" || rendered == "<expr>") None
+              else {
+                // Clean up any remaining $$censure references
+                val cleaned = if (rendered.contains("$$censure") || rendered.contains("$$cen")) {
+                  // Extract field projections as a last resort
+                  val fields = extractFieldProjections(tmpl.getPrecond)
+                  if (fields.nonEmpty) s"${fields.distinct.mkString(", ")} (condition)"
+                  else None.orNull
+                } else rendered
+                Option(cleaned)
+              }
+          }
         } else None
 
         // Step 5: Extract key definition

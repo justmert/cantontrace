@@ -10,6 +10,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { requireCantonContext } from '../middleware/canton-context.js';
 import type { CacheService } from '../services/cache.js';
+import { wrapAsArchive } from '../services/package-parser.js';
 import type {
   SimulationRequest,
   SimulationCommand,
@@ -140,12 +141,49 @@ async function simulateOnline(
       body.disclosedContracts,
     );
 
-    // Build a synthetic transaction tree from the online simulation data
-    // so the frontend can visualize what the transaction would do
+    // If inputContracts is empty but we have Exercise commands, fetch the
+    // consumed contracts from EventQueryService to get real payloads
+    let enrichedInputContracts = result.inputContracts;
+    if (enrichedInputContracts.length === 0) {
+      const exerciseCommands = body.commands.filter(c => c.choice && c.contractId);
+      if (exerciseCommands.length > 0) {
+        const allParties = [...new Set([...body.actAs, ...(body.readAs ?? [])])];
+        const fetched = await Promise.all(
+          exerciseCommands.map(async (cmd) => {
+            try {
+              const events = await client.eventQueryService.getEventsByContractId(
+                cmd.contractId!,
+                allParties,
+              );
+              if (events.created) {
+                const ce = events.created.event;
+                return {
+                  contract: {
+                    contractId: ce.contractId,
+                    templateId: ce.templateId,
+                    payload: ce.payload,
+                    signatories: ce.signatories,
+                    observers: ce.observers,
+                    createdAt: events.created.createdAtOffset ?? '',
+                  },
+                  createdAt: events.created.createdAtOffset ?? '',
+                };
+              }
+            } catch {
+              // Contract might be pruned — leave empty
+            }
+            return null;
+          })
+        );
+        enrichedInputContracts = fetched.filter((x): x is NonNullable<typeof x> => x !== null);
+      }
+    }
+
+    // Build transaction tree from the online simulation data
     const transactionTree = buildOnlineTransactionTree(
       resolvedCommands,
       body.commands,
-      result.inputContracts,
+      enrichedInputContracts,
       body.actAs,
     );
 
@@ -242,13 +280,20 @@ async function simulateOffline(
       pkgBytes = Buffer.from(pkg.archivePayload);
       await cache.setPackageBytes(pkgId, pkgBytes);
     }
-    packages[pkgId] = pkgBytes.toString('base64');
+    // Wrap payload in DamlLf.Archive envelope for the real engine
+    const payloadBase64 = pkgBytes.toString('base64');
+    packages[pkgId] = wrapAsArchive(payloadBase64, pkgId);
   }
 
   // Transform command to engine-service format (colon-delimited templateId, flat payload)
+  // Resolve packageName → packageId (hex hash) for the real Daml-LF Engine
   const cmd = body.commands[0];
+  const resolvedPkgId = cmd ? (
+    bootstrapInfo.packages.find(p => p.packageName === cmd.templateId.packageName)?.packageId
+    ?? cmd.templateId.packageName
+  ) : '';
   const engineCommand = cmd ? {
-    templateId: `${cmd.templateId.packageName}:${cmd.templateId.moduleName}:${cmd.templateId.entityName}`,
+    templateId: `${resolvedPkgId}:${cmd.templateId.moduleName}:${cmd.templateId.entityName}`,
     choice: cmd.choice ?? null,
     contractId: cmd.contractId ?? null,
     arguments: Object.fromEntries(
@@ -257,11 +302,13 @@ async function simulateOffline(
   } : null;
 
   // Transform ACS to engine format (map keyed by contractId)
+  // Resolve package names → package IDs for the real Daml-LF Engine
   const engineContracts: Record<string, unknown> = {};
   for (const c of contracts) {
+    const cPkgId = bootstrapInfo.packages.find(p => p.packageName === c.templateId.packageName)?.packageId ?? c.templateId.packageName;
     engineContracts[c.contractId] = {
       contractId: c.contractId,
-      templateId: `${c.templateId.packageName}:${c.templateId.moduleName}:${c.templateId.entityName}`,
+      templateId: `${cPkgId}:${c.templateId.moduleName}:${c.templateId.entityName}`,
       payload: Object.fromEntries(
         Object.entries(c.payload).map(([k, v]) => [k, typeof v === 'string' ? v : JSON.stringify(v)])
       ),
@@ -507,12 +554,24 @@ function buildOnlineTransactionTree(
     if (cmd.choice && cmd.contractId) {
       // Exercise command
       const exerciseEventId = `#${txId}:${eventCounter++}`;
+      const archiveEventId = `#${txId}:${eventCounter++}`;
       const createEventId = `#${txId}:${eventCounter++}`;
       const newContractId = `00${crypto.randomUUID().replace(/-/g, '')}`;
 
       const inputContract = inputContracts.find(
         (ic) => ic.contract.contractId === cmd.contractId
       );
+
+      // C1: Add Archive event as child of the consuming exercise
+      // C2: Build created contract payload by merging the consumed contract's
+      //     payload with the choice arguments (choice body typically updates
+      //     specific fields). Fall back to choice args alone if no input found.
+      const consumedPayload = inputContract?.contract.payload ?? {};
+      const createdPayload = Object.keys(consumedPayload).length > 0
+        ? { ...consumedPayload, ...cmd.arguments }
+        : cmd.arguments;
+
+      const childEventIds = [archiveEventId, createEventId];
 
       eventsById[exerciseEventId] = {
         eventType: 'exercised',
@@ -524,8 +583,17 @@ function buildOnlineTransactionTree(
         actingParties: actAs,
         consuming: true,
         witnesses: actAs,
-        childEventIds: [createEventId],
+        childEventIds,
         exerciseResult: `ContractId(${newContractId})`,
+      };
+
+      // Archive event for the consumed contract
+      eventsById[archiveEventId] = {
+        eventType: 'archived',
+        eventId: archiveEventId,
+        contractId: cmd.contractId,
+        templateId,
+        witnesses: actAs,
       };
 
       const signatories = inputContract?.contract.signatories ?? actAs;
@@ -536,7 +604,7 @@ function buildOnlineTransactionTree(
         eventId: createEventId,
         contractId: newContractId,
         templateId,
-        payload: cmd.arguments,
+        payload: createdPayload,
         signatories,
         observers,
         witnesses: signatories,
@@ -545,7 +613,7 @@ function buildOnlineTransactionTree(
       outputs.push({
         contractId: newContractId,
         templateId,
-        payload: cmd.arguments,
+        payload: createdPayload,
         signatories,
         observers,
         createdAt: now,

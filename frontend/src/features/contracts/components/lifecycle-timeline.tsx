@@ -104,8 +104,20 @@ function JsonTree({ data, depth = 0 }: { data: unknown; depth?: number }) {
 // Timestamp formatter
 // ---------------------------------------------------------------------------
 
-function formatTimestamp(ts: string) {
+function formatTimestamp(ts: unknown) {
   if (!ts) return "\u2014";
+  // Handle protobuf Timestamp objects {seconds, nanos}
+  if (typeof ts === "object" && ts !== null && "seconds" in ts) {
+    const secs = Number((ts as { seconds: string | number }).seconds);
+    if (!isNaN(secs)) {
+      const d = new Date(secs * 1000);
+      return d.toLocaleString(undefined, {
+        month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit",
+      });
+    }
+    return "\u2014";
+  }
+  if (typeof ts !== "string") return "\u2014";
   try {
     const d = new Date(ts);
     if (isNaN(d.getTime())) return "\u2014";
@@ -174,7 +186,7 @@ interface TimelineCardProps {
   configKey: EventConfigKey;
   title: string;
   templateOrChoice: string;
-  timestamp: string;
+  timestamp: unknown;
   offset: string;
   updateId: string;
   actingParties?: string[];

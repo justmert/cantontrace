@@ -66,8 +66,81 @@ const STEP_TYPE_LABELS: Record<TraceStepType, string> = {
 
 function StepExpandedContent({ step }: { step: TraceStep }) {
   const ctx = step.context;
+  const templateLabel = ctx.templateId
+    ? `${ctx.templateId.moduleName}:${ctx.templateId.entityName}`
+    : null;
+
   return (
     <div className="mt-2 flex flex-col gap-2 text-xs">
+      {/* Action / Template / Choice summary — shows the core "what" for this step */}
+      {(ctx.actionType || templateLabel || ctx.choice || ctx.resultingContractId) && (
+        <div className="flex flex-col gap-1 rounded-md border border-border/50 bg-muted/20 p-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {ctx.actionType && (
+              <span className="text-[10px] text-muted-foreground">
+                Action:{" "}
+                <span className="font-medium text-foreground">{ctx.actionType}</span>
+              </span>
+            )}
+            {templateLabel && (
+              <span className="text-[10px] text-muted-foreground">
+                Template:{" "}
+                <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-foreground">
+                  {templateLabel}
+                </code>
+              </span>
+            )}
+            {ctx.choice && (
+              <span className="text-[10px] text-muted-foreground">
+                Choice:{" "}
+                <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-foreground">
+                  {ctx.choice}
+                </code>
+              </span>
+            )}
+            {ctx.resultingContractId && (
+              <span className="text-[10px] text-muted-foreground">
+                Contract:{" "}
+                <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-foreground" title={ctx.resultingContractId}>
+                  {ctx.resultingContractId.length > 20
+                    ? ctx.resultingContractId.slice(0, 8) + "..." + ctx.resultingContractId.slice(-8)
+                    : ctx.resultingContractId}
+                </code>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Source location detail */}
+      {step.sourceLocation && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Source
+          </span>
+          <code className="rounded bg-muted/50 px-1.5 py-0.5 font-mono text-[10px] text-foreground">
+            {step.sourceLocation.file}:{step.sourceLocation.startLine}:{step.sourceLocation.startCol}
+            {(step.sourceLocation.endLine !== step.sourceLocation.startLine ||
+              step.sourceLocation.endCol !== step.sourceLocation.startCol) &&
+              ` - ${step.sourceLocation.endLine}:${step.sourceLocation.endCol}`}
+          </code>
+        </div>
+      )}
+
+      {/* Choice / Command arguments */}
+      {ctx.arguments && Object.keys(ctx.arguments).length > 0 && (
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Arguments
+          </span>
+          <div className="overflow-hidden rounded-md border border-border/50 p-2">
+            <pre className="whitespace-pre-wrap break-all font-mono text-[11px]">
+              {formatJsonForDisplay(ctx.arguments)}
+            </pre>
+          </div>
+        </div>
+      )}
+
       {/* Variables */}
       {Object.keys(step.variables).length > 0 && (
         <div className="flex flex-col gap-1">

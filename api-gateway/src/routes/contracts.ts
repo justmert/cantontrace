@@ -169,9 +169,11 @@ export function registerContractRoutes(app: FastifyInstance): void {
           parties,
         );
         if (creationMeta) {
-          creationUpdateId = creationMeta.updateId;
-          creationOffset = creationMeta.offset;
-          creationRecordTime = creationMeta.recordTime;
+          creationUpdateId = String(creationMeta.updateId ?? '');
+          creationOffset = String(creationMeta.offset ?? '');
+          creationRecordTime = typeof creationMeta.recordTime === 'object' && creationMeta.recordTime?.seconds
+            ? new Date(Number(creationMeta.recordTime.seconds) * 1000).toISOString()
+            : String(creationMeta.recordTime ?? '');
         }
       } catch (err) {
         request.log.warn({ err, contractId, createdAtOffset }, 'Failed to resolve creation transaction metadata');
