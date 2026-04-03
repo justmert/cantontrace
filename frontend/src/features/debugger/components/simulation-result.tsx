@@ -28,7 +28,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { CopyButton } from "@/components/copy-button";
-import { cn, truncateId, formatTemplateId, formatPartyDisplay, formatJsonForDisplay } from "@/lib/utils";
+import { cn, truncateId, formatTemplateId, formatPartyDisplay, formatNumeric, formatPayloadValue, formatJsonForDisplay } from "@/lib/utils";
 import type {
   SimulationResult,
   ActiveContract,
@@ -88,9 +88,18 @@ function ContractCard({
         <span className="truncate font-mono text-xs">
           {truncateId(contract.contractId, 10)}
         </span>
-        <span className="ml-auto text-[10px] text-muted-foreground">
-          {contract.templateId.entityName}
-        </span>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="ml-auto cursor-help text-[10px] text-muted-foreground">
+                {contract.templateId.entityName}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p className="font-mono text-[10px]">{formatTemplateId(contract.templateId)}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </button>
 
       {expanded && (
@@ -124,9 +133,18 @@ function ContractCard({
             <div className="flex flex-wrap gap-1">
               <span className="shrink-0 text-muted-foreground">Signatories:</span>
               {contract.signatories.map((s) => (
-                <Badge key={s} variant="outline" className="max-w-full font-mono text-[9px]" title={s}>
-                  <span className="truncate">{formatPartyDisplay(s)}</span>
-                </Badge>
+                <TooltipProvider key={s}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="outline" className="max-w-full cursor-help font-mono text-[9px]">
+                        <span className="truncate">{formatPartyDisplay(s)}</span>
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p className="max-w-xs break-all font-mono text-[10px]">{s}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               ))}
             </div>
 
@@ -135,11 +153,51 @@ function ContractCard({
               <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                 Payload
               </span>
-              <div className="overflow-hidden rounded border bg-muted/30 p-2">
-                <pre className="whitespace-pre-wrap break-all font-mono text-[10px]">
-                  {formatJsonForDisplay(contract.payload)}
-                </pre>
-              </div>
+              {contract.payload && Object.keys(contract.payload).length > 0 ? (
+                <div className="overflow-hidden rounded border bg-muted/30 p-2">
+                  <div className="flex flex-col gap-1">
+                    {Object.entries(contract.payload).map(([key, value]) => {
+                      const displayValue = formatPayloadValue(value);
+                      const isParty = typeof value === "string" && value.includes("::");
+                      const isNumeric = typeof value === "string" && /^-?\d+\.\d+$/.test(value);
+
+                      return (
+                        <div key={key} className="flex items-baseline gap-2 font-mono text-[10px]">
+                          <span className="shrink-0 text-muted-foreground">{key}:</span>
+                          {isParty ? (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="cursor-help text-primary/80 underline decoration-dotted">
+                                    {displayValue}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  <p className="max-w-xs break-all font-mono text-[10px]">{String(value)}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : isNumeric ? (
+                            <span>{formatNumeric(value)}</span>
+                          ) : typeof value === "object" && value !== null ? (
+                            <pre className="whitespace-pre-wrap break-all">
+                              {formatJsonForDisplay(value)}
+                            </pre>
+                          ) : (
+                            <span className="break-all">{displayValue}</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded border border-dashed bg-muted/20 px-2 py-1.5">
+                  <span className="text-[10px] italic text-muted-foreground">
+                    Payload not available
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -163,6 +221,131 @@ const EVENT_COLORS: Record<string, string> = {
   exercised: "text-foreground",
   archived: "text-destructive",
 };
+
+function TreeNode({ event, depth }: { event: LedgerEvent; depth: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const Icon = EVENT_ICONS[event.eventType] ?? ArrowRight01Icon;
+  const colorClass = EVENT_COLORS[event.eventType] ?? "text-foreground";
+
+  let label = "";
+  let detail = "";
+  const payload = (event as { payload?: Record<string, unknown> }).payload;
+  const choiceArg = (event as ExercisedEvent).choiceArgument;
+  const signatories = (event as { signatories?: string[] }).signatories;
+  const observers = (event as { observers?: string[] }).observers;
+  const actingParties = (event as ExercisedEvent).actingParties;
+
+  if (event.eventType === "exercised") {
+    const ex = event as ExercisedEvent;
+    label = `Exercise ${ex.choice}`;
+    detail = `${formatTemplateId(ex.templateId)} ${truncateId(ex.contractId, 8)}`;
+    if (ex.consuming) detail += " [consuming]";
+  } else if (event.eventType === "created") {
+    label = `Create ${formatTemplateId(event.templateId)}`;
+    detail = truncateId(event.contractId, 8);
+  } else if (event.eventType === "archived") {
+    label = `Archive ${formatTemplateId(event.templateId)}`;
+    detail = truncateId(event.contractId, 8);
+  }
+
+  const hasDetails = !!(payload && Object.keys(payload).length > 0) || !!(choiceArg && Object.keys(choiceArg).length > 0) || !!(signatories && signatories.length > 0);
+
+  return (
+    <div>
+      <button
+        onClick={() => hasDetails && setExpanded(!expanded)}
+        className={cn(
+          "flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
+          hasDetails && "hover:bg-muted/30 cursor-pointer",
+        )}
+        style={{ paddingLeft: `${depth * 20 + 8}px` }}
+      >
+        {hasDetails ? (
+          expanded ? (
+            <HugeiconsIcon icon={ArrowDown01Icon} className="mt-0.5 size-3 flex-shrink-0 text-muted-foreground" strokeWidth={2} />
+          ) : (
+            <HugeiconsIcon icon={ArrowRight01Icon} className="mt-0.5 size-3 flex-shrink-0 text-muted-foreground" strokeWidth={2} />
+          )
+        ) : (
+          <HugeiconsIcon icon={Icon} className={cn("mt-0.5 size-3 flex-shrink-0", colorClass)} strokeWidth={2} />
+        )}
+        <div className="flex flex-col gap-0.5 overflow-hidden min-w-0">
+          <div className="flex items-center gap-1.5">
+            {hasDetails && <HugeiconsIcon icon={Icon} className={cn("size-3 flex-shrink-0", colorClass)} strokeWidth={2} />}
+            <span className={cn("font-medium", colorClass)}>{label}</span>
+          </div>
+          <span className="truncate font-mono text-[10px] text-muted-foreground">{detail}</span>
+          {actingParties && actingParties.length > 0 && (
+            <span className="text-[10px] text-muted-foreground/60">
+              Actor: {actingParties.map(p => formatPartyDisplay(p)).join(", ")}
+            </span>
+          )}
+        </div>
+      </button>
+
+      {expanded && (
+        <div
+          className="flex flex-col gap-2 rounded-md border border-border/50 bg-muted/10 p-2 text-xs mx-1 mb-1"
+          style={{ marginLeft: `${depth * 20 + 24}px` }}
+        >
+          {/* Choice arguments for exercise */}
+          {choiceArg && Object.keys(choiceArg).length > 0 && (
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Choice Arguments</span>
+              <div className="flex flex-col gap-0.5 rounded border bg-muted/30 p-2">
+                {Object.entries(choiceArg).map(([k, v]) => (
+                  <span key={k} className="font-mono text-[10px]">
+                    <span className="text-muted-foreground">{k}:</span>{" "}
+                    {formatPayloadValue(v)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Payload for created/archived */}
+          {payload && Object.keys(payload).length > 0 && (
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Payload</span>
+              <div className="flex flex-col gap-0.5 rounded border bg-muted/30 p-2">
+                {Object.entries(payload).map(([k, v]) => (
+                  <span key={k} className="font-mono text-[10px]">
+                    <span className="text-muted-foreground">{k}:</span>{" "}
+                    {formatPayloadValue(v)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Signatories */}
+          {signatories && signatories.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-muted-foreground">Signatories:</span>
+              {signatories.map(s => (
+                <Badge key={s} variant="outline" className="font-mono text-[9px]" title={s}>
+                  {formatPartyDisplay(s)}
+                </Badge>
+              ))}
+            </div>
+          )}
+
+          {/* Observers */}
+          {observers && observers.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-muted-foreground">Observers:</span>
+              {observers.map(o => (
+                <Badge key={o} variant="outline" className="font-mono text-[9px]" title={o}>
+                  {formatPartyDisplay(o)}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function SimpleTransactionTree({
   transaction,
@@ -198,46 +381,8 @@ function SimpleTransactionTree({
   return (
     <div className="flex flex-col gap-0.5">
       {rows.map(({ event, depth }) => {
-        const Icon = EVENT_ICONS[event.eventType] ?? ArrowRight01Icon;
-        const colorClass = EVENT_COLORS[event.eventType] ?? "text-foreground";
-
-        let label = "";
-        let detail = "";
-
-        if (event.eventType === "exercised") {
-          const ex = event as ExercisedEvent;
-          label = `Exercise ${ex.choice}`;
-          detail = `${ex.templateId.entityName} ${truncateId(ex.contractId, 8)}`;
-          if (ex.consuming) detail += " [consuming]";
-        } else if (event.eventType === "created") {
-          label = `Create ${event.templateId.entityName}`;
-          detail = truncateId(event.contractId, 8);
-        } else if (event.eventType === "archived") {
-          label = `Archive ${event.templateId.entityName}`;
-          detail = truncateId(event.contractId, 8);
-        }
-
-        const eventKey = "eventId" in event ? event.eventId : `${depth}-${label}`;
-
-        return (
-          <div
-            key={eventKey}
-            className="flex items-start gap-2 rounded-md px-2 py-1 text-xs"
-            style={{ paddingLeft: `${depth * 20 + 8}px` }}
-          >
-            <HugeiconsIcon
-              icon={Icon}
-              className={cn("mt-0.5 size-3 flex-shrink-0", colorClass)}
-              strokeWidth={2}
-            />
-            <div className="flex flex-col gap-0.5 overflow-hidden min-w-0">
-              <span className={cn("font-medium", colorClass)}>{label}</span>
-              <span className="truncate font-mono text-[10px] text-muted-foreground">
-                {detail}
-              </span>
-            </div>
-          </div>
-        );
+        const eventKey = "eventId" in event ? event.eventId : `${depth}-${event.eventType}`;
+        return <TreeNode key={eventKey} event={event} depth={depth} />;
       })}
     </div>
   );
@@ -547,25 +692,31 @@ export function SimulationResultView({
 
         {/* Hash info — compact inline display */}
         {result.hashInfo && (
-          <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
-            <HugeiconsIcon icon={HashtagIcon} className="size-3.5 flex-shrink-0 text-muted-foreground" strokeWidth={2} />
-            <span className="text-[10px] font-medium text-muted-foreground">Hash:</span>
-            <span className="min-w-0 truncate font-mono text-xs" title={result.hashInfo.transactionHash}>
-              {result.hashInfo.transactionHash}
-            </span>
-            <CopyButton text={result.hashInfo.transactionHash} />
-            {result.hashInfo.isAdvisory && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <HugeiconsIcon icon={Alert01Icon} className="size-3.5 flex-shrink-0 cursor-help text-muted-foreground/60" strokeWidth={2} />
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
-                    <p className="text-xs">Advisory: this prepared transaction hash may be removed in future Canton versions. Used to verify the transaction has not been tampered with before execution.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
+          <div className="flex flex-col gap-1 rounded-md border bg-muted/30 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <HugeiconsIcon icon={HashtagIcon} className="size-3.5 flex-shrink-0 text-muted-foreground" strokeWidth={2} />
+              <span className="text-[10px] font-medium text-muted-foreground">Hash:</span>
+              <span className="min-w-0 truncate font-mono text-xs" title={result.hashInfo.transactionHash}>
+                {result.hashInfo.transactionHash}
+              </span>
+              <CopyButton text={result.hashInfo.transactionHash} />
+              {result.hashInfo.isAdvisory && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HugeiconsIcon icon={Alert01Icon} className="size-3.5 flex-shrink-0 cursor-help text-muted-foreground/60" strokeWidth={2} />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-xs">Advisory: this prepared transaction hash may be removed in future Canton versions.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+            <div className="flex items-center gap-3 text-[10px] text-muted-foreground/60">
+              <span>Hashing: <span className="font-mono">{result.hashInfo.hashingSchemeVersion}</span></span>
+              {result.hashInfo.isAdvisory && <span className="text-muted-foreground/40">Advisory</span>}
+            </div>
           </div>
         )}
 

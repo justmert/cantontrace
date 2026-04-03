@@ -30,7 +30,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
-import { cn, formatJsonForDisplay, formatPartyDisplay } from "@/lib/utils";
+import { Link } from "@tanstack/react-router";
+import { cn, formatJsonForDisplay, formatPartyDisplay, formatNumeric } from "@/lib/utils";
 import type { TraceStep, TraceStepType } from "@/lib/types";
 import type { TraceNavigation } from "@/features/debugger/hooks";
 
@@ -59,6 +60,92 @@ const STEP_TYPE_LABELS: Record<TraceStepType, string> = {
   exercise_choice: "Exercise",
   archive_contract: "Archive",
 };
+
+// ---------------------------------------------------------------------------
+// Variable value formatters
+// ---------------------------------------------------------------------------
+
+/** Detect Canton party IDs (contain "::" with a hex fingerprint). */
+function isPartyId(value: unknown): value is string {
+  return typeof value === "string" && /^[a-zA-Z0-9_-]+::[0-9a-f]{8,}/.test(value);
+}
+
+/** Detect numeric strings with excessive decimal places. */
+function isNumericString(value: unknown): value is string {
+  return typeof value === "string" && /^-?\d+\.\d{4,}$/.test(value);
+}
+
+/**
+ * Render a single variable value with smart formatting: party IDs get
+ * `formatPartyDisplay()`, numerics get `formatNumeric()`, and contract IDs
+ * matching `step.variables.contractId` render as clickable links.
+ */
+function FormattedValue({
+  value,
+  asContractLink,
+}: {
+  value: unknown;
+  asContractLink?: boolean;
+}) {
+  if (asContractLink && typeof value === "string") {
+    const display =
+      value.length > 20 ? value.slice(0, 8) + "..." + value.slice(-8) : value;
+    return (
+      <Link
+        to="/contracts/$contractId"
+        params={{ contractId: value }}
+        className="font-mono text-primary underline underline-offset-2 hover:text-primary/80"
+        title={value}
+      >
+        {display}
+      </Link>
+    );
+  }
+  if (isPartyId(value)) {
+    return (
+      <span title={value}>
+        {formatPartyDisplay(value)}
+      </span>
+    );
+  }
+  if (isNumericString(value)) {
+    return <span title={value}>{formatNumeric(value)}</span>;
+  }
+  if (typeof value === "object" && value !== null) {
+    return <span>{formatJsonForDisplay(value)}</span>;
+  }
+  return <span>{String(value)}</span>;
+}
+
+/**
+ * Render a variables record as a compact key-value list with smart formatting
+ * instead of raw JSON.
+ */
+function FormattedVariables({
+  variables,
+  contractIdKey,
+}: {
+  variables: Record<string, unknown>;
+  /** Key whose value should render as a clickable contract link. */
+  contractIdKey?: string;
+}) {
+  const entries = Object.entries(variables);
+  if (entries.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-1">
+      {entries.map(([key, value]) => (
+        <div key={key} className="flex items-baseline gap-2 font-mono text-[11px]">
+          <span className="text-muted-foreground">{key}:</span>
+          <FormattedValue
+            value={value}
+            asContractLink={key === contractIdKey}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Step detail (expandable)
@@ -141,16 +228,44 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
         </div>
       )}
 
-      {/* Variables */}
+      {/* fetch_contract: prominent contract ID link + source badge */}
+      {step.stepType === "fetch_contract" && step.variables.contractId && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-muted/20 p-2">
+          <span className="text-[10px] text-muted-foreground">Contract:</span>
+          <Link
+            to="/contracts/$contractId"
+            params={{ contractId: String(step.variables.contractId) }}
+            className="font-mono text-[11px] text-primary underline underline-offset-2 hover:text-primary/80"
+            title={String(step.variables.contractId)}
+          >
+            {String(step.variables.contractId).length > 24
+              ? String(step.variables.contractId).slice(0, 8) +
+                "..." +
+                String(step.variables.contractId).slice(-8)
+              : String(step.variables.contractId)}
+          </Link>
+          {step.variables.source && (
+            <Badge
+              variant={step.variables.source === "ACS" ? "default" : "secondary"}
+              className="text-[9px]"
+            >
+              {String(step.variables.source)}
+            </Badge>
+          )}
+        </div>
+      )}
+
+      {/* Variables — formatted with smart party/numeric/link display */}
       {Object.keys(step.variables).length > 0 && (
         <div className="flex flex-col gap-1">
           <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             Variables
           </span>
           <div className="overflow-hidden rounded-md border border-border/50 p-2">
-            <pre className="whitespace-pre-wrap break-all font-mono text-[11px]">
-              {formatJsonForDisplay(step.variables)}
-            </pre>
+            <FormattedVariables
+              variables={step.variables}
+              contractIdKey={step.stepType === "fetch_contract" ? "contractId" : undefined}
+            />
           </div>
         </div>
       )}
@@ -236,11 +351,16 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
         </div>
       )}
 
-      {/* Error */}
+      {/* Error — full red background for failed steps */}
       {step.error && (
-        <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2">
-          <HugeiconsIcon icon={AlertCircleIcon} className="mt-0.5 size-3.5 flex-shrink-0 text-destructive" strokeWidth={2} />
-          <p className="text-xs text-destructive">{step.error}</p>
+        <div className="flex items-start gap-2 rounded-md border border-destructive bg-destructive/20 p-3">
+          <HugeiconsIcon icon={AlertCircleIcon} className="mt-0.5 size-4 flex-shrink-0 text-destructive" strokeWidth={2} />
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-destructive">
+              Error
+            </span>
+            <p className="text-xs font-medium text-destructive">{step.error}</p>
+          </div>
         </div>
       )}
     </div>
@@ -337,10 +457,11 @@ function StepRow({ step, isCurrent, onClick }: StepRowProps) {
         </button>
       </div>
 
-      {/* Failed step error banner */}
+      {/* Failed step error banner — prominent red */}
       {!step.passed && !expanded && step.error && (
-        <div className="ml-8 mt-1.5 truncate rounded bg-destructive/10 px-2 py-1 text-[11px] text-destructive">
-          {step.error}
+        <div className="ml-8 mt-1.5 flex items-center gap-1.5 rounded bg-destructive/20 border border-destructive/40 px-2 py-1.5">
+          <HugeiconsIcon icon={AlertCircleIcon} className="size-3 flex-shrink-0 text-destructive" strokeWidth={2} />
+          <span className="truncate text-[11px] font-medium text-destructive">{step.error}</span>
         </div>
       )}
 

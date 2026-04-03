@@ -21,7 +21,6 @@ import { cn, truncateId, formatPayloadValue, formatPartyDisplay, formatTemplateI
 import type {
   TraceStep,
   ExecutionTrace,
-  TransactionDetail,
 } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -86,7 +85,7 @@ function ContractsTab({ step, trace }: ContractsTabProps) {
           seen.add(e.contractId);
           result.push({
             contractId: e.contractId,
-            templateId: e.templateId ? formatTemplateId(e.templateId as string) : undefined,
+            templateId: e.templateId ? formatTemplateId(e.templateId as string | { moduleName: string; entityName: string; packageName?: string }) : undefined,
             payload: e.payload ?? e.choiceArgument ?? {},
             source: "result",
             eventType: e.eventType,
@@ -351,7 +350,7 @@ interface TransactionTreeTabProps {
   currentStepIndex: number;
 }
 
-function TransactionTreeTab({ trace, currentStepIndex }: TransactionTreeTabProps) {
+function TransactionTreeTab({ trace, currentStepIndex: _currentStepIndex }: TransactionTreeTabProps) {
   const tx = trace?.resultTransaction;
 
   // If we have a real result transaction, render from its events
@@ -370,19 +369,27 @@ function TransactionTreeTab({ trace, currentStepIndex }: TransactionTreeTabProps
         payload?: Record<string, unknown>;
         choiceArgument?: Record<string, unknown>;
         signatories?: string[];
+        observers?: string[];
         actingParties?: string[];
       };
       if (!evt) return null;
 
       const Icon = EVENT_TYPE_ICONS[evt.eventType ?? ""] ?? ArrowRight01Icon;
       const colorClass = EVENT_TYPE_COLORS[evt.eventType ?? ""] ?? "text-foreground";
-      const templateLabel = evt.templateId ? formatTemplateId(evt.templateId as string) : "";
+      const templateLabel = evt.templateId ? formatTemplateId(evt.templateId as string | { moduleName: string; entityName: string; packageName?: string }) : "";
 
       const label = evt.eventType === "exercised"
         ? `Exercise ${evt.choice ?? "?"} on ${templateLabel}${evt.consuming ? " (consuming)" : ""}`
         : evt.eventType === "created"
           ? `Create ${templateLabel}`
-          : `${evt.eventType ?? "?"} ${templateLabel}`;
+          : evt.eventType === "archived"
+            ? `Archive ${templateLabel}`
+            : `${evt.eventType ?? "?"} ${templateLabel}`;
+
+      // Pick the most relevant party list for this event type
+      const parties = evt.eventType === "exercised"
+        ? evt.actingParties
+        : evt.signatories;
 
       return (
         <div key={eventId}>
@@ -396,16 +403,16 @@ function TransactionTreeTab({ trace, currentStepIndex }: TransactionTreeTabProps
               strokeWidth={2}
             />
             <div className="flex flex-col gap-0.5 overflow-hidden">
-              <span className="font-mono text-[11px] leading-tight">{label}</span>
+              <span className={cn("font-mono text-[11px] leading-tight", colorClass)}>{label}</span>
               {evt.contractId && (
                 <span className="font-mono text-[10px] text-muted-foreground" title={evt.contractId}>
                   {truncateId(evt.contractId, 20)}
                 </span>
               )}
-              {evt.actingParties && evt.actingParties.length > 0 && (
+              {parties && parties.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-0.5">
-                  {evt.actingParties.map(p => (
-                    <span key={p} className="text-[9px] text-muted-foreground/70">{formatPartyDisplay(p)}</span>
+                  {parties.map(p => (
+                    <span key={p} className="text-[9px] text-muted-foreground/70" title={p}>{formatPartyDisplay(p)}</span>
                   ))}
                 </div>
               )}

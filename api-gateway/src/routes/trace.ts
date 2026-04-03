@@ -144,11 +144,39 @@ function normalizeResultTransaction(
 
   const eventsById = raw.eventsById as Record<string, Record<string, unknown>> | undefined;
   if (eventsById) {
-    for (const [, event] of Object.entries(eventsById)) {
+    const newEvents: Record<string, Record<string, unknown>> = {};
+
+    for (const [eventId, event] of Object.entries(eventsById)) {
       // Parse string templateId to object
       if (typeof event.templateId === 'string') {
         event.templateId = parseTemplateIdString(event.templateId) ?? event.templateId;
       }
+
+      // For consuming exercises, add an implicit archive event as child
+      // The real engine's exercise node with consuming=true implicitly archives,
+      // but doesn't produce a separate archive node. Add one for the UI.
+      if (event.eventType === 'exercised' && event.consuming) {
+        const children = (event.childEventIds ?? []) as string[];
+        const archiveId = `${eventId}:archive`;
+
+        // Only add if we haven't already
+        if (!eventsById[archiveId] && !children.includes(archiveId)) {
+          newEvents[archiveId] = {
+            eventType: 'archived',
+            eventId: archiveId,
+            contractId: event.contractId,
+            templateId: event.templateId,
+            witnesses: event.actingParties ?? [],
+          };
+          // Insert archive as first child
+          event.childEventIds = [archiveId, ...children];
+        }
+      }
+    }
+
+    // Merge new events
+    for (const [id, evt] of Object.entries(newEvents)) {
+      eventsById[id] = evt;
     }
   }
 

@@ -255,13 +255,12 @@ class EngineExecutor extends LazyLogging {
         error = None
       )
 
-      // --- Step 3: Pre-load decoded packages into the engine ---
+      // Pre-load decoded packages into the engine
       decodedPackages.foreach { case (pkgId, pkg) =>
         engine.preloadPackage(Ref.PackageId.assertFromString(pkgId), pkg)
       }
 
-      // --- Step 4: Build and submit the command ---
-      stepNumber += 1
+      // Build and submit the command
       val apiCmd = buildApiCommand(command, decodedPackages)
       val ledgerTime = Time.Timestamp.assertFromInstant(Instant.now())
       val cmdsReference = s"cantontrace-cmd-${System.nanoTime()}"
@@ -354,6 +353,143 @@ class EngineExecutor extends LazyLogging {
       consumeResult match {
         case Right(txAndMeta) =>
           val (versionedTx, _metadata) = txAndMeta.asInstanceOf[(VersionedTransaction, Any)]
+
+          // Walk the transaction tree nodes and add a TraceStep for each action
+          val tx = versionedTx.transaction
+          val nodes = tx.nodes
+
+          // Process nodes in order: roots first, then children
+          def walkNode(nodeId: com.digitalasset.daml.lf.transaction.NodeId): Unit = {
+            nodes.get(nodeId).foreach {
+              case exercise: Node.Exercise =>
+                stepNumber += 1
+                val templateStr = formatTypeConId(exercise.templateId)
+                steps += TraceStep(
+                  stepNumber = stepNumber,
+                  stepType = "exercise_choice",
+                  sourceLocation = None,
+                  summary = s"Exercise ${exercise.choiceId} on ${templateStr.split(":").lastOption.getOrElse(templateStr)}${if (exercise.consuming) " [Consuming]" else ""}",
+                  variables = Map(
+                    "contractId" -> exercise.targetCoid.coid,
+                    "templateId" -> templateStr,
+                    "choice" -> exercise.choiceId.toString,
+                    "consuming" -> exercise.consuming.toString,
+                    "actingParties" -> exercise.actingParties.mkString(", ")
+                  ),
+                  context = ActionContext(
+                    actionType = "exercise",
+                    templateId = templateStr,
+                    choice = Some(exercise.choiceId),
+                    arguments = extractRecordFieldsWithChoiceNames(exercise.chosenValue, exercise.templateId, exercise.choiceId, decodedPackages),
+                    resultContractId = exercise.exerciseResult.map(valueToString)
+                  ),
+                  passed = true,
+                  error = None
+                )
+
+                // For consuming exercises, add an archive step
+                if (exercise.consuming) {
+                  stepNumber += 1
+                  steps += TraceStep(
+                    stepNumber = stepNumber,
+                    stepType = "archive_contract",
+                    sourceLocation = None,
+                    summary = s"Archive ${templateStr.split(":").lastOption.getOrElse(templateStr)}",
+                    variables = Map(
+                      "contractId" -> exercise.targetCoid.coid,
+                      "templateId" -> templateStr
+                    ),
+                    context = ActionContext(
+                      actionType = "archive",
+                      templateId = templateStr,
+                      choice = Some(exercise.choiceId),
+                      arguments = Map.empty,
+                      resultContractId = Some(exercise.targetCoid.coid)
+                    ),
+                    passed = true,
+                    error = None
+                  )
+                }
+
+                // Walk children
+                exercise.children.foreach(walkNode)
+
+              case create: Node.Create =>
+                stepNumber += 1
+                val templateStr = formatTypeConId(create.templateId)
+                steps += TraceStep(
+                  stepNumber = stepNumber,
+                  stepType = "create_contract",
+                  sourceLocation = None,
+                  summary = s"Create ${templateStr.split(":").lastOption.getOrElse(templateStr)}",
+                  variables = Map(
+                    "contractId" -> create.coid.coid,
+                    "templateId" -> templateStr,
+                    "signatories" -> create.signatories.mkString(", "),
+                    "stakeholders" -> create.stakeholders.mkString(", ")
+                  ),
+                  context = ActionContext(
+                    actionType = "create",
+                    templateId = templateStr,
+                    choice = None,
+                    arguments = extractRecordFieldsWithNames(create.arg, create.templateId, decodedPackages),
+                    resultContractId = Some(create.coid.coid)
+                  ),
+                  passed = true,
+                  error = None
+                )
+
+              case fetch: Node.Fetch =>
+                stepNumber += 1
+                val templateStr = formatTypeConId(fetch.templateId)
+                steps += TraceStep(
+                  stepNumber = stepNumber,
+                  stepType = "fetch_contract",
+                  sourceLocation = None,
+                  summary = s"Fetch ${templateStr.split(":").lastOption.getOrElse(templateStr)} (in-transaction)",
+                  variables = Map(
+                    "contractId" -> fetch.coid.coid,
+                    "templateId" -> templateStr,
+                    "source" -> "transaction_fetch"
+                  ),
+                  context = FetchContext(
+                    contractId = fetch.coid.coid,
+                    payload = None,
+                    found = true
+                  ),
+                  passed = true,
+                  error = None
+                )
+
+              case lookup: Node.LookupByKey =>
+                stepNumber += 1
+                val templateStr = formatTypeConId(lookup.templateId)
+                val found = lookup.result.isDefined
+                steps += TraceStep(
+                  stepNumber = stepNumber,
+                  stepType = "fetch_contract",
+                  sourceLocation = None,
+                  summary = s"Lookup by key on ${templateStr.split(":").lastOption.getOrElse(templateStr)}${if (found) " — found" else " — not found"}",
+                  variables = Map(
+                    "templateId" -> templateStr,
+                    "found" -> found.toString
+                  ) ++ lookup.result.map(cid => Map("contractId" -> cid.coid)).getOrElse(Map.empty),
+                  context = FetchContext(
+                    contractId = lookup.result.map(_.coid).getOrElse(""),
+                    payload = None,
+                    found = found
+                  ),
+                  passed = found,
+                  error = if (!found) Some(s"Key lookup on $templateStr returned no contract") else None
+                )
+
+              case _ => // Rollback or other node types
+            }
+          }
+
+          tx.roots.foreach(walkNode)
+
+          // Final summary step
           stepNumber += 1
           steps += TraceStep(
             stepNumber = stepNumber,
@@ -362,7 +498,8 @@ class EngineExecutor extends LazyLogging {
             summary = "Command evaluation complete",
             variables = Map(
               "commandType" -> command.choice.map(_ => "exercise").getOrElse("create"),
-              "templateId" -> command.templateId
+              "templateId" -> command.templateId,
+              "totalNodes" -> nodes.size.toString
             ),
             context = ExpressionContext(
               expressionType = "command_result",
@@ -371,6 +508,7 @@ class EngineExecutor extends LazyLogging {
             passed = true,
             error = None
           )
+
           val resultTx = convertVersionedTransaction(versionedTx, command, decodedPackages)
           Some(buildTrace(steps.toSeq, Map.empty, sourceAvailable = false, Some(resultTx), None, startTime))
 
@@ -1048,10 +1186,16 @@ class EngineExecutor extends LazyLogging {
   private def valueToString(v: Value): String = v match {
     case ValueText(s) => s
     case Value.ValueInt64(n) => n.toString
+    case Value.ValueNumeric(n) =>
+      // Trim trailing zeros: 100.0000000000 → 100.0
+      val s = n.toUnscaledString
+      if (s.contains('.')) s.replaceAll("0+$", "").replaceAll("\\.$", ".0") else s
     case Value.ValueBool(b) => b.toString
     case Value.ValueParty(p) => p
     case Value.ValueContractId(cid) => cid.coid
     case Value.ValueUnit => "()"
+    case Value.ValueDate(d) => d.toString
+    case Value.ValueTimestamp(t) => t.toString
     case Value.ValueOptional(None) => "None"
     case Value.ValueOptional(Some(inner)) => s"Some(${valueToString(inner)})"
     case ValueRecord(_, fields) =>

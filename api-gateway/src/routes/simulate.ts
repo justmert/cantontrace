@@ -587,13 +587,17 @@ function buildOnlineTransactionTree(
         exerciseResult: `ContractId(${newContractId})`,
       };
 
-      // Archive event for the consumed contract
+      // Archive event for the consumed contract — include the consumed contract's
+      // payload so the tree node can show what was archived
       eventsById[archiveEventId] = {
         eventType: 'archived',
         eventId: archiveEventId,
         contractId: cmd.contractId,
         templateId,
         witnesses: actAs,
+        payload: consumedPayload,
+        signatories: inputContract?.contract.signatories ?? actAs,
+        observers: inputContract?.contract.observers ?? [],
       };
 
       const signatories = inputContract?.contract.signatories ?? actAs;
