@@ -193,7 +193,9 @@ export const useEventStreamStore = create<EventStreamState>((set) => ({
     const fetchAndConnect = async () => {
       set({ isLoadingRecent: true });
       try {
-        const response = await fetch("/api/v1/events/recent?limit=50");
+        const currentFilter = useEventStreamStore.getState().filter;
+        const shape = currentFilter.transactionShape ?? "LEDGER_EFFECTS";
+        const response = await fetch(`/api/v1/events/recent?limit=50&shape=${shape}`);
         if (response.ok) {
           const body = await response.json();
           const recentEvents: LedgerUpdate[] = (body.data ?? []).reverse();
@@ -232,7 +234,9 @@ export const useEventStreamStore = create<EventStreamState>((set) => ({
   loadRecent: async () => {
     set({ isLoadingRecent: true });
     try {
-      const response = await fetch("/api/v1/events/recent?limit=50");
+      const currentFilter = useEventStreamStore.getState().filter;
+      const shape = currentFilter.transactionShape ?? "LEDGER_EFFECTS";
+      const response = await fetch(`/api/v1/events/recent?limit=50&shape=${shape}`);
       if (response.ok) {
         const body = await response.json();
         const recentEvents: LedgerUpdate[] = (body.data ?? []).reverse();

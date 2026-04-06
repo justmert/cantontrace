@@ -5,6 +5,9 @@ import {
   ArrowLeft01Icon,
   ArrowRight01Icon,
   FileCodeIcon,
+  TestTubeIcon,
+  AnalysisTextLinkIcon,
+  Copy01Icon,
 } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import {
@@ -68,31 +71,90 @@ function KeyFieldsPreview({
   }
 
   return (
-    <div className="flex flex-wrap gap-1 overflow-hidden">
+    <div className="flex flex-col gap-0.5 overflow-hidden">
       {visible.map(([key, value]) => {
         const formatted = typeof value === "object" && value !== null
           ? JSON.stringify(value)
           : formatPayloadValue(value);
-        const display = formatted.length > 20
-          ? formatted.slice(0, 20) + "..."
+        const display = formatted.length > 24
+          ? formatted.slice(0, 24) + "..."
           : formatted;
         const fullValue = typeof value === "string" ? value : JSON.stringify(value);
         return (
-          <span
+          <div
             key={key}
-            className="inline-flex items-center gap-0.5 rounded bg-muted/50 px-1 py-0.5 text-[10px]"
-            title={`${key}=${fullValue}`}
+            className="flex items-baseline gap-1 text-[10px] leading-tight"
+            title={`${key}: ${fullValue}`}
           >
-            <span className="text-muted-foreground">{key}=</span>
-            <span className="font-mono text-foreground">{display}</span>
-          </span>
+            <span className="shrink-0 text-muted-foreground">{key}:</span>
+            <span className="truncate font-mono text-foreground">{display}</span>
+          </div>
         );
       })}
       {remaining > 0 && (
-        <span className="inline-flex items-center rounded px-1 py-0.5 text-[10px] text-muted-foreground">
+        <span className="text-[10px] text-muted-foreground">
           +{remaining} more
         </span>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Row-level quick action buttons (visible on hover)
+// ---------------------------------------------------------------------------
+
+function RowActions({ contract }: { contract: ActiveContract }) {
+  const handleCopyId = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(contract.contractId).catch(() => {});
+  };
+
+  const simulateUrl = `/debugger?contractId=${encodeURIComponent(contract.contractId)}&template=${encodeURIComponent(`${contract.templateId.moduleName}:${contract.templateId.entityName}`)}`;
+  const traceUrl = `/debugger?contractId=${encodeURIComponent(contract.contractId)}&template=${encodeURIComponent(`${contract.templateId.moduleName}:${contract.templateId.entityName}`)}&mode=trace`;
+
+  return (
+    <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/row:opacity-100">
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <a
+              href={simulateUrl}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Button variant="ghost" size="icon-xs" aria-label="Simulate">
+                <HugeiconsIcon icon={TestTubeIcon} strokeWidth={2} />
+              </Button>
+            </a>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">Simulate</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <a
+              href={traceUrl}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Button variant="ghost" size="icon-xs" aria-label="Trace">
+                <HugeiconsIcon icon={AnalysisTextLinkIcon} strokeWidth={2} />
+              </Button>
+            </a>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">Trace</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon-xs" onClick={handleCopyId} aria-label="Copy ID">
+              <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">Copy ID</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 }
@@ -266,7 +328,7 @@ export function ContractTable({
                   <TableRow
                     key={contract.contractId}
                     className={cn(
-                      "cursor-pointer even:bg-muted/10",
+                      "group/row cursor-pointer even:bg-muted/10",
                       selectedContractId === contract.contractId &&
                         "bg-accent"
                     )}
@@ -294,18 +356,21 @@ export function ContractTable({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="cursor-default font-mono text-xs text-muted-foreground">
-                              {formatTimestamp(contract.createdAt, "relative")}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            {new Date(contract.createdAt).toLocaleString()}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <div className="flex items-center justify-between gap-2">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="cursor-default font-mono text-xs text-muted-foreground">
+                                {formatTimestamp(contract.createdAt, "relative")}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {new Date(contract.createdAt).toLocaleString()}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <RowActions contract={contract} />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

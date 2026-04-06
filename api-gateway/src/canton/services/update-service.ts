@@ -435,19 +435,26 @@ function mapOffsetCheckpointToUpdate(checkpoint: OffsetCheckpoint): LedgerUpdate
 
 function mapTreeEvents(
   flatEvents: TreeEvent[],
-  eventsById?: Record<string, TreeEvent>,
+  eventsById?: Record<string, TreeEvent> | Array<{ key: string; value: TreeEvent }>,
 ): LedgerEvent[] {
   const events: LedgerEvent[] = [];
 
-  // Handle flat event list (ACS_DELTA shape)
+  // Handle flat event list (ACS_DELTA shape, or Canton 3.4+ LEDGER_EFFECTS)
   for (const te of flatEvents) {
     const mapped = mapTreeEvent(te);
     if (mapped) events.push(mapped);
   }
 
-  // Handle events_by_id map (LEDGER_EFFECTS shape)
+  // Handle events_by_id map (LEDGER_EFFECTS shape).
+  // proto-loader may represent protobuf map fields as either a plain JS object
+  // or an array of {key, value} pairs (depending on how the proto was loaded).
+  // We handle both representations to match mapTransactionToDetail.
   if (eventsById) {
-    for (const te of Object.values(eventsById)) {
+    const treeEvents: TreeEvent[] = Array.isArray(eventsById)
+      ? (eventsById as Array<{ key: string; value: TreeEvent }>).map(e => e.value)
+      : Object.values(eventsById);
+
+    for (const te of treeEvents) {
       const mapped = mapTreeEvent(te);
       if (mapped) events.push(mapped);
     }
@@ -664,10 +671,24 @@ function mapTransactionToDetail(tx: Transaction): TransactionDetail {
  * Compute state diff from a transaction's events.
  * Inputs = contracts consumed (exercised with consuming=true or archived).
  * Outputs = contracts created.
+ *
+ * For consumed contracts, we attempt to find the matching CreatedEvent within
+ * the same transaction tree (e.g. a contract created and archived in the same
+ * transaction). If found, we copy the payload, signatories, and observers so
+ * the frontend can display them without a separate EventQueryService lookup.
  */
 function computeStateDiff(eventsById: Record<string, LedgerEvent>): StateDiff {
   const inputs: ActiveContract[] = [];
   const outputs: ActiveContract[] = [];
+
+  // Build a lookup of created events by contractId so consumed contracts can
+  // reuse the payload from the same transaction tree.
+  const createdByContractId = new Map<string, LedgerEvent & { eventType: 'created' }>();
+  for (const event of Object.values(eventsById)) {
+    if (event.eventType === 'created') {
+      createdByContractId.set(event.contractId, event);
+    }
+  }
 
   for (const event of Object.values(eventsById)) {
     if (event.eventType === 'created') {
@@ -680,21 +701,23 @@ function computeStateDiff(eventsById: Record<string, LedgerEvent>): StateDiff {
         createdAt: '',
       });
     } else if (event.eventType === 'archived') {
+      const created = createdByContractId.get(event.contractId);
       inputs.push({
         contractId: event.contractId,
         templateId: event.templateId,
-        payload: {},
-        signatories: [],
-        observers: [],
+        payload: created?.payload ?? {},
+        signatories: created?.signatories ?? [],
+        observers: created?.observers ?? [],
         createdAt: '',
       });
     } else if (event.eventType === 'exercised' && event.consuming) {
+      const created = createdByContractId.get(event.contractId);
       inputs.push({
         contractId: event.contractId,
         templateId: event.templateId,
-        payload: {},
-        signatories: [],
-        observers: [],
+        payload: created?.payload ?? {},
+        signatories: created?.signatories ?? [],
+        observers: created?.observers ?? [],
         createdAt: '',
       });
     }

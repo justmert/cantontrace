@@ -7,13 +7,17 @@ import {
   LinkForwardIcon,
   TestTubeIcon,
   Cancel01Icon,
+  Search01Icon,
+  AnalysisTextLinkIcon,
 } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { IdBadge } from "@/components/id-badge";
+import { CopyButton } from "@/components/copy-button";
 import { PartyBadge } from "@/components/party-badge";
 import { cn, formatTemplateId, formatPartyDisplay, formatNumeric } from "@/lib/utils";
 import type { ActiveContract } from "@/lib/types";
@@ -186,6 +190,11 @@ function LifecycleTab({ contractId }: { contractId: string }) {
     navigate({ to: "/contracts/$contractId", params: { contractId: id } });
   };
 
+  const handleNavigateOffset = (offset: string) => {
+    // Navigate to the transactions page filtered by offset
+    window.location.href = `/transactions?offset=${encodeURIComponent(offset)}`;
+  };
+
   if (isPending && contractId) {
     return (
       <div className="flex flex-col gap-4 p-4">
@@ -223,6 +232,7 @@ function LifecycleTab({ contractId }: { contractId: string }) {
         lifecycle={lifecycle}
         onNavigateTransaction={handleNavigateTransaction}
         onNavigateContract={handleNavigateContract}
+        onNavigateOffset={handleNavigateOffset}
       />
     </div>
   );
@@ -244,13 +254,30 @@ export function ContractDetail({
   onClose,
   defaultTab = "details",
 }: ContractDetailProps) {
+  const navigate = useNavigate();
   const templateStr = formatTemplateId(contract.templateId);
+
+  // Fetch lifecycle to determine archived status
+  const { data: lifecycle } = useContractLifecycle(
+    contract.contractId || null
+  );
+  const isArchived = !!lifecycle?.archival;
 
   return (
     <div className="flex h-full flex-col border-l bg-card animate-in slide-in-from-right-4 duration-200 fill-mode-forwards">
       {/* Header */}
       <div className="flex items-center justify-between border-b px-4 py-3">
-        <h3 className="text-sm font-semibold">Contract Detail</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold">Contract Detail</h3>
+          {lifecycle && (
+            <Badge
+              variant={isArchived ? "destructive" : "default"}
+              className="text-[10px] px-1.5 py-0"
+            >
+              {isArchived ? "Archived" : "Active"}
+            </Badge>
+          )}
+        </div>
         <Button
           variant="ghost"
           size="icon-sm"
@@ -277,7 +304,10 @@ export function ContractDetail({
                 <span className="text-xs font-medium text-muted-foreground">
                   Contract ID
                 </span>
-                <IdBadge id={contract.contractId} truncateLen={16} />
+                <div className="flex items-center gap-1">
+                  <IdBadge id={contract.contractId} truncateLen={16} />
+                  <CopyButton text={contract.contractId} label="Copy Contract ID" size="xs" />
+                </div>
               </div>
 
               {/* Template */}
@@ -297,10 +327,21 @@ export function ContractDetail({
                   />
                 </a>
                 <span className="truncate text-[10px] text-muted-foreground">
-                  {contract.templateId.moduleName} (
-                  {contract.templateId.packageName})
+                  {contract.templateId.moduleName}
                 </span>
               </div>
+
+              {/* Package */}
+              {contract.templateId.packageName && (
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Package
+                  </span>
+                  <span className="truncate font-mono text-[10px] text-muted-foreground">
+                    {contract.templateId.packageName}
+                  </span>
+                </div>
+              )}
 
               <Separator />
 
@@ -387,6 +428,42 @@ export function ContractDetail({
                     Use in Simulation
                   </Button>
                 </a>
+
+                <a
+                  href={`/debugger?contractId=${encodeURIComponent(contract.contractId)}&template=${encodeURIComponent(`${contract.templateId.moduleName}:${contract.templateId.entityName}`)}&mode=trace`}
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start"
+                  >
+                    <HugeiconsIcon
+                      icon={AnalysisTextLinkIcon}
+                      strokeWidth={2}
+                      data-icon="inline-start"
+                    />
+                    Trace Exercise
+                  </Button>
+                </a>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={() =>
+                    navigate({
+                      to: "/contracts/$contractId",
+                      params: { contractId: contract.contractId },
+                    })
+                  }
+                >
+                  <HugeiconsIcon
+                    icon={Search01Icon}
+                    strokeWidth={2}
+                    data-icon="inline-start"
+                  />
+                  View Full Lifecycle
+                </Button>
               </div>
             </div>
           </ScrollArea>

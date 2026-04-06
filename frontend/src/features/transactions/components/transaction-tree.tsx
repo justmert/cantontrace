@@ -20,6 +20,7 @@ import type {
   TransactionDetail,
   LedgerEvent,
   ExercisedEvent,
+  ArchivedEvent,
 } from "@/lib/types";
 import {
   CreateNode,
@@ -60,7 +61,61 @@ function getNodeType(event: LedgerEvent): string {
   }
 }
 
+/**
+ * Synthesize archive child events for consuming exercises that don't already
+ * have an explicit archive among their children. Canton embeds the archive in
+ * the consuming exercise event; this mirrors the approach used in the trace
+ * normalizer to make the tree visually complete.
+ */
+function synthesizeArchiveEvents(
+  transaction: TransactionDetail
+): TransactionDetail {
+  const eventsById = { ...transaction.eventsById };
+  let mutated = false;
+
+  for (const [eventId, event] of Object.entries(eventsById)) {
+    if (event.eventType !== "exercised") continue;
+    const exercised = event as ExercisedEvent;
+    if (!exercised.consuming) continue;
+
+    // Check if any child is already an archive for the same contract
+    const hasArchiveChild = exercised.childEventIds.some((childId) => {
+      const child = eventsById[childId];
+      return child?.eventType === "archived" && child.contractId === exercised.contractId;
+    });
+
+    if (hasArchiveChild) continue;
+
+    // Synthesize an archive event
+    const archiveEventId = `${eventId}:archive`;
+    const archiveEvent: ArchivedEvent = {
+      eventType: "archived",
+      eventId: archiveEventId,
+      contractId: exercised.contractId,
+      templateId: exercised.templateId,
+      witnesses: exercised.witnesses,
+    };
+
+    eventsById[archiveEventId] = archiveEvent;
+
+    // Prepend the archive as the first child of the exercise
+    const updatedExercised: ExercisedEvent = {
+      ...exercised,
+      childEventIds: [archiveEventId, ...exercised.childEventIds],
+    };
+    eventsById[eventId] = updatedExercised;
+    mutated = true;
+  }
+
+  if (!mutated) return transaction;
+
+  return { ...transaction, eventsById };
+}
+
 function buildTree(transaction: TransactionDetail): LayoutState {
+  // Synthesize archive events for consuming exercises before building the tree
+  const enriched = synthesizeArchiveEvents(transaction);
+
   const nodes: Node[] = [];
   const edges: Edge[] = [];
 
@@ -73,7 +128,7 @@ function buildTree(transaction: TransactionDetail): LayoutState {
     depth: number,
     parentId: string | null
   ): void {
-    const event = transaction.eventsById[eventId];
+    const event = enriched.eventsById[eventId];
     if (!event) return;
 
     const nodeId = eventId;
@@ -132,7 +187,7 @@ function buildTree(transaction: TransactionDetail): LayoutState {
   }
 
   // Process root events
-  for (const rootId of transaction.rootEventIds) {
+  for (const rootId of enriched.rootEventIds) {
     addEvent(rootId, 0, null);
   }
 

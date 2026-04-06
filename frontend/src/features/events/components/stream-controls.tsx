@@ -90,16 +90,41 @@ export function StreamControls({
 
       {/* Event shape counts */}
       {shapeCounts && eventCount > 0 && (
-        <span className="flex items-center gap-1.5 font-mono text-[10px] tabular-nums text-muted-foreground">
-          <span className="text-event-create">{shapeCounts.created}</span>
-          <span className="text-muted-foreground/40">c</span>
-          <span className="text-muted-foreground/30">/</span>
-          <span className="text-event-archive">{shapeCounts.archived}</span>
-          <span className="text-muted-foreground/40">a</span>
-          <span className="text-muted-foreground/30">/</span>
-          <span className="text-event-exercise">{shapeCounts.exercised}</span>
-          <span className="text-muted-foreground/40">e</span>
-        </span>
+        <div className="flex items-center gap-2.5 text-[11px] tabular-nums">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center gap-1 text-event-create">
+                  <span className="font-medium">+{shapeCounts.created}</span>
+                  <span className="text-event-create/60">created</span>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{shapeCounts.created} contract{shapeCounts.created !== 1 ? "s" : ""} created</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center gap-1 text-event-exercise">
+                  <span className="font-medium">{shapeCounts.exercised}</span>
+                  <span className="text-event-exercise/60">exercised</span>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{shapeCounts.exercised} choice{shapeCounts.exercised !== 1 ? "s" : ""} exercised</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center gap-1 text-event-archive">
+                  <span className="font-medium">-{shapeCounts.archived}</span>
+                  <span className="text-event-archive/60">archived</span>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{shapeCounts.archived} contract{shapeCounts.archived !== 1 ? "s" : ""} archived</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       )}
 
       <div className="h-4 w-px bg-border" />

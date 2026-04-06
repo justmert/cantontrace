@@ -1,5 +1,4 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { useDebuggerStore } from "@/stores/debugger-store";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Bug01Icon,
@@ -95,7 +94,7 @@ function ResizableTriplePanel({
     >
       {/* Left panel */}
       <div
-        className="flex h-full flex-col overflow-hidden border-r border-border"
+        className="flex h-full flex-col overflow-auto border-r border-border"
         style={{ width: `${leftWidth}%` }}
       >
         {left}
@@ -111,7 +110,7 @@ function ResizableTriplePanel({
 
       {/* Center panel */}
       <div
-        className="flex h-full flex-col overflow-hidden border-r border-border"
+        className="flex h-full flex-col overflow-auto border-r border-border"
         style={{ width: `${centerWidth}%` }}
       >
         {center}
@@ -127,7 +126,7 @@ function ResizableTriplePanel({
 
       {/* Right panel */}
       <div
-        className="flex h-full flex-col overflow-hidden"
+        className="flex h-full flex-col overflow-auto"
         style={{ width: `${rightWidth}%` }}
       >
         {right}
@@ -141,16 +140,17 @@ function ResizableTriplePanel({
 // ---------------------------------------------------------------------------
 
 export default function DebuggerPage() {
-  // Persisted state (survives page navigation)
-  const simResult = useDebuggerStore((s) => s.simResult);
-  const setSimResult = useDebuggerStore((s) => s.setSimResult);
-  const trace = useDebuggerStore((s) => s.trace);
-  const setTrace = useDebuggerStore((s) => s.setTrace);
-  const activeTab = useDebuggerStore((s) => s.activeTab);
-  const setActiveTab = useDebuggerStore((s) => s.setActiveTab);
-  const lastRequest = useDebuggerStore((s) => s.lastRequest);
-  const setLastRequest = useDebuggerStore((s) => s.setLastRequest);
-  const resetDebugger = useDebuggerStore((s) => s.reset);
+  // Local state (reset on page navigation — avoids stale Zustand persistence)
+  const [simResult, setSimResult] = useState<SimulationResult | null>(null);
+  const [trace, setTrace] = useState<ExecutionTrace | null>(null);
+  const [activeTab, setActiveTab] = useState("simulation");
+  const [lastRequest, setLastRequest] = useState<Record<string, unknown>>({});
+  const resetDebugger = useCallback(() => {
+    setSimResult(null);
+    setTrace(null);
+    setActiveTab("simulation");
+    setLastRequest({});
+  }, []);
 
   // Mutation state (not persisted — transient)
   const simulation = useSimulation();

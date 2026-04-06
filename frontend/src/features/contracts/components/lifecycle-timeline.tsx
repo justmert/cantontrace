@@ -192,6 +192,7 @@ interface TimelineCardProps {
   actingParties?: string[];
   isLast?: boolean;
   onNavigateTransaction?: (updateId: string) => void;
+  onNavigateOffset?: (offset: string) => void;
   children?: React.ReactNode;
 }
 
@@ -205,6 +206,7 @@ function TimelineCard({
   actingParties,
   isLast,
   onNavigateTransaction,
+  onNavigateOffset,
   children,
 }: TimelineCardProps) {
   const [expanded, setExpanded] = useState(false);
@@ -307,6 +309,27 @@ function TimelineCard({
                     </button>
                   )}
                 </div>
+              ) : offset ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Offset
+                  </span>
+                  <span className="rounded-sm bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
+                    {offset}
+                  </span>
+                  {onNavigateOffset && (
+                    <button
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onNavigateOffset(offset);
+                      }}
+                    >
+                      <HugeiconsIcon icon={LinkSquare01Icon} className="size-3" strokeWidth={2} />
+                      Open at Offset
+                    </button>
+                  )}
+                </div>
               ) : (
                 <span className="text-[10px] text-muted-foreground italic">
                   Transaction ID not available
@@ -350,6 +373,29 @@ function TimelineCard({
                       >
                         <HugeiconsIcon icon={LinkSquare01Icon} data-icon="inline-start" strokeWidth={2} />
                         View Transaction
+                      </Button>
+                    )}
+                  </div>
+                ) : offset ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Offset
+                    </span>
+                    <span className="rounded-sm bg-muted/50 px-1 py-0.5 font-mono text-xs text-muted-foreground">
+                      {offset}
+                    </span>
+                    {onNavigateOffset && (
+                      <Button
+                        size="sm"
+                        variant="link"
+                        className="h-auto p-0 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onNavigateOffset(offset);
+                        }}
+                      >
+                        <HugeiconsIcon icon={LinkSquare01Icon} data-icon="inline-start" strokeWidth={2} />
+                        Open Transaction at Offset
                       </Button>
                     )}
                   </div>
@@ -401,12 +447,14 @@ export interface LifecycleTimelineProps {
   lifecycle: ContractLifecycle;
   onNavigateTransaction?: (updateId: string) => void;
   onNavigateContract?: (contractId: string) => void;
+  onNavigateOffset?: (offset: string) => void;
 }
 
 export function LifecycleTimeline({
   lifecycle,
   onNavigateTransaction,
   onNavigateContract,
+  onNavigateOffset,
 }: LifecycleTimelineProps) {
   const isArchived = !!lifecycle.archival;
   const totalEvents = 1 + lifecycle.exercises.length + (isArchived ? 1 : 0);
@@ -463,6 +511,7 @@ export function LifecycleTimeline({
           offset={lifecycle.creation.offset}
           updateId={lifecycle.creation.updateId}
           onNavigateTransaction={onNavigateTransaction}
+          onNavigateOffset={onNavigateOffset}
           isLast={totalEvents === 1}
         >
           <div className="flex flex-col gap-4">
@@ -529,6 +578,7 @@ export function LifecycleTimeline({
               updateId={exercise.updateId}
               actingParties={exercise.actingParties}
               onNavigateTransaction={onNavigateTransaction}
+              onNavigateOffset={onNavigateOffset}
               isLast={isLastEvent}
             >
               <div className="flex flex-col gap-4">
@@ -584,6 +634,7 @@ export function LifecycleTimeline({
             updateId={lifecycle.archival.updateId}
             actingParties={lifecycle.archival.actingParties}
             onNavigateTransaction={onNavigateTransaction}
+            onNavigateOffset={onNavigateOffset}
             isLast
           >
             <div className="flex flex-col gap-4">

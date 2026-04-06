@@ -294,7 +294,11 @@ function WorkflowTabContent({
   return (
     <div className="flex flex-col gap-4 overflow-auto p-4">
       {/* Correlation input */}
-      <CorrelationInput onSearch={handleSearch} isLoading={isLoading} />
+      <CorrelationInput
+        onSearch={handleSearch}
+        isLoading={isLoading}
+        initialCorrelation={initialCorrelation}
+      />
 
       {/* Error state */}
       {error && (

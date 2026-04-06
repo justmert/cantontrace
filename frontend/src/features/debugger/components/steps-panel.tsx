@@ -30,8 +30,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
-import { Link } from "@tanstack/react-router";
-import { cn, formatJsonForDisplay, formatPartyDisplay, formatNumeric } from "@/lib/utils";
+// Using <a> tags for contract links to avoid TanStack Router type issues
+import { cn, formatJsonForDisplay, formatPartyDisplay, formatNumeric, formatPayloadValue, formatTemplateId, truncateId } from "@/lib/utils";
 import type { TraceStep, TraceStepType } from "@/lib/types";
 import type { TraceNavigation } from "@/features/debugger/hooks";
 
@@ -91,14 +91,13 @@ function FormattedValue({
     const display =
       value.length > 20 ? value.slice(0, 8) + "..." + value.slice(-8) : value;
     return (
-      <Link
-        to="/contracts/$contractId"
-        params={{ contractId: value }}
+      <a
+        href={`/contracts/${encodeURIComponent(value)}`}
         className="font-mono text-primary underline underline-offset-2 hover:text-primary/80"
         title={value}
       >
         {display}
-      </Link>
+      </a>
     );
   }
   if (isPartyId(value)) {
@@ -121,6 +120,12 @@ function FormattedValue({
  * Render a variables record as a compact key-value list with smart formatting
  * instead of raw JSON.
  */
+/** Detect if a key name is likely a contract ID field. */
+function isContractIdKey(key: string): boolean {
+  const lower = key.toLowerCase();
+  return lower === "contractid" || lower === "contract_id" || lower === "resultingcontractid";
+}
+
 function FormattedVariables({
   variables,
   contractIdKey,
@@ -139,7 +144,7 @@ function FormattedVariables({
           <span className="text-muted-foreground">{key}:</span>
           <FormattedValue
             value={value}
-            asContractLink={key === contractIdKey}
+            asContractLink={key === contractIdKey || isContractIdKey(key)}
           />
         </div>
       ))}
@@ -151,52 +156,296 @@ function FormattedVariables({
 // Step detail (expandable)
 // ---------------------------------------------------------------------------
 
+/** Render a payload/arguments object as formatted key-value pairs with party/numeric formatting. */
+function PayloadFields({ data, label }: { data: Record<string, unknown>; label: string }) {
+  const entries = Object.entries(data);
+  if (entries.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
+      <div className="flex flex-col gap-0.5 overflow-hidden rounded-md border border-border/50 bg-muted/20 p-2">
+        {entries.map(([k, v]) => {
+          const isParty = typeof v === "string" && v.includes("::");
+          const isNumeric = typeof v === "string" && /^-?\d+\.\d+$/.test(v);
+          return (
+            <div key={k} className="flex items-baseline gap-2 font-mono text-[11px]">
+              <span className="text-muted-foreground">{k}:</span>
+              {isParty ? (
+                <span className="text-primary/80" title={String(v)}>
+                  {formatPartyDisplay(String(v))}
+                </span>
+              ) : isNumeric ? (
+                <span title={String(v)}>{formatNumeric(String(v))}</span>
+              ) : typeof v === "object" && v !== null ? (
+                <span className="whitespace-pre-wrap break-all">{formatJsonForDisplay(v)}</span>
+              ) : (
+                <span className="break-all">{formatPayloadValue(v)}</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function StepExpandedContent({ step }: { step: TraceStep }) {
   const ctx = step.context;
   const templateLabel = ctx.templateId
-    ? `${ctx.templateId.moduleName}:${ctx.templateId.entityName}`
+    ? formatTemplateId(ctx.templateId)
     : null;
 
   return (
     <div className="mt-2 flex flex-col gap-2 text-xs">
-      {/* Action / Template / Choice summary — shows the core "what" for this step */}
-      {(ctx.actionType || templateLabel || ctx.choice || ctx.resultingContractId) && (
-        <div className="flex flex-col gap-1 rounded-md border border-border/50 bg-muted/20 p-2">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            {ctx.actionType && (
-              <span className="text-[10px] text-muted-foreground">
-                Action:{" "}
-                <span className="font-medium text-foreground">{ctx.actionType}</span>
-              </span>
+      {/* ── fetch_contract ── */}
+      {step.stepType === "fetch_contract" && (() => {
+        const contractId = String(step.variables.contractId ?? "");
+        const source = String(step.variables.source ?? "ACS");
+        const payloads = ctx.contractPayloads ?? {};
+        const contractPayload = contractId ? payloads[contractId] : undefined;
+
+        return (
+          <>
+            {/* Contract ID + source badge */}
+            {contractId && (
+              <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-muted/20 p-2">
+                <span className="text-[10px] text-muted-foreground">Contract:</span>
+                <a
+                  href={`/contracts/${encodeURIComponent(contractId)}`}
+                  className="font-mono text-[11px] text-primary underline underline-offset-2 hover:text-primary/80"
+                  title={contractId}
+                >
+                  {truncateId(contractId, 24)}
+                </a>
+                <Badge
+                  variant={source === "ACS" ? "default" : "secondary"}
+                  className="text-[9px]"
+                >
+                  {source}
+                </Badge>
+              </div>
             )}
-            {templateLabel && (
-              <span className="text-[10px] text-muted-foreground">
-                Template:{" "}
-                <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-foreground">
-                  {templateLabel}
-                </code>
-              </span>
+            {/* Contract payload */}
+            {contractPayload && Object.keys(contractPayload).length > 0 && (
+              <PayloadFields data={contractPayload} label="Contract Payload" />
             )}
+          </>
+        );
+      })()}
+
+      {/* ── exercise_choice ── */}
+      {step.stepType === "exercise_choice" && (() => {
+        const contractId = String(ctx.resultingContractId ?? step.variables.contractId ?? "");
+        const isConsuming = ctx.actionType === "exercise_consuming" || ctx.actionType?.includes("consuming");
+        const actingParties = step.variables.actingParties;
+
+        return (
+          <>
+            {/* Template + Choice + Consuming badge */}
+            <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-muted/20 p-2">
+              {templateLabel && (
+                <span className="text-[10px] text-muted-foreground">
+                  Template:{" "}
+                  <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-foreground">
+                    {templateLabel}
+                  </code>
+                </span>
+              )}
+              {ctx.choice && (
+                <span className="text-[10px] text-muted-foreground">
+                  Choice:{" "}
+                  <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-foreground">
+                    {ctx.choice}
+                  </code>
+                </span>
+              )}
+              <Badge
+                variant={isConsuming ? "destructive" : "secondary"}
+                className="text-[9px]"
+              >
+                {isConsuming ? "Consuming" : "Non-consuming"}
+              </Badge>
+            </div>
+
+            {/* Contract ID link */}
+            {contractId && (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground">Contract:</span>
+                <a
+                  href={`/contracts/${encodeURIComponent(contractId)}`}
+                  className="font-mono text-[11px] text-primary underline underline-offset-2 hover:text-primary/80"
+                  title={contractId}
+                >
+                  {truncateId(contractId, 24)}
+                </a>
+              </div>
+            )}
+
+            {/* Choice arguments */}
+            {ctx.arguments && Object.keys(ctx.arguments).length > 0 && (
+              <PayloadFields data={ctx.arguments} label="Choice Arguments" />
+            )}
+
+            {/* Acting parties */}
+            {actingParties && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Acting Parties:</span>
+                {(Array.isArray(actingParties) ? actingParties : [actingParties]).map(p => (
+                  <Badge key={String(p)} variant="outline" className="max-w-full font-mono text-[9px]" title={String(p)}>
+                    <span className="truncate">{formatPartyDisplay(String(p))}</span>
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </>
+        );
+      })()}
+
+      {/* ── archive_contract ── */}
+      {step.stepType === "archive_contract" && (() => {
+        const contractId = String(ctx.resultingContractId ?? step.variables.contractId ?? "");
+
+        return (
+          <>
+            <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-muted/20 p-2">
+              {templateLabel && (
+                <span className="text-[10px] text-muted-foreground">
+                  Template:{" "}
+                  <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-foreground">
+                    {templateLabel}
+                  </code>
+                </span>
+              )}
+              {contractId && (
+                <span className="text-[10px] text-muted-foreground">
+                  Contract:{" "}
+                  <a
+                    href={`/contracts/${encodeURIComponent(contractId)}`}
+                    className="font-mono text-[10px] text-primary underline underline-offset-2 hover:text-primary/80"
+                    title={contractId}
+                  >
+                    {truncateId(contractId, 24)}
+                  </a>
+                </span>
+              )}
+            </div>
             {ctx.choice && (
-              <span className="text-[10px] text-muted-foreground">
-                Choice:{" "}
-                <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-foreground">
-                  {ctx.choice}
-                </code>
-              </span>
+              <div className="flex items-center gap-2 text-[10px]">
+                <span className="text-muted-foreground">Archived by:</span>
+                <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-foreground">{ctx.choice}</code>
+              </div>
             )}
-            {ctx.resultingContractId && (
-              <span className="text-[10px] text-muted-foreground">
-                Contract:{" "}
-                <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-foreground" title={ctx.resultingContractId}>
-                  {ctx.resultingContractId.length > 20
-                    ? ctx.resultingContractId.slice(0, 8) + "..." + ctx.resultingContractId.slice(-8)
-                    : ctx.resultingContractId}
-                </code>
-              </span>
+          </>
+        );
+      })()}
+
+      {/* ── create_contract ── */}
+      {step.stepType === "create_contract" && (() => {
+        const contractId = String(ctx.resultingContractId ?? step.variables.contractId ?? "");
+        const signatoriesVar = step.variables.signatories;
+        const stakeholdersVar = step.variables.stakeholders;
+
+        return (
+          <>
+            <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-muted/20 p-2">
+              {templateLabel && (
+                <span className="text-[10px] text-muted-foreground">
+                  Template:{" "}
+                  <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-foreground">
+                    {templateLabel}
+                  </code>
+                </span>
+              )}
+              {contractId && (
+                <span className="text-[10px] text-muted-foreground">
+                  New Contract:{" "}
+                  <span className="font-mono text-foreground" title={contractId}>
+                    {truncateId(contractId, 24)}
+                  </span>
+                </span>
+              )}
+            </div>
+
+            {/* Full payload from ctx.arguments */}
+            {ctx.arguments && Object.keys(ctx.arguments).length > 0 && (
+              <PayloadFields data={ctx.arguments} label="Contract Payload" />
             )}
-          </div>
-        </div>
+
+            {/* Signatories */}
+            {signatoriesVar && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Signatories:</span>
+                {(Array.isArray(signatoriesVar) ? signatoriesVar : [signatoriesVar]).map(s => (
+                  <Badge key={String(s)} variant="outline" className="max-w-full font-mono text-[9px]" title={String(s)}>
+                    <span className="truncate">{formatPartyDisplay(String(s))}</span>
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            {/* Stakeholders */}
+            {stakeholdersVar && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Stakeholders:</span>
+                {(Array.isArray(stakeholdersVar) ? stakeholdersVar : [stakeholdersVar]).map(s => (
+                  <Badge key={String(s)} variant="outline" className="max-w-full font-mono text-[9px]" title={String(s)}>
+                    <span className="truncate">{formatPartyDisplay(String(s))}</span>
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </>
+        );
+      })()}
+
+      {/* ── Generic step info (non-specific step types) ── */}
+      {!["fetch_contract", "exercise_choice", "archive_contract", "create_contract"].includes(step.stepType) && (
+        <>
+          {/* Action / Template / Choice summary */}
+          {(ctx.actionType || templateLabel || ctx.choice || ctx.resultingContractId) && (
+            <div className="flex flex-col gap-1 rounded-md border border-border/50 bg-muted/20 p-2">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                {ctx.actionType && (
+                  <span className="text-[10px] text-muted-foreground">
+                    Action:{" "}
+                    <span className="font-medium text-foreground">{ctx.actionType}</span>
+                  </span>
+                )}
+                {templateLabel && (
+                  <span className="text-[10px] text-muted-foreground">
+                    Template:{" "}
+                    <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-foreground">
+                      {templateLabel}
+                    </code>
+                  </span>
+                )}
+                {ctx.choice && (
+                  <span className="text-[10px] text-muted-foreground">
+                    Choice:{" "}
+                    <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-foreground">
+                      {ctx.choice}
+                    </code>
+                  </span>
+                )}
+                {ctx.resultingContractId && (
+                  <span className="text-[10px] text-muted-foreground">
+                    Contract:{" "}
+                    <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-foreground" title={ctx.resultingContractId}>
+                      {truncateId(ctx.resultingContractId, 24)}
+                    </code>
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Arguments for generic steps */}
+          {ctx.arguments && Object.keys(ctx.arguments).length > 0 && (
+            <PayloadFields data={ctx.arguments} label="Arguments" />
+          )}
+        </>
       )}
 
       {/* Source location detail */}
@@ -214,78 +463,7 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
         </div>
       )}
 
-      {/* Choice / Command arguments */}
-      {ctx.arguments && Object.keys(ctx.arguments).length > 0 && (
-        <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Arguments
-          </span>
-          <div className="overflow-hidden rounded-md border border-border/50 p-2">
-            <pre className="whitespace-pre-wrap break-all font-mono text-[11px]">
-              {formatJsonForDisplay(ctx.arguments)}
-            </pre>
-          </div>
-        </div>
-      )}
-
-      {/* fetch_contract: prominent contract ID link + source badge */}
-      {step.stepType === "fetch_contract" && step.variables.contractId && (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-muted/20 p-2">
-          <span className="text-[10px] text-muted-foreground">Contract:</span>
-          <Link
-            to="/contracts/$contractId"
-            params={{ contractId: String(step.variables.contractId) }}
-            className="font-mono text-[11px] text-primary underline underline-offset-2 hover:text-primary/80"
-            title={String(step.variables.contractId)}
-          >
-            {String(step.variables.contractId).length > 24
-              ? String(step.variables.contractId).slice(0, 8) +
-                "..." +
-                String(step.variables.contractId).slice(-8)
-              : String(step.variables.contractId)}
-          </Link>
-          {step.variables.source && (
-            <Badge
-              variant={step.variables.source === "ACS" ? "default" : "secondary"}
-              className="text-[9px]"
-            >
-              {String(step.variables.source)}
-            </Badge>
-          )}
-        </div>
-      )}
-
-      {/* Variables — formatted with smart party/numeric/link display */}
-      {Object.keys(step.variables).length > 0 && (
-        <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Variables
-          </span>
-          <div className="overflow-hidden rounded-md border border-border/50 p-2">
-            <FormattedVariables
-              variables={step.variables}
-              contractIdKey={step.stepType === "fetch_contract" ? "contractId" : undefined}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Contract payloads */}
-      {ctx.contractPayloads &&
-        Object.keys(ctx.contractPayloads).length > 0 && (
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              Contract Payloads
-            </span>
-            <div className="overflow-hidden rounded-md border border-border/50 p-2">
-              <pre className="whitespace-pre-wrap break-all font-mono text-[11px]">
-                {formatJsonForDisplay(ctx.contractPayloads)}
-              </pre>
-            </div>
-          </div>
-        )}
-
-      {/* Authority sets */}
+      {/* Authority sets (shared across step types) */}
       {(ctx.requiredAuthority || ctx.providedAuthority) && (
         <div className="flex gap-4">
           {ctx.requiredAuthority && (
@@ -329,6 +507,44 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
         </div>
       )}
 
+      {/* Variables — formatted with smart party/numeric/link display */}
+      {Object.keys(step.variables).length > 0 && (
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Variables
+          </span>
+          <div className="overflow-hidden rounded-md border border-border/50 p-2">
+            <FormattedVariables
+              variables={step.variables}
+              contractIdKey={step.stepType === "fetch_contract" ? "contractId" : undefined}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Contract payloads (for step types that don't render them above) */}
+      {!["fetch_contract"].includes(step.stepType) &&
+        ctx.contractPayloads &&
+        Object.keys(ctx.contractPayloads).length > 0 && (
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              Contract Payloads
+            </span>
+            {Object.entries(ctx.contractPayloads).map(([cid, pl]) => (
+              <div key={cid} className="flex flex-col gap-1">
+                <a
+                  href={`/contracts/${encodeURIComponent(cid)}`}
+                  className="font-mono text-[10px] text-primary underline underline-offset-2 hover:text-primary/80"
+                  title={cid}
+                >
+                  {truncateId(cid, 20)}
+                </a>
+                <PayloadFields data={pl} label="" />
+              </div>
+            ))}
+          </div>
+        )}
+
       {/* Guard info */}
       {ctx.guardExpression && (
         <div className="flex flex-col gap-1">
@@ -353,13 +569,15 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
 
       {/* Error — full red background for failed steps */}
       {step.error && (
-        <div className="flex items-start gap-2 rounded-md border border-destructive bg-destructive/20 p-3">
-          <HugeiconsIcon icon={AlertCircleIcon} className="mt-0.5 size-4 flex-shrink-0 text-destructive" strokeWidth={2} />
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-destructive">
-              Error
-            </span>
-            <p className="text-xs font-medium text-destructive">{step.error}</p>
+        <div className="rounded-md border-2 border-destructive bg-destructive/30 p-4">
+          <div className="flex items-start gap-2">
+            <HugeiconsIcon icon={AlertCircleIcon} className="mt-0.5 size-5 flex-shrink-0 text-destructive" strokeWidth={2} />
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-destructive">
+                Error
+              </span>
+              <p className="text-sm font-semibold text-destructive">{step.error}</p>
+            </div>
           </div>
         </div>
       )}
@@ -374,12 +592,21 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
 interface StepRowProps {
   step: TraceStep;
   isCurrent: boolean;
+  isLast: boolean;
   onClick: () => void;
 }
 
-function StepRow({ step, isCurrent, onClick }: StepRowProps) {
+/** Detect evaluate_expression steps that are implementation details (init/completion). */
+function isImplementationDetail(step: TraceStep): boolean {
+  if (step.stepType !== "evaluate_expression") return false;
+  const s = step.summary.toLowerCase();
+  return s.includes("initialize") || s.includes("daml-lf engine") || s.includes("command evaluation complete") || s.includes("evaluation complete");
+}
+
+function StepRow({ step, isCurrent, isLast, onClick }: StepRowProps) {
   const [expanded, setExpanded] = React.useState(isCurrent);
   const Icon = STEP_ICONS[step.stepType];
+  const muted = isImplementationDetail(step);
 
   // Auto-expand when this step becomes current, auto-collapse when it loses focus
   React.useEffect(() => {
@@ -394,13 +621,14 @@ function StepRow({ step, isCurrent, onClick }: StepRowProps) {
           ? "ring-1 ring-primary/50 border border-primary/30"
           : step.passed
           ? "hover:bg-muted/30"
-          : "ring-1 ring-destructive/30 border border-destructive/20",
+          : "ring-1 ring-destructive/30 border border-destructive/20 bg-destructive/5",
+        muted && !isCurrent && "opacity-60",
       )}
       onClick={onClick}
     >
       <div className="flex items-center gap-2">
         {/* Step number */}
-        <span className="w-6 text-right font-mono text-[10px] text-muted-foreground">
+        <span className={cn("w-6 text-right font-mono text-muted-foreground", muted ? "text-[9px]" : "text-[10px]")}>
           {step.stepNumber}
         </span>
 
@@ -408,7 +636,8 @@ function StepRow({ step, isCurrent, onClick }: StepRowProps) {
         <HugeiconsIcon
           icon={Icon}
           className={cn(
-            "size-3.5 flex-shrink-0",
+            "flex-shrink-0",
+            muted ? "size-3" : "size-3.5",
             step.passed
               ? "text-muted-foreground"
               : "text-destructive"
@@ -419,7 +648,7 @@ function StepRow({ step, isCurrent, onClick }: StepRowProps) {
         {/* Summary */}
         <div className="flex flex-1 flex-col gap-0.5 overflow-hidden">
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium">
+            <span className={cn("font-medium", muted ? "text-[10px] text-muted-foreground" : "text-xs")}>
               {STEP_TYPE_LABELS[step.stepType]}
             </span>
             {step.sourceLocation && (
@@ -429,7 +658,7 @@ function StepRow({ step, isCurrent, onClick }: StepRowProps) {
               </span>
             )}
           </div>
-          <p className="truncate text-[11px] text-muted-foreground">
+          <p className={cn("truncate text-muted-foreground", muted ? "text-[10px]" : "text-[11px]")}>
             {step.summary}
           </p>
         </div>
@@ -459,14 +688,23 @@ function StepRow({ step, isCurrent, onClick }: StepRowProps) {
 
       {/* Failed step error banner — prominent red */}
       {!step.passed && !expanded && step.error && (
-        <div className="ml-8 mt-1.5 flex items-center gap-1.5 rounded bg-destructive/20 border border-destructive/40 px-2 py-1.5">
-          <HugeiconsIcon icon={AlertCircleIcon} className="size-3 flex-shrink-0 text-destructive" strokeWidth={2} />
-          <span className="truncate text-[11px] font-medium text-destructive">{step.error}</span>
+        <div className="ml-8 mt-1.5 flex items-center gap-1.5 rounded bg-destructive/30 border-2 border-destructive/50 px-3 py-2">
+          <HugeiconsIcon icon={AlertCircleIcon} className="size-4 flex-shrink-0 text-destructive" strokeWidth={2} />
+          <span className="text-xs font-semibold text-destructive">{step.error}</span>
         </div>
       )}
 
       {/* Expanded details */}
       {expanded && <StepExpandedContent step={step} />}
+
+      {/* NO MORE STEPS indicator after failed last step */}
+      {!step.passed && isLast && (
+        <div className="mt-2 flex items-center justify-center rounded-md border-2 border-destructive/30 bg-destructive/10 py-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-destructive/70">
+            No More Steps
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -624,11 +862,12 @@ export function StepsPanel({ steps, navigation }: StepsPanelProps) {
       {/* Steps list */}
       <ScrollArea className="flex-1">
         <div className="flex flex-col">
-          {steps.map((step) => (
+          {steps.map((step, idx) => (
             <StepRow
               key={step.stepNumber}
               step={step}
               isCurrent={step.stepNumber === navigation.currentStep + 1}
+              isLast={idx === steps.length - 1}
               onClick={() => navigation.setStep(step.stepNumber - 1)}
             />
           ))}

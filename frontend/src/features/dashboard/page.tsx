@@ -14,6 +14,10 @@ import {
   MinusSignIcon,
   FlashIcon,
   AlertCircleIcon,
+  PlayIcon,
+  TestTube01Icon,
+  PlusSignSquareIcon,
+  FileUploadIcon,
 } from "@hugeicons/core-free-icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +31,7 @@ import {
   truncateId,
   formatTemplateId,
   formatPartyId,
+  formatPartyDisplay,
   stringToHue,
   formatTimestamp,
 } from "@/lib/utils";
@@ -102,6 +107,8 @@ function ActivityRow({
   type,
   firstEventType,
   templateName,
+  choice,
+  actingParty,
   eventCount,
   time,
   onClick,
@@ -109,6 +116,8 @@ function ActivityRow({
   type: string;
   firstEventType?: string;
   templateName: string;
+  choice?: string;
+  actingParty?: string;
   eventCount: number;
   time: string;
   onClick: () => void;
@@ -120,6 +129,14 @@ function ActivityRow({
     : type === "reassignment" ? "bg-event-reassign"
     : "bg-muted-foreground/30";
 
+  const eventLabel =
+    firstEventType === "created" ? "Created"
+    : firstEventType === "archived" ? "Archived"
+    : firstEventType === "exercised" && choice ? `Exercised ${choice}`
+    : firstEventType === "exercised" ? "Exercised"
+    : type === "reassignment" ? "Reassignment"
+    : "Event";
+
   return (
     <button
       type="button"
@@ -127,7 +144,15 @@ function ActivityRow({
       className="group flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/30"
     >
       <div className={cn("size-1.5 shrink-0 rounded-full", dotColor)} />
-      <span className="min-w-0 flex-1 truncate font-mono text-xs">{templateName || type}</span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-medium text-muted-foreground">{eventLabel}</span>
+          {templateName && <span className="truncate font-mono text-xs">{templateName}</span>}
+        </div>
+        {actingParty && (
+          <span className="text-[10px] text-muted-foreground/50">by {formatPartyDisplay(actingParty)}</span>
+        )}
+      </div>
       <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/40">
         {eventCount}e · {time}
       </span>
@@ -136,7 +161,7 @@ function ActivityRow({
 }
 
 // ─── Party Row ────────────────────────────────────────────────────────
-function PartyRow({ party }: { party: string }) {
+function PartyRow({ party, contractCount, onClick }: { party: string; contractCount?: number; onClick?: () => void }) {
   const name = formatPartyId(party);
   const hue = stringToHue(name);
   const [copied, setCopied] = useState(false);
@@ -149,14 +174,24 @@ function PartyRow({ party }: { party: string }) {
       >
         {name.charAt(0)}
       </span>
-      <span className="flex-1 truncate text-xs font-medium">{name}</span>
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex-1 truncate text-left text-xs font-medium transition-colors hover:text-primary"
+      >
+        {name}
+        {contractCount != null && (
+          <span className="ml-1 font-mono text-[10px] text-muted-foreground/50">({contractCount})</span>
+        )}
+      </button>
       <span className="hidden max-w-[140px] truncate font-mono text-[10px] text-muted-foreground/40 sm:block">
         {truncateId(party, 20)}
       </span>
       <button
         type="button"
         className="shrink-0 text-muted-foreground/30 transition-colors hover:text-foreground"
-        onClick={async () => {
+        onClick={async (e) => {
+          e.stopPropagation();
           try {
             await navigator.clipboard.writeText(party);
             setCopied(true);
@@ -237,6 +272,21 @@ export default function DashboardPage() {
       .slice(0, 5);
   }, [events]);
 
+  // Per-party active contract counts from ACS data
+  const partyContractCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (!acsData?.contracts) return counts;
+    for (const c of acsData.contracts) {
+      for (const s of c.signatories ?? []) {
+        counts.set(s, (counts.get(s) ?? 0) + 1);
+      }
+      for (const o of c.observers ?? []) {
+        counts.set(o, (counts.get(o) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [acsData]);
+
   if (status !== "connected" || !bootstrap) {
     return (
       <>
@@ -274,8 +324,8 @@ export default function DashboardPage() {
 
       <div className="flex-1 overflow-auto p-6">
         <div className="flex flex-col gap-5">
-          {/* ── Row 1: 4 Stat cards ───────────────────────────── */}
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {/* ── Row 1: 5 Stat cards ───────────────────────────── */}
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <StatCard
               label="Active Contracts"
               value={contractCount}
@@ -328,6 +378,14 @@ export default function DashboardPage() {
                 )}
               </div>
             </StatCard>
+            <StatCard
+              label="Errors"
+              value={failedCount === 0 ? "none" : failedCount}
+              sub={failedCount === 0 ? "All clear" : "Failed completions"}
+              onClick={() => navigate({ to: "/events", search: () => ({ tab: "errors" }) } as any)}
+            >
+              <span className={cn("mb-0.5 size-2 rounded-full", failedCount === 0 ? "bg-event-create" : "bg-destructive")} />
+            </StatCard>
           </div>
 
           {/* ── Row 2: Two-column — Activity + Sidebar ─────── */}
@@ -367,12 +425,16 @@ export default function DashboardPage() {
                     const firstEvent = (event.events ?? [])[0];
                     const templateName = firstEvent && "templateId" in firstEvent ? formatTemplateId(firstEvent.templateId) : "";
                     const firstEventType = firstEvent && "eventType" in firstEvent ? (firstEvent as { eventType: string }).eventType : undefined;
+                    const choice = firstEvent && "choice" in firstEvent ? (firstEvent as { choice: string }).choice : undefined;
+                    const actingParties = firstEvent && "actingParties" in firstEvent ? (firstEvent as { actingParties: string[] }).actingParties : undefined;
                     return (
                       <ActivityRow
                         key={`${event.updateId}-${i}`}
                         type={event.updateType}
                         firstEventType={firstEventType}
                         templateName={templateName}
+                        choice={choice}
+                        actingParty={actingParties?.[0]}
                         eventCount={(event.events ?? []).length}
                         time={event.recordTime ? formatTimestamp(event.recordTime, "relative") : ""}
                         onClick={() => navigate({ to: "/transactions/$updateId", params: { updateId: event.updateId } })}
@@ -454,7 +516,7 @@ export default function DashboardPage() {
                       <button
                         key={name}
                         type="button"
-                        onClick={() => navigate({ to: "/templates" })}
+                        onClick={() => navigate({ to: "/templates", search: { template: name } } as any)}
                         className="flex items-center justify-between px-4 py-2 text-left transition-colors hover:bg-muted/30"
                       >
                         <span className="truncate font-mono text-xs">{name}</span>
@@ -462,6 +524,51 @@ export default function DashboardPage() {
                       </button>
                     ))
                   )}
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="rounded-xl border bg-card/30 ring-1 ring-border/30">
+                <div className="border-b border-border/30 px-4 py-2.5">
+                  <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground/60">Quick Actions</h2>
+                </div>
+                <div className="grid grid-cols-2 gap-2 px-3 py-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-[11px]"
+                    onClick={() => navigate({ to: "/debugger" })}
+                  >
+                    <HugeiconsIcon icon={PlayIcon} strokeWidth={2} className="size-3" />
+                    Simulate Command
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-[11px]"
+                    onClick={() => navigate({ to: "/debugger" })}
+                  >
+                    <HugeiconsIcon icon={TestTube01Icon} strokeWidth={2} className="size-3" />
+                    Trace Command
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-[11px]"
+                    onClick={() => navigate({ to: "/sandbox" })}
+                  >
+                    <HugeiconsIcon icon={PlusSignSquareIcon} strokeWidth={2} className="size-3" />
+                    Create Sandbox
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-[11px]"
+                    onClick={() => navigate({ to: "/sandbox" })}
+                  >
+                    <HugeiconsIcon icon={FileUploadIcon} strokeWidth={2} className="size-3" />
+                    Upload DAR
+                  </Button>
                 </div>
               </div>
 
@@ -506,7 +613,12 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex flex-col divide-y divide-border/20 py-1">
                     {knownParties.map((p) => (
-                      <PartyRow key={p} party={p} />
+                      <PartyRow
+                        key={p}
+                        party={p}
+                        contractCount={partyContractCounts.get(p)}
+                        onClick={() => navigate({ to: "/contracts", search: { party: p } } as any)}
+                      />
                     ))}
                   </div>
                 </div>

@@ -339,7 +339,10 @@ class ApiClient {
 
   /**
    * Connect to the event stream WebSocket with filter support.
-   * Sends the filter as the first message after connection opens.
+   * Passes filter settings as query parameters so the backend initialises
+   * the gRPC stream with the correct transaction shape and filters.
+   * Also sends the filter as a filter_update message after connection opens
+   * so the backend can apply dynamic updates.
    */
   connectEventStream(
     filter: EventStreamFilter,
@@ -347,11 +350,35 @@ class ApiClient {
   ): WebSocket {
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsHost = import.meta.env.VITE_WS_URL || `${wsProtocol}//${window.location.host}`;
-    const ws = new WebSocket(`${wsHost}/api/v1/events/stream`);
+
+    // Build query parameters from the filter so the backend initialises the
+    // gRPC subscription with the requested transaction shape and parties.
+    const params = new URLSearchParams();
+    if (filter.transactionShape) {
+      params.set("shape", filter.transactionShape);
+    }
+    if (filter.parties && filter.parties.length > 0) {
+      params.set("parties", filter.parties.join(","));
+    }
+    if (filter.templates && filter.templates.length > 0) {
+      params.set(
+        "templates",
+        filter.templates
+          .map((t) => `${t.packageName}:${t.moduleName}:${t.entityName}`)
+          .join(",")
+      );
+    }
+    if (filter.eventTypes && filter.eventTypes.length > 0) {
+      params.set("eventTypes", filter.eventTypes.join(","));
+    }
+    const qs = params.toString();
+    const wsUrl = `${wsHost}/api/v1/events/stream${qs ? `?${qs}` : ""}`;
+    const ws = new WebSocket(wsUrl);
 
     ws.addEventListener("open", () => {
-      // Send filter configuration as the first message
-      ws.send(JSON.stringify(filter));
+      // Send filter as a properly typed filter_update message so the backend
+      // can apply dynamic filter changes during the session.
+      ws.send(JSON.stringify({ type: "filter_update", filter }));
     });
 
     ws.addEventListener("message", (event) => {

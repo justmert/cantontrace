@@ -11,7 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { IdBadge } from "@/components/id-badge";
 import { PartyBadge } from "@/components/party-badge";
-import { cn, formatTemplateId, formatJsonForDisplay } from "@/lib/utils";
+import { cn, formatTemplateId, formatPayloadValue } from "@/lib/utils";
 import type {
   LedgerEvent,
   CreatedEvent,
@@ -77,10 +77,21 @@ export function CreateNode({ data }: NodeProps) {
           Payload
         </button>
 
-        {expanded && (
-          <pre className="mt-1 whitespace-pre-wrap break-all rounded-lg bg-muted p-2 font-mono text-[9px] leading-relaxed">
-            {formatJsonForDisplay(event.payload)}
-          </pre>
+        {expanded && event.payload && (
+          <div className="mt-1 rounded-lg bg-muted p-2">
+            {Object.entries(event.payload).map(([key, value]) => {
+              const display =
+                typeof value === "object" && value !== null
+                  ? JSON.stringify(value)
+                  : formatPayloadValue(value);
+              return (
+                <div key={key} className="flex gap-1.5 text-[9px] leading-relaxed">
+                  <span className="shrink-0 text-muted-foreground">{key}:</span>
+                  <span className="font-mono break-all">{display}</span>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
@@ -162,10 +173,21 @@ export function ExerciseNode({ data }: NodeProps) {
           Choice Argument
         </button>
 
-        {expanded && (
-          <pre className="mt-1 whitespace-pre-wrap break-all rounded-lg bg-muted p-2 font-mono text-[9px] leading-relaxed">
-            {formatJsonForDisplay(event.choiceArgument)}
-          </pre>
+        {expanded && event.choiceArgument && (
+          <div className="mt-1 rounded-lg bg-muted p-2">
+            {Object.entries(event.choiceArgument).map(([key, value]) => {
+              const display =
+                typeof value === "object" && value !== null
+                  ? JSON.stringify(value)
+                  : formatPayloadValue(value);
+              return (
+                <div key={key} className="flex gap-1.5 text-[9px] leading-relaxed">
+                  <span className="shrink-0 text-muted-foreground">{key}:</span>
+                  <span className="font-mono break-all">{display}</span>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 

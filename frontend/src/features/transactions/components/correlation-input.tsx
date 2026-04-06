@@ -26,20 +26,45 @@ const CORRELATION_TYPES = [
 ] as const;
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function extractCorrelationValue(c: WorkflowCorrelation | null | undefined): string {
+  if (!c) return "";
+  switch (c.type) {
+    case "trace_context":
+      return c.traceId;
+    case "contract_chain":
+      return c.startContractId;
+    case "workflow_id":
+      return c.workflowId;
+    case "update_id":
+      return c.updateId;
+    default:
+      return "";
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export interface CorrelationInputProps {
   onSearch: (correlation: WorkflowCorrelation) => void;
   isLoading: boolean;
+  /** Optional initial correlation to pre-fill the input */
+  initialCorrelation?: WorkflowCorrelation | null;
 }
 
 export function CorrelationInput({
   onSearch,
   isLoading,
+  initialCorrelation,
 }: CorrelationInputProps) {
-  const [type, setType] = useState<string>("trace_context");
-  const [value, setValue] = useState("");
+  const [type, setType] = useState<string>(
+    initialCorrelation?.type ?? "trace_context"
+  );
+  const [value, setValue] = useState(() => extractCorrelationValue(initialCorrelation));
 
   const handleSearch = () => {
     if (!value.trim()) return;

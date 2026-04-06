@@ -1,7 +1,9 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "@tanstack/react-router";
-import { DatabaseIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { DatabaseIcon, InformationCircleIcon } from "@hugeicons/core-free-icons";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { useConnectionStore } from "@/stores/connection-store";
 import { useACSFilterStore } from "@/stores/acs-filter-store";
@@ -11,6 +13,8 @@ import { FilterBar } from "./components/filter-bar";
 import { ContractTable } from "./components/contract-table";
 import { ContractDetail } from "./components/contract-detail";
 import { TimeTravel } from "./components/time-travel";
+
+type StatusFilter = "active" | "all" | "archived";
 
 /** Stable empty array to avoid re-render loops in Zustand selectors. */
 const EMPTY_PARTIES: string[] = [];
@@ -49,6 +53,15 @@ export default function ContractsPage() {
   const storeSetSearch = useACSFilterStore((s) => s.setSearchContractId);
   const storeClearFilters = useACSFilterStore((s) => s.clearFilters);
 
+  // Read optional ?party= query param to pre-set the party filter
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const partyParam = searchParams.get("party");
+    if (partyParam) {
+      storeSetParty(partyParam);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Pagination
   const [pageTokenStack, setPageTokenStack] = useState<string[]>([]);
   const [currentPageToken, setCurrentPageToken] = useState<
@@ -61,6 +74,9 @@ export default function ContractsPage() {
 
   // Which tab to show on the detail panel
   const [detailTab, setDetailTab] = useState<"details" | "lifecycle">("details");
+
+  // Status filter: active-only (ACS default), all, or archived-only
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
 
   // Derive filter values from the UI state (computed each render, no split)
   const templateFilter: TemplateId[] = useMemo(
@@ -263,21 +279,59 @@ export default function ContractsPage() {
         />
 
         {/* Filter bar -- instant filtering, no Apply button */}
-        <FilterBar
-          templateOptions={templateOptions}
-          parties={parties}
-          selectedTemplate={selectedTemplate}
-          selectedParty={selectedParty}
-          searchContractId={searchContractId}
-          resultCount={
-            acsData ? filteredContracts.length : undefined
-          }
-          isLoading={acsLoading || acsFetching}
-          onTemplateChange={handleTemplateChange}
-          onPartyChange={handlePartyChange}
-          onSearchChange={handleSearchChange}
-          onClear={handleClear}
-        />
+        <div className="flex items-center gap-3">
+          <FilterBar
+            templateOptions={templateOptions}
+            parties={parties}
+            selectedTemplate={selectedTemplate}
+            selectedParty={selectedParty}
+            searchContractId={searchContractId}
+            resultCount={
+              acsData ? filteredContracts.length : undefined
+            }
+            isLoading={acsLoading || acsFetching}
+            onTemplateChange={handleTemplateChange}
+            onPartyChange={handlePartyChange}
+            onSearchChange={handleSearchChange}
+            onClear={handleClear}
+          />
+          {/* Status filter toggle */}
+          <div className="flex shrink-0 items-center rounded-md border">
+            {(["active", "all", "archived"] as const).map((s) => (
+              <Button
+                key={s}
+                size="sm"
+                variant="ghost"
+                className={cn(
+                  "h-7 rounded-none px-2.5 text-xs capitalize first:rounded-l-md last:rounded-r-md",
+                  statusFilter === s &&
+                    "bg-muted text-foreground"
+                )}
+                onClick={() => setStatusFilter(s)}
+              >
+                {s === "active" ? "Active Only" : s === "all" ? "All" : "Archived"}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* Archived-only info message */}
+        {statusFilter === "archived" && (
+          <div className="flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+            <HugeiconsIcon icon={InformationCircleIcon} strokeWidth={2} className="mt-0.5 size-4 shrink-0 text-primary" />
+            <div className="text-xs text-primary/80">
+              <p className="font-medium">Archived contracts are not in the Active Contract Set.</p>
+              <p className="mt-1 text-muted-foreground">
+                To find archived contracts, search by Contract ID above and view the
+                contract{"'"}s Lifecycle tab, or browse the{" "}
+                <a href="/transactions" className="font-medium text-primary underline underline-offset-2">
+                  Transactions
+                </a>{" "}
+                page.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Main content area: table + optional detail panel */}
         <div className="flex flex-1 gap-0 overflow-hidden rounded-lg border">
@@ -287,18 +341,26 @@ export default function ContractsPage() {
               selectedContract && "max-w-[60%]"
             )}
           >
-            <ContractTable
-              contracts={filteredContracts}
-              isLoading={acsLoading}
-              selectedContractId={
-                selectedContract?.contractId ?? null
-              }
-              hasNextPage={!!acsData?.nextPageToken}
-              hasPrevPage={pageTokenStack.length > 0}
-              onSelectContract={handleSelectContract}
-              onNextPage={handleNextPage}
-              onPrevPage={handlePrevPage}
-            />
+            {statusFilter !== "archived" ? (
+              <ContractTable
+                contracts={filteredContracts}
+                isLoading={acsLoading}
+                selectedContractId={
+                  selectedContract?.contractId ?? null
+                }
+                hasNextPage={!!acsData?.nextPageToken}
+                hasPrevPage={pageTokenStack.length > 0}
+                onSelectContract={handleSelectContract}
+                onNextPage={handleNextPage}
+                onPrevPage={handlePrevPage}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center p-12">
+                <p className="text-sm text-muted-foreground">
+                  Use the Contract ID search and Lifecycle tab to inspect archived contracts.
+                </p>
+              </div>
+            )}
           </div>
 
           {selectedContract && (

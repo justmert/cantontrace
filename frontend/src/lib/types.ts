@@ -199,6 +199,10 @@ export interface ArchivedEvent {
   contractId: string;
   templateId: TemplateId;
   witnesses: string[];
+  /** Backend may include the consumed contract's payload on archive events. */
+  payload?: Record<string, unknown>;
+  signatories?: string[];
+  observers?: string[];
 }
 
 export interface ExercisedEvent {
@@ -384,7 +388,7 @@ export interface SimulationResult {
   success: boolean;
   transactionTree?: TransactionDetail;
   error?: CommandError;
-  costEstimation?: { estimatedCost: string; unit: string };
+  costEstimation?: { estimatedCost?: string; unit?: string; estimationTimestamp?: string };
   hashInfo?: {
     transactionHash: string;
     hashingSchemeVersion: string;
@@ -521,6 +525,8 @@ export interface PrivacyEvent {
   eventId: string;
   eventType: string;
   templateId: TemplateId;
+  /** Choice name for exercised events (may be provided by backend). */
+  choice?: string;
   signatories: string[];
   observers: string[];
   witnesses: string[];

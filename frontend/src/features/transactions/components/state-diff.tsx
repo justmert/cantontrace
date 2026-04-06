@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { IdBadge } from "@/components/id-badge";
 
 import { formatPayloadValue, formatJsonForDisplay } from "@/lib/utils";
+import { PartyBadge } from "@/components/party-badge";
 import type { StateDiff, ActiveContract } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -59,6 +60,16 @@ function ContractCard({
             </Badge>
             <IdBadge id={contract.contractId} truncateLen={8} href={`/contracts/${encodeURIComponent(contract.contractId)}`} />
           </div>
+
+          {/* Signatories */}
+          {contract.signatories && contract.signatories.length > 0 && (
+            <div className="flex items-center gap-1 flex-wrap">
+              <span className="text-[10px] text-muted-foreground shrink-0">Signatories:</span>
+              {contract.signatories.map((party) => (
+                <PartyBadge key={party} party={party} variant="compact" />
+              ))}
+            </div>
+          )}
 
           {/* Key field preview */}
           {keyFields.length > 0 && (

@@ -5,7 +5,9 @@ import {
   Tick02Icon,
   LinkForwardIcon,
   InformationCircleIcon,
+  BugIcon,
 } from "@hugeicons/core-free-icons";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -15,8 +17,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { IdBadge } from "@/components/id-badge";
-import { cn } from "@/lib/utils";
-import type { TransactionDetail } from "@/lib/types";
+import { CopyButton } from "@/components/copy-button";
+import { cn, formatTemplateId } from "@/lib/utils";
+import type { TransactionDetail, ExercisedEvent } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Copyable key-value row
@@ -106,14 +109,46 @@ export interface TransactionMetadataProps {
   transaction: TransactionDetail;
 }
 
+/**
+ * Build a "Trace in Debugger" URL from the root exercise event (if any).
+ */
+function buildDebuggerUrl(transaction: TransactionDetail): string | null {
+  const rootExercise = transaction.rootEventIds
+    .map((id) => transaction.eventsById[id])
+    .find((e) => e?.eventType === "exercised") as ExercisedEvent | undefined;
+
+  if (!rootExercise) return null;
+
+  const params = new URLSearchParams();
+  params.set("contractId", rootExercise.contractId);
+  params.set(
+    "template",
+    formatTemplateId(rootExercise.templateId)
+  );
+  if (rootExercise.choice) {
+    params.set("choice", rootExercise.choice);
+  }
+  return `/debugger?${params.toString()}`;
+}
+
 export function TransactionMetadata({
   transaction,
 }: TransactionMetadataProps) {
+  const debuggerUrl = buildDebuggerUrl(transaction);
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b px-4 py-3">
         <HugeiconsIcon icon={InformationCircleIcon} strokeWidth={2} className="size-4 text-muted-foreground" />
         <h3 className="text-sm font-semibold">Metadata</h3>
+        {debuggerUrl && (
+          <a href={debuggerUrl} className="ml-auto">
+            <Button variant="outline" size="sm">
+              <HugeiconsIcon icon={BugIcon} strokeWidth={2} data-icon="inline-start" />
+              Trace in Debugger
+            </Button>
+          </a>
+        )}
       </div>
 
       <ScrollArea className="flex-1">
@@ -125,7 +160,10 @@ export function TransactionMetadata({
                 <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Update ID
                 </span>
-                <IdBadge id={transaction.updateId} truncateLen={14} />
+                <div className="flex items-center gap-1">
+                  <IdBadge id={transaction.updateId} truncateLen={14} />
+                  <CopyButton text={transaction.updateId} />
+                </div>
               </div>
             )}
 
@@ -134,7 +172,10 @@ export function TransactionMetadata({
                 <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Command ID
                 </span>
-                <IdBadge id={transaction.commandId} truncateLen={14} />
+                <div className="flex items-center gap-1">
+                  <IdBadge id={transaction.commandId} truncateLen={14} />
+                  <CopyButton text={transaction.commandId} />
+                </div>
               </div>
             )}
           </div>
@@ -194,10 +235,13 @@ export function TransactionMetadata({
                     <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       trace_parent
                     </span>
-                    <IdBadge
-                      id={transaction.traceContext.traceParent}
-                      truncateLen={14}
-                    />
+                    <div className="flex items-center gap-1">
+                      <IdBadge
+                        id={transaction.traceContext.traceParent}
+                        truncateLen={14}
+                      />
+                      <CopyButton text={transaction.traceContext.traceParent} />
+                    </div>
                   </div>
                 )}
                 {transaction.traceContext.traceState && (

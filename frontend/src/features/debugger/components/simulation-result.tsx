@@ -36,6 +36,8 @@ import type {
   TransactionDetail,
   LedgerEvent,
   ExercisedEvent,
+  CreatedEvent,
+  ArchivedEvent,
 } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -53,7 +55,7 @@ function ContractCard({
   variant: "input" | "output";
   onNavigateContract?: (id: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(variant === "output");
   const isInput = variant === "input";
 
   return (
@@ -229,23 +231,36 @@ function TreeNode({ event, depth }: { event: LedgerEvent; depth: number }) {
 
   let label = "";
   let detail = "";
-  const payload = (event as { payload?: Record<string, unknown> }).payload;
-  const choiceArg = (event as ExercisedEvent).choiceArgument;
-  const signatories = (event as { signatories?: string[] }).signatories;
-  const observers = (event as { observers?: string[] }).observers;
-  const actingParties = (event as ExercisedEvent).actingParties;
+  let payload: Record<string, unknown> | undefined;
+  let choiceArg: Record<string, unknown> | undefined;
+  let signatories: string[] | undefined;
+  let observers: string[] | undefined;
+  let actingParties: string[] | undefined;
+  let isConsuming = false;
 
   if (event.eventType === "exercised") {
     const ex = event as ExercisedEvent;
     label = `Exercise ${ex.choice}`;
     detail = `${formatTemplateId(ex.templateId)} ${truncateId(ex.contractId, 8)}`;
+    isConsuming = ex.consuming;
     if (ex.consuming) detail += " [consuming]";
+    choiceArg = ex.choiceArgument;
+    actingParties = ex.actingParties;
+    signatories = (ex as unknown as { signatories?: string[] }).signatories;
   } else if (event.eventType === "created") {
-    label = `Create ${formatTemplateId(event.templateId)}`;
-    detail = truncateId(event.contractId, 8);
+    const ce = event as CreatedEvent;
+    label = `Create ${formatTemplateId(ce.templateId)}`;
+    detail = truncateId(ce.contractId, 8);
+    payload = ce.payload;
+    signatories = ce.signatories;
+    observers = ce.observers;
   } else if (event.eventType === "archived") {
-    label = `Archive ${formatTemplateId(event.templateId)}`;
-    detail = truncateId(event.contractId, 8);
+    const ae = event as ArchivedEvent;
+    label = `Archive ${formatTemplateId(ae.templateId)}`;
+    detail = truncateId(ae.contractId, 8);
+    payload = ae.payload;
+    signatories = ae.signatories;
+    observers = ae.observers;
   }
 
   const hasDetails = !!(payload && Object.keys(payload).length > 0) || !!(choiceArg && Object.keys(choiceArg).length > 0) || !!(signatories && signatories.length > 0);
@@ -288,17 +303,66 @@ function TreeNode({ event, depth }: { event: LedgerEvent; depth: number }) {
           className="flex flex-col gap-2 rounded-md border border-border/50 bg-muted/10 p-2 text-xs mx-1 mb-1"
           style={{ marginLeft: `${depth * 20 + 24}px` }}
         >
+          {/* Consuming badge for exercise */}
+          {event.eventType === "exercised" && (
+            <Badge
+              variant={isConsuming ? "destructive" : "secondary"}
+              className="w-fit text-[9px]"
+            >
+              {isConsuming ? "Consuming" : "Non-consuming"}
+            </Badge>
+          )}
+
+          {/* Acting parties for exercise */}
+          {actingParties && actingParties.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] text-muted-foreground">Acting Parties:</span>
+              {actingParties.map(p => (
+                <TooltipProvider key={p}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="outline" className="max-w-full cursor-help font-mono text-[9px]">
+                        <span className="truncate">{formatPartyDisplay(p)}</span>
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p className="max-w-xs break-all font-mono text-[10px]">{p}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ))}
+            </div>
+          )}
+
           {/* Choice arguments for exercise */}
           {choiceArg && Object.keys(choiceArg).length > 0 && (
             <div className="flex flex-col gap-1">
               <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Choice Arguments</span>
               <div className="flex flex-col gap-0.5 rounded border bg-muted/30 p-2">
-                {Object.entries(choiceArg).map(([k, v]) => (
-                  <span key={k} className="font-mono text-[10px]">
-                    <span className="text-muted-foreground">{k}:</span>{" "}
-                    {formatPayloadValue(v)}
-                  </span>
-                ))}
+                {Object.entries(choiceArg).map(([k, v]) => {
+                  const isParty = typeof v === "string" && v.includes("::");
+                  return (
+                    <span key={k} className="font-mono text-[10px]">
+                      <span className="text-muted-foreground">{k}:</span>{" "}
+                      {isParty ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="cursor-help text-primary/80 underline decoration-dotted">
+                                {formatPayloadValue(v)}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              <p className="max-w-xs break-all font-mono text-[10px]">{String(v)}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        formatPayloadValue(v)
+                      )}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -306,38 +370,81 @@ function TreeNode({ event, depth }: { event: LedgerEvent; depth: number }) {
           {/* Payload for created/archived */}
           {payload && Object.keys(payload).length > 0 && (
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Payload</span>
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                {event.eventType === "archived" ? "Consumed Contract Payload" : "Contract Payload"}
+              </span>
               <div className="flex flex-col gap-0.5 rounded border bg-muted/30 p-2">
-                {Object.entries(payload).map(([k, v]) => (
-                  <span key={k} className="font-mono text-[10px]">
-                    <span className="text-muted-foreground">{k}:</span>{" "}
-                    {formatPayloadValue(v)}
-                  </span>
-                ))}
+                {Object.entries(payload).map(([k, v]) => {
+                  const isParty = typeof v === "string" && v.includes("::");
+                  const isNumeric = typeof v === "string" && /^-?\d+\.\d+$/.test(v);
+                  return (
+                    <span key={k} className="font-mono text-[10px]">
+                      <span className="text-muted-foreground">{k}:</span>{" "}
+                      {isParty ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="cursor-help text-primary/80 underline decoration-dotted">
+                                {formatPartyDisplay(String(v))}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              <p className="max-w-xs break-all font-mono text-[10px]">{String(v)}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : isNumeric ? (
+                        formatNumeric(String(v))
+                      ) : typeof v === "object" && v !== null ? (
+                        formatJsonForDisplay(v)
+                      ) : (
+                        formatPayloadValue(v)
+                      )}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           )}
 
           {/* Signatories */}
           {signatories && signatories.length > 0 && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-[10px] text-muted-foreground">Signatories:</span>
               {signatories.map(s => (
-                <Badge key={s} variant="outline" className="font-mono text-[9px]" title={s}>
-                  {formatPartyDisplay(s)}
-                </Badge>
+                <TooltipProvider key={s}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="outline" className="max-w-full cursor-help font-mono text-[9px]">
+                        <span className="truncate">{formatPartyDisplay(s)}</span>
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p className="max-w-xs break-all font-mono text-[10px]">{s}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               ))}
             </div>
           )}
 
           {/* Observers */}
           {observers && observers.length > 0 && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-[10px] text-muted-foreground">Observers:</span>
               {observers.map(o => (
-                <Badge key={o} variant="outline" className="font-mono text-[9px]" title={o}>
-                  {formatPartyDisplay(o)}
-                </Badge>
+                <TooltipProvider key={o}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="outline" className="max-w-full cursor-help font-mono text-[9px]">
+                        <span className="truncate">{formatPartyDisplay(o)}</span>
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p className="max-w-xs break-all font-mono text-[10px]">{o}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               ))}
             </div>
           )}
@@ -669,7 +776,7 @@ export function SimulationResultView({
         })()}
 
         {/* Cost estimation — only show when there's actual data */}
-        {result.costEstimation && result.costEstimation.estimatedCost && (
+        {result.costEstimation && Object.keys(result.costEstimation).length > 0 && (
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-sm">
@@ -678,14 +785,29 @@ export function SimulationResultView({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-semibold">
-                  {result.costEstimation.estimatedCost}
+              {result.costEstimation.estimatedCost ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-semibold">
+                    {result.costEstimation.estimatedCost}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {result.costEstimation.unit}
+                  </span>
+                </div>
+              ) : result.costEstimation.estimationTimestamp ? (
+                <div className="flex flex-col gap-1 text-xs">
+                  <span className="text-muted-foreground">
+                    Estimation timestamp:{" "}
+                    <span className="font-mono text-foreground">
+                      {result.costEstimation.estimationTimestamp}
+                    </span>
+                  </span>
+                </div>
+              ) : (
+                <span className="text-xs text-muted-foreground italic">
+                  Cost data available but no estimate provided
                 </span>
-                <span className="text-sm text-muted-foreground">
-                  {result.costEstimation.unit}
-                </span>
-              </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -704,7 +826,10 @@ export function SimulationResultView({
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <HugeiconsIcon icon={Alert01Icon} className="size-3.5 flex-shrink-0 cursor-help text-muted-foreground/60" strokeWidth={2} />
+                      <span className="flex items-center gap-1 cursor-help text-muted-foreground/70">
+                        <HugeiconsIcon icon={Alert01Icon} className="size-3.5 flex-shrink-0" strokeWidth={2} />
+                        <span className="text-[10px] font-medium">Advisory</span>
+                      </span>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
                       <p className="text-xs">Advisory: this prepared transaction hash may be removed in future Canton versions.</p>
@@ -713,9 +838,8 @@ export function SimulationResultView({
                 </TooltipProvider>
               )}
             </div>
-            <div className="flex items-center gap-3 text-[10px] text-muted-foreground/60">
-              <span>Hashing: <span className="font-mono">{result.hashInfo.hashingSchemeVersion}</span></span>
-              {result.hashInfo.isAdvisory && <span className="text-muted-foreground/40">Advisory</span>}
+            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+              <span>Hashing scheme version: <span className="font-mono">{result.hashInfo.hashingSchemeVersion}</span></span>
             </div>
           </div>
         )}

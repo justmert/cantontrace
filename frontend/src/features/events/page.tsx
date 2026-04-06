@@ -6,6 +6,8 @@ import {
   Search01Icon,
   Shield01Icon,
   Sword01Icon,
+  LinkForwardIcon,
+  Cancel01Icon,
 } from "@hugeicons/core-free-icons";
 import { PageHeader } from "@/components/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,6 +15,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { IdBadge } from "@/components/id-badge";
 import {
   Empty,
   EmptyHeader,
@@ -23,6 +28,7 @@ import {
 import { Field, FieldLabel } from "@/components/ui/field";
 import type {
   LedgerUpdate,
+  LedgerEvent,
   Reassignment,
   ContentionTimeline as ContentionTimelineType,
 } from "@/lib/types";
@@ -35,7 +41,7 @@ import {
 } from "./hooks";
 import { StreamControls } from "./components/stream-controls";
 import { EventFilter } from "./components/event-filter";
-import { EventList } from "./components/event-list";
+import { EventList, EventDetail } from "./components/event-list";
 import { ErrorList } from "./components/error-list";
 import { ErrorCategoryBadge } from "./components/error-category-badge";
 import { ContentionTimeline } from "./components/contention-timeline";
@@ -45,6 +51,12 @@ import { ReassignmentDetail } from "./components/reassignment-detail";
 // ---------------------------------------------------------------------------
 // Stream tab content
 // ---------------------------------------------------------------------------
+
+interface SelectedEventInfo {
+  key: string;
+  update: LedgerUpdate;
+  event: LedgerEvent;
+}
 
 function StreamTabContent({
   events,
@@ -65,6 +77,17 @@ function StreamTabContent({
   setTransactionShape: ReturnType<typeof useEventFilter>["setTransactionShape"];
   resetFilter: ReturnType<typeof useEventFilter>["reset"];
 }) {
+  const [selectedEvent, setSelectedEvent] = useState<SelectedEventInfo | null>(null);
+  const [contractIdSearch, setContractIdSearch] = useState("");
+
+  const handleSelectEvent = useCallback(
+    (key: string, update: LedgerUpdate, event: LedgerEvent) => {
+      setSelectedEvent((prev) =>
+        prev?.key === key ? null : { key, update, event }
+      );
+    },
+    []
+  );
   // Derive unique parties from seen events for the party filter dropdown
   const seenParties = useMemo(() => {
     const set = new Set<string>();
@@ -115,8 +138,9 @@ function StreamTabContent({
     const hasTypeFilter = filter.eventTypes && filter.eventTypes.length > 0;
     const hasTemplateFilter = filter.templates && filter.templates.length > 0;
     const hasPartyFilter = filter.parties && filter.parties.length > 0;
+    const hasContractIdSearch = contractIdSearch.trim().length > 0;
 
-    if (!hasTypeFilter && !hasTemplateFilter && !hasPartyFilter) {
+    if (!hasTypeFilter && !hasTemplateFilter && !hasPartyFilter && !hasContractIdSearch) {
       return events;
     }
 
@@ -127,10 +151,24 @@ function StreamTabContent({
         )
       : null;
     const partySet = hasPartyFilter ? new Set(filter.parties) : null;
+    const contractIdNeedle = hasContractIdSearch ? contractIdSearch.trim().toLowerCase() : null;
 
     return events
       .map((update) => {
         const updateEvents = update.events ?? [];
+
+        // For contract ID search, check if ANY event in the update matches
+        // If so, include the whole update (don't filter out individual events)
+        if (contractIdNeedle) {
+          const anyMatch = updateEvents.some((e) => {
+            if ("contractId" in e && typeof e.contractId === "string") {
+              return e.contractId.toLowerCase().includes(contractIdNeedle);
+            }
+            return false;
+          });
+          if (!anyMatch) return null;
+        }
+
         if (updateEvents.length === 0) {
           if (allowedTypes && !allowedTypes.has(update.updateType)) return null;
           return update;
@@ -166,11 +204,30 @@ function StreamTabContent({
         return { ...update, events: filtered };
       })
       .filter((u): u is LedgerUpdate => u !== null);
-  }, [events, filter.eventTypes, filter.templates, filter.parties]);
+  }, [events, filter.eventTypes, filter.templates, filter.parties, contractIdSearch]);
 
   const handleApplyFilter = useCallback(() => {
     // Filters apply instantly via filteredEvents useMemo -- no-op
   }, []);
+
+  const handleReset = useCallback(() => {
+    resetFilter();
+    setContractIdSearch("");
+  }, [resetFilter]);
+
+  const sel = selectedEvent;
+  const recordDate = sel ? new Date(sel.update.recordTime) : null;
+  const fullTimestamp = recordDate
+    ? recordDate.toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        fractionalSecondDigits: 3,
+      } as Intl.DateTimeFormatOptions)
+    : null;
 
   return (
     <div className="flex flex-1 flex-col gap-4 overflow-hidden">
@@ -180,17 +237,88 @@ function StreamTabContent({
           filter={filter}
           templates={seenTemplates}
           parties={seenParties}
+          contractIdSearch={contractIdSearch}
           onSetTemplates={setTemplates}
           onSetEventTypes={setEventTypes}
           onSetParties={setParties}
           onSetTransactionShape={setTransactionShape}
+          onSetContractIdSearch={setContractIdSearch}
           onApply={handleApplyFilter}
-          onReset={resetFilter}
+          onReset={handleReset}
         />
       </div>
 
-      {/* Live event feed */}
-      <EventList events={filteredEvents} isPaused={isPaused} />
+      {/* List + Detail side panel */}
+      <div className="flex min-h-0 flex-1 gap-3 overflow-hidden">
+        {/* Left: event list */}
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <EventList
+            events={filteredEvents}
+            isPaused={isPaused}
+            selectedEventKey={selectedEvent?.key ?? null}
+            onSelectEvent={handleSelectEvent}
+          />
+        </div>
+
+        {/* Right: detail panel */}
+        {sel && (
+          <div className="flex w-[400px] shrink-0 flex-col overflow-hidden rounded-lg border bg-card">
+            {/* Detail header */}
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-[10px]">
+                  {sel.event.eventType.toUpperCase()}
+                </Badge>
+                {"templateId" in sel.event && sel.event.templateId && (
+                  <span className="truncate font-mono text-xs font-medium">
+                    {sel.event.templateId.entityName}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => setSelectedEvent(null)}
+                className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-4" />
+              </button>
+            </div>
+
+            {/* Detail body */}
+            <div className="flex-1 overflow-y-auto px-4 py-3">
+              <EventDetail event={sel.event} />
+
+              <Separator className="my-3" />
+
+              {/* Timestamps */}
+              <div className="flex flex-col gap-2">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Record Time
+                </span>
+                <span className="font-mono text-xs">
+                  {fullTimestamp}
+                </span>
+              </div>
+
+              <Separator className="my-3" />
+
+              {/* Footer actions */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <span>Update:</span>
+                  <IdBadge id={sel.update.updateId} truncateLen={12} />
+                </div>
+                <a
+                  href={`/transactions/${encodeURIComponent(sel.update.updateId)}`}
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  <HugeiconsIcon icon={LinkForwardIcon} strokeWidth={2} className="size-3" />
+                  Open in Transaction Explorer
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -538,6 +666,14 @@ export default function EventsPage() {
     loadRecent,
   } = useEventStream(filter);
 
+  // Read ?tab= query param for deep-linking (e.g. from dashboard Errors card)
+  const initialTab = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    if (tab === "errors" || tab === "reassignments") return tab;
+    return "stream";
+  }, []);
+
   // Derive event counts by shape (created / archived / exercised)
   const shapeCounts = useMemo(() => {
     let created = 0;
@@ -577,7 +713,7 @@ export default function EventsPage() {
 
       {/* Top-level tabs */}
       <div className="flex flex-1 flex-col overflow-hidden p-4">
-        <Tabs defaultValue="stream" className="flex flex-1 flex-col">
+        <Tabs defaultValue={initialTab} className="flex flex-1 flex-col">
           <TabsList variant="line">
             <TabsTrigger value="stream">Stream</TabsTrigger>
             <TabsTrigger value="errors">Errors</TabsTrigger>

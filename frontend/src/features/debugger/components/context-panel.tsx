@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   FileAttachmentIcon,
@@ -11,13 +11,20 @@ import {
   PlayIcon,
   Delete01Icon,
   ArrowRight01Icon,
+  ArrowDown01Icon,
   Clock01Icon,
 } from "@hugeicons/core-free-icons";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from "@/components/ui/empty";
-import { cn, truncateId, formatPayloadValue, formatPartyDisplay, formatTemplateId } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn, truncateId, formatPayloadValue, formatPartyDisplay, formatNumeric, formatTemplateId, formatJsonForDisplay } from "@/lib/utils";
 import type {
   TraceStep,
   ExecutionTrace,
@@ -358,7 +365,8 @@ function TransactionTreeTab({ trace, currentStepIndex: _currentStepIndex }: Tran
     const rootIds = tx.rootEventIds ?? [];
     const events = tx.eventsById ?? {};
 
-    const renderEvent = (eventId: string, depth: number = 0) => {
+    const TreeEventNode = ({ eventId, depth = 0 }: { eventId: string; depth?: number }) => {
+      const [nodeExpanded, setNodeExpanded] = useState(false);
       const evt = events[eventId] as {
         eventType?: string;
         contractId?: string;
@@ -386,40 +394,192 @@ function TransactionTreeTab({ trace, currentStepIndex: _currentStepIndex }: Tran
             ? `Archive ${templateLabel}`
             : `${evt.eventType ?? "?"} ${templateLabel}`;
 
-      // Pick the most relevant party list for this event type
-      const parties = evt.eventType === "exercised"
-        ? evt.actingParties
-        : evt.signatories;
+      const hasExpandableContent =
+        (evt.payload && Object.keys(evt.payload).length > 0) ||
+        (evt.choiceArgument && Object.keys(evt.choiceArgument).length > 0) ||
+        (evt.signatories && evt.signatories.length > 0) ||
+        (evt.actingParties && evt.actingParties.length > 0);
 
       return (
         <div key={eventId}>
-          <div
-            className="flex items-start gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/30"
+          <button
+            onClick={() => hasExpandableContent && setNodeExpanded(!nodeExpanded)}
+            className={cn(
+              "flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-xs text-left",
+              hasExpandableContent && "hover:bg-muted/30 cursor-pointer",
+            )}
             style={{ paddingLeft: `${8 + depth * 16}px` }}
           >
-            <HugeiconsIcon
-              icon={Icon}
-              className={cn("mt-0.5 size-3 flex-shrink-0", colorClass)}
-              strokeWidth={2}
-            />
+            {hasExpandableContent ? (
+              nodeExpanded ? (
+                <HugeiconsIcon icon={ArrowDown01Icon} className="mt-0.5 size-3 flex-shrink-0 text-muted-foreground" strokeWidth={2} />
+              ) : (
+                <HugeiconsIcon icon={ArrowRight01Icon} className="mt-0.5 size-3 flex-shrink-0 text-muted-foreground" strokeWidth={2} />
+              )
+            ) : (
+              <HugeiconsIcon icon={Icon} className={cn("mt-0.5 size-3 flex-shrink-0", colorClass)} strokeWidth={2} />
+            )}
             <div className="flex flex-col gap-0.5 overflow-hidden">
-              <span className={cn("font-mono text-[11px] leading-tight", colorClass)}>{label}</span>
+              <div className="flex items-center gap-1.5">
+                {hasExpandableContent && <HugeiconsIcon icon={Icon} className={cn("size-3 flex-shrink-0", colorClass)} strokeWidth={2} />}
+                <span className={cn("font-mono text-[11px] leading-tight", colorClass)}>{label}</span>
+              </div>
               {evt.contractId && (
                 <span className="font-mono text-[10px] text-muted-foreground" title={evt.contractId}>
                   {truncateId(evt.contractId, 20)}
                 </span>
               )}
-              {parties && parties.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-0.5">
-                  {parties.map(p => (
-                    <span key={p} className="text-[9px] text-muted-foreground/70" title={p}>{formatPartyDisplay(p)}</span>
+            </div>
+          </button>
+
+          {/* Expanded details */}
+          {nodeExpanded && (
+            <div
+              className="flex flex-col gap-2 rounded-md border border-border/50 bg-muted/10 p-2 text-xs mx-1 mb-1"
+              style={{ marginLeft: `${depth * 16 + 24}px` }}
+            >
+              {/* Exercise: choice args + acting parties */}
+              {evt.eventType === "exercised" && evt.choiceArgument && Object.keys(evt.choiceArgument).length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Choice Arguments</span>
+                  <div className="flex flex-col gap-0.5 rounded border bg-muted/30 p-2">
+                    {Object.entries(evt.choiceArgument).map(([k, v]) => {
+                      const isParty = typeof v === "string" && v.includes("::");
+                      return (
+                        <span key={k} className="font-mono text-[10px]">
+                          <span className="text-muted-foreground">{k}:</span>{" "}
+                          {isParty ? (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="cursor-help text-primary/80 underline decoration-dotted">
+                                    {formatPayloadValue(v)}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  <p className="max-w-xs break-all font-mono text-[10px]">{String(v)}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : (
+                            formatPayloadValue(v)
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Exercise: acting parties */}
+              {evt.eventType === "exercised" && evt.actingParties && evt.actingParties.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] text-muted-foreground">Acting Parties:</span>
+                  {evt.actingParties.map(p => (
+                    <TooltipProvider key={p}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="outline" className="max-w-full cursor-help font-mono text-[9px]">
+                            <span className="truncate">{formatPartyDisplay(p)}</span>
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p className="max-w-xs break-all font-mono text-[10px]">{p}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ))}
+                </div>
+              )}
+
+              {/* Created / Archived: payload */}
+              {evt.payload && Object.keys(evt.payload).length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    {evt.eventType === "archived" ? "Consumed Contract Payload" : "Contract Payload"}
+                  </span>
+                  <div className="flex flex-col gap-0.5 rounded border bg-muted/30 p-2">
+                    {Object.entries(evt.payload).map(([k, v]) => {
+                      const isParty = typeof v === "string" && v.includes("::");
+                      const isNumeric = typeof v === "string" && /^-?\d+\.\d+$/.test(v);
+                      return (
+                        <span key={k} className="font-mono text-[10px]">
+                          <span className="text-muted-foreground">{k}:</span>{" "}
+                          {isParty ? (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="cursor-help text-primary/80 underline decoration-dotted">
+                                    {formatPartyDisplay(String(v))}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  <p className="max-w-xs break-all font-mono text-[10px]">{String(v)}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : isNumeric ? (
+                            formatNumeric(String(v))
+                          ) : typeof v === "object" && v !== null ? (
+                            formatJsonForDisplay(v)
+                          ) : (
+                            formatPayloadValue(v)
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Signatories */}
+              {evt.signatories && evt.signatories.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] text-muted-foreground">Signatories:</span>
+                  {evt.signatories.map(s => (
+                    <TooltipProvider key={s}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="outline" className="max-w-full cursor-help font-mono text-[9px]">
+                            <span className="truncate">{formatPartyDisplay(s)}</span>
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p className="max-w-xs break-all font-mono text-[10px]">{s}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ))}
+                </div>
+              )}
+
+              {/* Observers */}
+              {evt.observers && evt.observers.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] text-muted-foreground">Observers:</span>
+                  {evt.observers.map(o => (
+                    <TooltipProvider key={o}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="outline" className="max-w-full cursor-help font-mono text-[9px]">
+                            <span className="truncate">{formatPartyDisplay(o)}</span>
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p className="max-w-xs break-all font-mono text-[10px]">{o}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   ))}
                 </div>
               )}
             </div>
-          </div>
+          )}
+
           {/* Render children */}
-          {(evt.childEventIds ?? []).map((childId) => renderEvent(childId, depth + 1))}
+          {(evt.childEventIds ?? []).map((childId) => (
+            <TreeEventNode key={childId} eventId={childId} depth={depth + 1} />
+          ))}
         </div>
       );
     };
@@ -432,7 +592,9 @@ function TransactionTreeTab({ trace, currentStepIndex: _currentStepIndex }: Tran
               Transaction {tx.updateId ? truncateId(tx.updateId, 12) : ""}
             </span>
           </div>
-          {rootIds.map((id) => renderEvent(id))}
+          {rootIds.map((id) => (
+            <TreeEventNode key={id} eventId={id} />
+          ))}
         </div>
       </ScrollArea>
     );

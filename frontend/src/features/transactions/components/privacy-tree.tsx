@@ -33,7 +33,7 @@ import {
   EmptyDescription,
 } from "@/components/ui/empty";
 import { PartyBadge } from "@/components/party-badge";
-import { cn } from "@/lib/utils";
+import { cn, formatTemplateId } from "@/lib/utils";
 import type { PrivacyEvent, DisclosedBoundary } from "@/lib/types";
 import type { PartyColor } from "@/features/transactions/hooks";
 
@@ -150,14 +150,27 @@ function PrivacyEventNode({
             )}
           </div>
 
-          {/* Template name */}
+          {/* Human-readable node label */}
           <div className="mb-1 text-sm font-medium">
-            {event.templateId.entityName}
+            {event.eventType === "exercised"
+              ? `Exercise ${event.choice ?? event.templateId.entityName}`
+              : event.eventType === "created"
+                ? `Create ${event.templateId.entityName}`
+                : event.eventType === "archived"
+                  ? `Archive ${event.templateId.entityName}`
+                  : event.templateId.entityName}
           </div>
 
-          {/* Event ID */}
-          <div className="mb-2 truncate font-mono text-[10px] text-muted-foreground" title={event.eventId}>
-            {event.eventId}
+          {/* Template + Event ID */}
+          <div className="mb-2 flex flex-col gap-0.5">
+            {event.eventType === "exercised" && (
+              <div className="truncate text-[10px] text-muted-foreground" title={formatTemplateId(event.templateId)}>
+                {event.templateId.entityName}
+              </div>
+            )}
+            <div className="truncate font-mono text-[10px] text-muted-foreground" title={event.eventId}>
+              {event.eventId}
+            </div>
           </div>
 
           {/* Party visibility dots */}

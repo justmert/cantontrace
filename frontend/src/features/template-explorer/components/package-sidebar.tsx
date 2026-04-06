@@ -102,7 +102,7 @@ function PackageItem({
     setManualExpanded(!manualExpanded);
   };
 
-  // Filter modules & templates by search query
+  // Filter modules & templates by search query (searches template names AND choice names)
   const filteredModules = useMemo(() => {
     if (!detail) return [];
     if (!filter) return detail.modules;
@@ -113,7 +113,8 @@ function PackageItem({
         templates: mod.templates.filter(
           (t) =>
             t.name.toLowerCase().includes(q) ||
-            mod.name.toLowerCase().includes(q)
+            mod.name.toLowerCase().includes(q) ||
+            t.choices.some((c) => c.name.toLowerCase().includes(q))
         ),
       }))
       .filter((mod) => mod.templates.length > 0);
@@ -303,7 +304,7 @@ export function PackageSidebar({
   onExpandPackage,
 }: PackageSidebarProps) {
   const [filter, setFilter] = useState("");
-  const [showSystem, setShowSystem] = useState(true);
+  const [showSystem, setShowSystem] = useState(false);
 
   // Partition packages into user vs system
   const [userPackages, systemPackages] = useMemo(
@@ -311,46 +312,41 @@ export function PackageSidebar({
     [packages]
   );
 
+  // Helper: check if a package matches a search query (searches package name,
+  // id, module names, template names, AND choice names)
+  const packageMatchesFilter = useMemo(() => {
+    return (pkg: PackageSummary, q: string) => {
+      if (
+        (pkg.packageName ?? "").toLowerCase().includes(q) ||
+        pkg.packageId.toLowerCase().includes(q)
+      ) return true;
+      const detail = packageDetails.get(pkg.packageId);
+      if (detail) {
+        return detail.modules.some((mod) =>
+          mod.name.toLowerCase().includes(q) ||
+          mod.templates.some(
+            (t) =>
+              t.name.toLowerCase().includes(q) ||
+              t.choices.some((c) => c.name.toLowerCase().includes(q))
+          )
+        );
+      }
+      return false;
+    };
+  }, [packageDetails]);
+
   // Filter packages by search query
   const filteredUserPackages = useMemo(() => {
     if (!filter) return userPackages;
     const q = filter.toLowerCase();
-    return userPackages.filter((pkg) => {
-      // Include if package name/id matches
-      if (
-        (pkg.packageName ?? "").toLowerCase().includes(q) ||
-        pkg.packageId.toLowerCase().includes(q)
-      ) return true;
-      // Include if any template in the package matches
-      const detail = packageDetails.get(pkg.packageId);
-      if (detail) {
-        return detail.modules.some((mod) =>
-          mod.name.toLowerCase().includes(q) ||
-          mod.templates.some((t) => t.name.toLowerCase().includes(q))
-        );
-      }
-      return false;
-    });
-  }, [userPackages, filter, packageDetails]);
+    return userPackages.filter((pkg) => packageMatchesFilter(pkg, q));
+  }, [userPackages, filter, packageMatchesFilter]);
 
   const filteredSystemPackages = useMemo(() => {
     if (!filter) return systemPackages;
     const q = filter.toLowerCase();
-    return systemPackages.filter((pkg) => {
-      if (
-        (pkg.packageName ?? "").toLowerCase().includes(q) ||
-        pkg.packageId.toLowerCase().includes(q)
-      ) return true;
-      const detail = packageDetails.get(pkg.packageId);
-      if (detail) {
-        return detail.modules.some((mod) =>
-          mod.name.toLowerCase().includes(q) ||
-          mod.templates.some((t) => t.name.toLowerCase().includes(q))
-        );
-      }
-      return false;
-    });
-  }, [systemPackages, filter, packageDetails]);
+    return systemPackages.filter((pkg) => packageMatchesFilter(pkg, q));
+  }, [systemPackages, filter, packageMatchesFilter]);
 
   // Compute which packages have matching templates (for auto-expand during search)
   const packagesWithMatches = useMemo(() => {
@@ -364,7 +360,8 @@ export function PackageSidebar({
         mod.templates.some(
           (t) =>
             t.name.toLowerCase().includes(q) ||
-            mod.name.toLowerCase().includes(q)
+            mod.name.toLowerCase().includes(q) ||
+            t.choices.some((c) => c.name.toLowerCase().includes(q))
         )
       );
       if (hasMatch) matches.add(pkg.packageId);
@@ -388,9 +385,9 @@ export function PackageSidebar({
   }, [filter, filteredSystemPackages.length]);
 
   return (
-    <div>
+    <div className="flex h-full flex-col overflow-hidden">
       {/* Search — sticky at top */}
-      <div className="sticky top-0 z-10 border-b bg-background p-3">
+      <div className="shrink-0 border-b bg-background p-3">
         <div className="relative">
           <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -403,7 +400,7 @@ export function PackageSidebar({
       </div>
 
       {/* Package list */}
-      <div className="flex flex-col gap-0.5">
+      <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
         {isLoading ? (
           <SidebarSkeleton />
         ) : filteredUserPackages.length === 0 && filteredSystemPackages.length === 0 ? (

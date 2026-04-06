@@ -81,14 +81,18 @@ export function registerTransactionRoutes(app: FastifyInstance): void {
     // stateDiff is computed from the events.
 
     // C3: Enrich consumed contract payloads in the state diff.
-    // Canton's archive events don't include the contract payload, so we
-    // fetch it from EventQueryService.GetEventsByContractId which returns
-    // the original Created event with full payload.
-    if (txDetail.stateDiff.inputs.length > 0 && parties.length > 0) {
-      const enrichPromises = txDetail.stateDiff.inputs.map(async (input) => {
-        // Skip if payload is already populated
-        if (input.payload && Object.keys(input.payload).length > 0) return;
+    // For contracts consumed from *previous* transactions, the payload isn't
+    // available in the transaction tree. We fetch it from
+    // EventQueryService.GetEventsByContractId which returns the original
+    // Created event with full payload.
+    // NOTE: For contracts created and consumed in the *same* transaction,
+    // computeStateDiff already copies the payload from the sibling CreatedEvent.
+    const inputsNeedingEnrichment = txDetail.stateDiff.inputs.filter(
+      (input) => !input.payload || Object.keys(input.payload).length === 0,
+    );
 
+    if (inputsNeedingEnrichment.length > 0 && parties.length > 0) {
+      const enrichPromises = inputsNeedingEnrichment.map(async (input) => {
         try {
           const contractEvents = await client.eventQueryService.getEventsByContractId(
             input.contractId,
@@ -100,9 +104,18 @@ export function registerTransactionRoutes(app: FastifyInstance): void {
             input.signatories = createdEvent.signatories;
             input.observers = createdEvent.observers;
             input.templateId = createdEvent.templateId;
+          } else {
+            request.log.debug(
+              { contractId: input.contractId },
+              'EventQueryService returned no created event for consumed contract',
+            );
           }
-        } catch {
+        } catch (err) {
           // Best-effort: if the lookup fails (e.g. pruned), leave payload empty
+          request.log.debug(
+            { contractId: input.contractId, error: err instanceof Error ? err.message : String(err) },
+            'Failed to enrich consumed contract payload',
+          );
         }
       });
       await Promise.all(enrichPromises);

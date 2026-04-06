@@ -197,7 +197,7 @@ export default function TemplateExplorerPage() {
       {/* Body: sidebar + content */}
       <div className="flex min-h-0 flex-1">
         {/* Sidebar — fixed width, scrolls independently */}
-        <div className="w-72 shrink-0 overflow-y-auto border-r">
+        <div className="w-72 shrink-0 overflow-hidden border-r">
           <PackageSidebar
             packages={packages ?? []}
             packageDetails={detailsMap}

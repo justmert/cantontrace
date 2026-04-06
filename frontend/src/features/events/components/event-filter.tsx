@@ -1,6 +1,7 @@
 import { HugeiconsIcon } from "@hugeicons/react";
-import { InformationCircleIcon, Cancel01Icon } from "@hugeicons/core-free-icons";
+import { InformationCircleIcon, Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -51,12 +52,14 @@ export interface EventFilterProps {
   filter: EventStreamFilter;
   templates: TemplateId[];
   parties: string[];
+  contractIdSearch?: string;
   onSetTemplates: (templates: EventStreamFilter["templates"]) => void;
   onSetEventTypes: (types: string[]) => void;
   onSetParties: (parties: string[]) => void;
   onSetTransactionShape: (
     shape: EventStreamFilter["transactionShape"]
   ) => void;
+  onSetContractIdSearch?: (search: string) => void;
   onApply: () => void;
   onReset: () => void;
 }
@@ -65,10 +68,12 @@ export function EventFilter({
   filter,
   templates,
   parties,
+  contractIdSearch = "",
   onSetTemplates,
   onSetEventTypes,
   onSetParties,
   onSetTransactionShape,
+  onSetContractIdSearch,
   onApply: _onApply,
   onReset,
 }: EventFilterProps) {
@@ -93,7 +98,8 @@ export function EventFilter({
   const hasActiveFilters =
     (filter.eventTypes && filter.eventTypes.length > 0) ||
     (filter.parties && filter.parties.length > 0) ||
-    (filter.templates && filter.templates.length > 0);
+    (filter.templates && filter.templates.length > 0) ||
+    contractIdSearch.length > 0;
 
   return (
     <div className="flex h-11 items-center gap-2 px-1">
@@ -175,6 +181,23 @@ export function EventFilter({
           ))}
         </SelectContent>
       </Select>
+
+      {/* Contract ID search */}
+      {onSetContractIdSearch && (
+        <div className="relative">
+          <HugeiconsIcon
+            icon={Search01Icon}
+            strokeWidth={2}
+            className="absolute left-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            placeholder="Contract ID..."
+            className="h-8 w-[160px] pl-7 font-mono text-xs"
+            value={contractIdSearch}
+            onChange={(e) => onSetContractIdSearch(e.target.value)}
+          />
+        </div>
+      )}
 
       <div className="mx-1 h-5 w-px bg-border" />
 

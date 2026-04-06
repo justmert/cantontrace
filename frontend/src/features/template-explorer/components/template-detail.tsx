@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   FileCodeIcon,
@@ -7,6 +8,7 @@ import {
   Layers01Icon,
   ListViewIcon,
   InformationCircleIcon,
+  ArrowRight01Icon,
 } from "@hugeicons/core-free-icons";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,7 +20,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
   Empty,
@@ -42,6 +43,7 @@ let MonacoEditor: React.ComponentType<{
   value: string;
   theme: string;
   options: Record<string, unknown>;
+  className?: string;
 }> | null = null;
 
 function LazyMonaco({
@@ -65,7 +67,7 @@ function LazyMonaco({
 
   if (loading || !Editor) {
     return (
-      <div className="flex h-[400px] items-center justify-center rounded-md border bg-muted">
+      <div className="flex h-64 items-center justify-center rounded-md border bg-muted">
         <span className="text-sm text-muted-foreground">Loading editor...</span>
       </div>
     );
@@ -78,7 +80,7 @@ function LazyMonaco({
 
   return (
     <Editor
-      height="400px"
+      height="100%"
       defaultLanguage={language}
       value={value}
       theme={isDark ? "vs-dark" : "vs-light"}
@@ -110,9 +112,12 @@ export function TemplateDetail({
   packageDetail,
   moduleName,
 }: TemplateDetailProps) {
+  const navigate = useNavigate();
   const hasSource = !!template.sourceCode;
   const hasDecompiled = !!template.decompiledLF;
   const sourceText = template.sourceCode ?? template.decompiledLF ?? "";
+  const templateQualified = `${moduleName}:${template.name}`;
+  const packageName = packageDetail.packageName ?? packageDetail.packageId;
 
   return (
     <div className="flex h-full flex-col">
@@ -139,6 +144,19 @@ export function TemplateDetail({
               <span>v{packageDetail.packageVersion}</span>
             </>
           )}
+          <Separator orientation="vertical" className="h-3" />
+          <button
+            className="inline-flex items-center gap-1 text-primary hover:underline"
+            onClick={() =>
+              navigate({
+                to: "/contracts",
+                search: { template: templateQualified },
+              } as any)
+            }
+          >
+            View active contracts
+            <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3" />
+          </button>
         </div>
       </div>
 
@@ -179,9 +197,9 @@ export function TemplateDetail({
           </TabsList>
         </div>
 
-        <ScrollArea className="flex-1">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {/* Fields tab */}
-          <TabsContent value="fields" className="px-6 py-4">
+          <TabsContent value="fields" className="overflow-y-auto px-6 py-4">
             <div className="flex flex-col gap-4">
               {/* Signatory / Observer expressions */}
               <div className="grid grid-cols-2 gap-4">
@@ -284,7 +302,7 @@ export function TemplateDetail({
           </TabsContent>
 
           {/* Choices tab */}
-          <TabsContent value="choices" className="px-6 py-4">
+          <TabsContent value="choices" className="overflow-y-auto px-6 py-4">
             {template.choices.length === 0 ? (
               <Empty>
                 <EmptyMedia variant="icon">
@@ -301,6 +319,17 @@ export function TemplateDetail({
                     key={choice.name}
                     choice={choice}
                     sourceAvailable={packageDetail.hasSource}
+                    templateQualified={templateQualified}
+                    packageName={packageName}
+                    allTemplateNames={packageDetail.modules.flatMap((m) =>
+                      m.templates.map((t) => `${m.name}:${t.name}`)
+                    )}
+                    onNavigateToTemplate={(tq) =>
+                      navigate({
+                        to: "/templates",
+                        search: { template: tq, package: packageName },
+                      } as any)
+                    }
                   />
                 ))}
               </div>
@@ -308,7 +337,7 @@ export function TemplateDetail({
           </TabsContent>
 
           {/* Key tab */}
-          <TabsContent value="key" className="px-6 py-4">
+          <TabsContent value="key" className="overflow-y-auto px-6 py-4">
             {template.key ? (
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1">
@@ -349,9 +378,9 @@ export function TemplateDetail({
           </TabsContent>
 
           {/* Source tab */}
-          <TabsContent value="source" className="px-6 py-4">
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2">
+          <TabsContent value="source" className="flex flex-col px-6 py-4">
+            <div className="flex min-h-0 flex-1 flex-col gap-3">
+              <div className="flex shrink-0 items-center gap-2">
                 <Badge
                   variant={hasSource ? "default" : "secondary"}
                   className="text-xs"
@@ -364,7 +393,7 @@ export function TemplateDetail({
                 </Badge>
               </div>
               {sourceText ? (
-                <div className="overflow-hidden rounded-md border">
+                <div className="min-h-[400px] flex-1 overflow-hidden rounded-md border">
                   <LazyMonaco value={sourceText} language="haskell" />
                 </div>
               ) : (
@@ -384,7 +413,7 @@ export function TemplateDetail({
           </TabsContent>
 
           {/* Interfaces tab */}
-          <TabsContent value="interfaces" className="px-6 py-4">
+          <TabsContent value="interfaces" className="overflow-y-auto px-6 py-4">
             {template.implements.length === 0 ? (
               <Empty>
                 <EmptyMedia variant="icon">
@@ -413,7 +442,7 @@ export function TemplateDetail({
               </div>
             )}
           </TabsContent>
-        </ScrollArea>
+        </div>
       </Tabs>
     </div>
   );

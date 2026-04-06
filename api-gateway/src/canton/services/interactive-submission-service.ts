@@ -141,6 +141,17 @@ export class InteractiveSubmissionServiceClient {
         ? {
             estimatedCost: response.cost_estimation.estimated_cost,
             unit: response.cost_estimation.unit,
+            estimationTimestamp: (() => {
+              const ts = (response.cost_estimation as Record<string, unknown>).estimation_timestamp;
+              if (!ts) return undefined;
+              if (typeof ts === 'string') return ts;
+              // Protobuf Timestamp: {seconds, nanos}
+              const tsObj = ts as { seconds?: string | number; nanos?: number };
+              if (tsObj.seconds) {
+                return new Date(Number(tsObj.seconds) * 1000).toISOString();
+              }
+              return String(ts);
+            })(),
           }
         : undefined,
       inputContracts,
@@ -210,8 +221,9 @@ export interface PrepareResult {
     isAdvisory: boolean;
   };
   costEstimation?: {
-    estimatedCost: string;
-    unit: string;
+    estimatedCost?: string;
+    unit?: string;
+    estimationTimestamp?: string;
   };
   inputContracts: Array<{
     contract: ActiveContract;

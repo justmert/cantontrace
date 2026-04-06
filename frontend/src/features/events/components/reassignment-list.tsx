@@ -345,7 +345,7 @@ export function ReassignmentList({
             <EmptyDescription>
               {hasFilters
                 ? "Try adjusting your filters"
-                : "No contract reassignment events have been recorded"}
+                : "Reassignments occur when contracts move between synchronization domains. Your environment may use a single synchronizer."}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
