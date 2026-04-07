@@ -25,6 +25,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { truncateId } from "@/lib/utils";
+import { JsonView } from "@/components/json-view";
 import type { CommandCompletion } from "@/lib/types";
 import { ErrorCategoryBadge } from "./error-category-badge";
 import { useErrorExplanation } from "../hooks";
@@ -437,9 +438,7 @@ export function ErrorDetail({
             </div>
             {Object.entries(error.errorInfo.metadata).length > 0 && (
               <div className="rounded-md border bg-muted/30 p-3 overflow-hidden">
-                <pre className="whitespace-pre-wrap break-all text-xs">
-                  {JSON.stringify(error.errorInfo.metadata, null, 2)}
-                </pre>
+                <JsonView data={error.errorInfo.metadata} defaultExpandDepth={2} />
               </div>
             )}
           </div>

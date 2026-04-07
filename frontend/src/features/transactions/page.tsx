@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, stringToHue } from "@/lib/utils";
 import { useParams, useNavigate } from "@tanstack/react-router";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -148,64 +148,52 @@ function PrivacyTabContent({ updateId }: { updateId: string }) {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      {/* Party selector bar */}
-      <div className="flex flex-col gap-2 border-b px-4 py-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium">
-            Parties ({selectedParties.size}/{parties.length})
-          </span>
-          <div className="flex items-center gap-2">
-            <button onClick={handleSelectAll} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Select All</button>
-            <span className="text-muted-foreground/30">·</span>
-            <button onClick={handleSelectNone} className="text-xs text-muted-foreground hover:text-foreground transition-colors">None</button>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {parties.map((party) => {
-            const isSelected = selectedParties.has(party);
-            const color = partyColors[party] ?? "#888";
-            const isHighlighted = highlightedParty === party;
-            const shortName = party.split("::")[0];
-            const shortId = party.split("::")[1]?.slice(0, 8) ?? "";
-            return (
-              <button
-                key={party}
-                onClick={() => handleToggleParty(party)}
-                onDoubleClick={() => handleHighlightParty(isHighlighted ? null : party)}
-                title={`${party}\n\nClick to toggle · Double-click to highlight`}
-                className={cn(
-                  "flex items-center gap-2 rounded-lg border px-3 py-1.5 transition-all",
-                  isSelected
-                    ? "border-border bg-card text-foreground shadow-sm"
-                    : "border-transparent text-muted-foreground/40 hover:text-muted-foreground",
-                  isHighlighted && "ring-2 ring-primary border-primary/30"
-                )}
-              >
-                <span
-                  className="size-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: isSelected ? color : "var(--muted-foreground)" }}
-                />
-                <div className="flex flex-col items-start">
-                  <span className="text-xs font-medium">{shortName}</span>
-                  {shortId && (
-                    <span className="font-mono text-[9px] text-muted-foreground">{shortId}...</span>
-                  )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Visualization tabs — fill remaining space */}
+      {/* Visualization tabs + inline party chips */}
       <div className="flex flex-1 flex-col overflow-hidden">
         <Tabs defaultValue="tree" className="flex flex-1 flex-col overflow-hidden">
-          <div className="border-b px-4">
+          <div className="flex items-center gap-3 border-b px-4">
             <TabsList>
               <TabsTrigger value="tree">Privacy Tree</TabsTrigger>
               <TabsTrigger value="matrix">Visibility Matrix</TabsTrigger>
               <TabsTrigger value="comparison">Multi-Party Comparison</TabsTrigger>
             </TabsList>
+
+            {/* Party chips */}
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-[10px] text-muted-foreground/50">{parties.length} {parties.length === 1 ? "party" : "parties"}</span>
+              {parties.map((party) => {
+                const isSelected = selectedParties.has(party);
+                const isHighlighted = highlightedParty === party;
+                const shortName = party.split("::")[0] ?? "";
+                const hue = stringToHue(shortName);
+                return (
+                  <button
+                    key={party}
+                    onClick={() => handleToggleParty(party)}
+                    onDoubleClick={() => handleHighlightParty(isHighlighted ? null : party)}
+                    title={`${party}\nClick: toggle · Double-click: highlight`}
+                    className={cn(
+                      "flex items-center gap-2 rounded-md border px-2.5 py-1 transition-all",
+                      isSelected
+                        ? "border-border bg-card text-foreground shadow-sm"
+                        : "border-transparent text-muted-foreground/30",
+                      isHighlighted && "ring-2 ring-primary border-primary/30"
+                    )}
+                  >
+                    <span
+                      className="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold uppercase"
+                      style={{
+                        backgroundColor: isSelected ? `oklch(0.65 0.15 ${hue})` : "var(--muted)",
+                        color: isSelected ? `oklch(0.98 0.01 ${hue})` : "var(--muted-foreground)",
+                      }}
+                    >
+                      {shortName.charAt(0)}
+                    </span>
+                    <span className="text-xs font-medium">{shortName}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <TabsContent value="tree" className="flex-1">

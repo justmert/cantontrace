@@ -11,7 +11,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { IdBadge } from "@/components/id-badge";
 import { PartyBadge } from "@/components/party-badge";
-import { cn, formatTemplateId, formatPayloadValue } from "@/lib/utils";
+import { cn, formatTemplateId } from "@/lib/utils";
+import { JsonView } from "@/components/json-view";
 import type {
   LedgerEvent,
   CreatedEvent,
@@ -79,18 +80,7 @@ export function CreateNode({ data }: NodeProps) {
 
         {expanded && event.payload && (
           <div className="mt-1 rounded-lg bg-muted p-2">
-            {Object.entries(event.payload).map(([key, value]) => {
-              const display =
-                typeof value === "object" && value !== null
-                  ? JSON.stringify(value)
-                  : formatPayloadValue(value);
-              return (
-                <div key={key} className="flex gap-1.5 text-[9px] leading-relaxed">
-                  <span className="shrink-0 text-muted-foreground">{key}:</span>
-                  <span className="font-mono break-all">{display}</span>
-                </div>
-              );
-            })}
+            <JsonView data={event.payload} defaultExpandDepth={2} />
           </div>
         )}
       </div>
@@ -175,18 +165,7 @@ export function ExerciseNode({ data }: NodeProps) {
 
         {expanded && event.choiceArgument && (
           <div className="mt-1 rounded-lg bg-muted p-2">
-            {Object.entries(event.choiceArgument).map(([key, value]) => {
-              const display =
-                typeof value === "object" && value !== null
-                  ? JSON.stringify(value)
-                  : formatPayloadValue(value);
-              return (
-                <div key={key} className="flex gap-1.5 text-[9px] leading-relaxed">
-                  <span className="shrink-0 text-muted-foreground">{key}:</span>
-                  <span className="font-mono break-all">{display}</span>
-                </div>
-              );
-            })}
+            <JsonView data={event.choiceArgument} defaultExpandDepth={2} />
           </div>
         )}
       </div>

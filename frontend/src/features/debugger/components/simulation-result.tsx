@@ -28,7 +28,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { CopyButton } from "@/components/copy-button";
-import { cn, truncateId, formatTemplateId, formatPartyDisplay, formatNumeric, formatPayloadValue, formatJsonForDisplay } from "@/lib/utils";
+import { cn, truncateId, formatTemplateId, formatPartyDisplay, formatNumeric, formatPayloadValue } from "@/lib/utils";
+import { JsonView } from "@/components/json-view";
 import type {
   SimulationResult,
   ActiveContract,
@@ -63,8 +64,8 @@ function ContractCard({
       className={cn(
         "rounded-md border",
         isInput
-          ? "border-destructive/20 bg-destructive/5"
-          : "border-primary/20 bg-primary/5"
+          ? "border-destructive/30"
+          : "border-primary/30"
       )}
     >
       <button
@@ -182,9 +183,7 @@ function ContractCard({
                           ) : isNumeric ? (
                             <span>{formatNumeric(value)}</span>
                           ) : typeof value === "object" && value !== null ? (
-                            <pre className="whitespace-pre-wrap break-all">
-                              {formatJsonForDisplay(value)}
-                            </pre>
+                            <JsonView data={value} defaultExpandDepth={2} />
                           ) : (
                             <span className="break-all">{displayValue}</span>
                           )}
@@ -396,7 +395,7 @@ function TreeNode({ event, depth }: { event: LedgerEvent; depth: number }) {
                       ) : isNumeric ? (
                         formatNumeric(String(v))
                       ) : typeof v === "object" && v !== null ? (
-                        formatJsonForDisplay(v)
+                        <JsonView data={v} defaultExpandDepth={2} />
                       ) : (
                         formatPayloadValue(v)
                       )}
@@ -688,128 +687,117 @@ export function SimulationResultView({
           );
         })()}
 
-        {/* Transaction tree — simple indented list */}
-        {result.transactionTree && (
+        {/* Two-column layout: Tree + State Diff */}
+        {result.success && result.transactionTree && (
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+            {/* Left: Transaction Tree */}
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm">Transaction Tree</CardTitle>
+                  {result.transactionTree.stateDiff && (
+                    <span className="text-[10px] font-medium text-muted-foreground">
+                      {result.transactionTree.stateDiff.netChange}
+                    </span>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <SimpleTransactionTree transaction={result.transactionTree} />
+              </CardContent>
+            </Card>
+
+            {/* Right: State Diff (Inputs + Outputs stacked) */}
+            <div className="flex flex-col gap-3">
+              {/* Inputs consumed */}
+              {(() => {
+                const inputs =
+                  result.transactionTree?.stateDiff?.inputs ??
+                  result.inputContracts?.map((ic) => ic.contract) ??
+                  [];
+                if (inputs.length === 0) return null;
+                return (
+                  <Card>
+                    <CardHeader className="py-2">
+                      <CardTitle className="text-xs font-medium text-muted-foreground">
+                        Inputs Consumed ({inputs.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="flex flex-col gap-2">
+                        {inputs.map((c) => (
+                          <ContractCard
+                            key={c.contractId}
+                            contract={c}
+                            label="Input"
+                            variant="input"
+                            onNavigateContract={onNavigateContract}
+                          />
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
+              {/* Outputs created */}
+              {(() => {
+                const outputs = result.transactionTree?.stateDiff?.outputs ?? [];
+                if (outputs.length === 0) return null;
+                return (
+                  <Card>
+                    <CardHeader className="py-2">
+                      <CardTitle className="text-xs font-medium text-muted-foreground">
+                        Outputs Created ({outputs.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="flex flex-col gap-2">
+                        {outputs.map((c) => (
+                          <ContractCard
+                            key={c.contractId}
+                            contract={c}
+                            label="Output"
+                            variant="output"
+                            onNavigateContract={onNavigateContract}
+                          />
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* Tree only (no state diff / failed case) */}
+        {result.transactionTree && !result.success && (
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Transaction Tree</CardTitle>
             </CardHeader>
             <CardContent>
-              <SimpleTransactionTree
-                transaction={result.transactionTree}
-              />
+              <SimpleTransactionTree transaction={result.transactionTree} />
             </CardContent>
           </Card>
         )}
-
-        {/* Net change summary */}
-        {result.transactionTree?.stateDiff && (
-          <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
-            <HugeiconsIcon
-              icon={ArrowDataTransferVerticalIcon}
-              className="size-3.5 flex-shrink-0 text-muted-foreground"
-              strokeWidth={2}
-            />
-            <span className="text-xs font-medium">
-              {result.transactionTree.stateDiff.netChange}
-            </span>
-          </div>
-        )}
-
-        {/* Inputs consumed (state diff) */}
-        {result.success && (() => {
-          const inputs =
-            result.transactionTree?.stateDiff?.inputs ??
-            result.inputContracts?.map((ic) => ic.contract) ??
-            [];
-          if (inputs.length === 0) return null;
-          return (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">
-                  Inputs Consumed ({inputs.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col gap-2">
-                  {inputs.map((c) => (
-                    <ContractCard
-                      key={c.contractId}
-                      contract={c}
-                      label="Input"
-                      variant="input"
-                      onNavigateContract={onNavigateContract}
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })()}
-
-        {/* Outputs created (state diff) */}
-        {result.success && (() => {
-          const outputs = result.transactionTree?.stateDiff?.outputs ?? [];
-          if (outputs.length === 0) return null;
-          return (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">
-                  Outputs Created ({outputs.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col gap-2">
-                  {outputs.map((c) => (
-                    <ContractCard
-                      key={c.contractId}
-                      contract={c}
-                      label="Output"
-                      variant="output"
-                      onNavigateContract={onNavigateContract}
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })()}
 
         {/* Cost estimation — only show when there's actual data */}
-        {result.costEstimation && Object.keys(result.costEstimation).length > 0 && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <HugeiconsIcon icon={DollarCircleIcon} className="size-4" strokeWidth={2} />
-                Cost Estimation
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {result.costEstimation.estimatedCost ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-lg font-semibold">
-                    {result.costEstimation.estimatedCost}
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    {result.costEstimation.unit}
-                  </span>
-                </div>
-              ) : result.costEstimation.estimationTimestamp ? (
-                <div className="flex flex-col gap-1 text-xs">
-                  <span className="text-muted-foreground">
-                    Estimation timestamp:{" "}
-                    <span className="font-mono text-foreground">
-                      {result.costEstimation.estimationTimestamp}
-                    </span>
-                  </span>
-                </div>
-              ) : (
-                <span className="text-xs text-muted-foreground italic">
-                  Cost data available but no estimate provided
-                </span>
-              )}
-            </CardContent>
-          </Card>
+        {result.costEstimation && (
+          result.costEstimation.estimatedCost ? (
+            <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
+              <HugeiconsIcon icon={DollarCircleIcon} className="size-3.5 flex-shrink-0 text-muted-foreground" strokeWidth={2} />
+              <span className="text-[10px] font-medium text-muted-foreground">Cost:</span>
+              <span className="font-mono text-xs font-semibold">{result.costEstimation.estimatedCost}</span>
+              <span className="text-[10px] text-muted-foreground">{result.costEstimation.unit}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-md border border-muted-foreground/15 bg-muted/30 px-3 py-1.5">
+              <HugeiconsIcon icon={DollarCircleIcon} className="size-3.5 flex-shrink-0 text-muted-foreground/40" strokeWidth={2} />
+              <span className="text-[11px] text-muted-foreground/50">No cost data available from this participant</span>
+            </div>
+          )
         )}
 
         {/* Hash info — compact inline display */}

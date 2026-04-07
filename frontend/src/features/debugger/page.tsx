@@ -94,15 +94,15 @@ function ResizableTriplePanel({
     >
       {/* Left panel */}
       <div
-        className="flex h-full flex-col overflow-auto border-r border-border"
-        style={{ width: `${leftWidth}%` }}
+        className="h-full overflow-hidden border-r border-border"
+        style={{ flex: `0 0 ${leftWidth}%`, maxWidth: `${leftWidth}%` }}
       >
         {left}
       </div>
 
       {/* Left resize handle */}
       <div
-        className="group relative z-10 flex w-1.5 cursor-col-resize items-center justify-center hover:bg-accent"
+        className="group relative z-10 flex w-1.5 shrink-0 cursor-col-resize items-center justify-center hover:bg-accent"
         onMouseDown={handleMouseDown("left")}
       >
         <HugeiconsIcon icon={DragDropVerticalIcon} className="size-4 text-muted-foreground/30 group-hover:text-primary" strokeWidth={2} />
@@ -110,15 +110,15 @@ function ResizableTriplePanel({
 
       {/* Center panel */}
       <div
-        className="flex h-full flex-col overflow-auto border-r border-border"
-        style={{ width: `${centerWidth}%` }}
+        className="h-full overflow-hidden border-r border-border"
+        style={{ flex: `0 0 ${centerWidth}%`, maxWidth: `${centerWidth}%` }}
       >
         {center}
       </div>
 
       {/* Right resize handle */}
       <div
-        className="group relative z-10 flex w-1.5 cursor-col-resize items-center justify-center hover:bg-accent"
+        className="group relative z-10 flex w-1.5 shrink-0 cursor-col-resize items-center justify-center hover:bg-accent"
         onMouseDown={handleMouseDown("right")}
       >
         <HugeiconsIcon icon={DragDropVerticalIcon} className="size-4 text-muted-foreground/30 group-hover:text-primary" strokeWidth={2} />
@@ -126,8 +126,8 @@ function ResizableTriplePanel({
 
       {/* Right panel */}
       <div
-        className="flex h-full flex-col overflow-auto"
-        style={{ width: `${rightWidth}%` }}
+        className="h-full overflow-hidden"
+        style={{ flex: `0 0 ${rightWidth}%`, maxWidth: `${rightWidth}%` }}
       >
         {right}
       </div>
@@ -164,10 +164,20 @@ export default function DebuggerPage() {
   // Read URL query params to pre-fill the command builder
   const urlInitialValues = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
-    const contractId = params.get("contractId") ?? undefined;
-    const template = params.get("template") ?? undefined;
-    if (!contractId && !template) return undefined;
-    return { contractId, template };
+    const values: Record<string, string | undefined> = {};
+    let hasAny = false;
+
+    for (const key of ["contractId", "template", "choice", "package", "packageId", "mode", "actAs", "readAs", "offset"]) {
+      const v = params.get(key);
+      if (v) {
+        // "package" maps to "packageId" in initialValues
+        values[key === "package" ? "packageId" : key] = v;
+        hasAny = true;
+      }
+    }
+
+    if (!hasAny) return undefined;
+    return values;
   }, []);
 
   // Handle simulate

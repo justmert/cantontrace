@@ -255,6 +255,7 @@ export function ContractDetail({
   defaultTab = "details",
 }: ContractDetailProps) {
   const navigate = useNavigate();
+  const [activeDetailTab, setActiveDetailTab] = useState(defaultTab);
   const templateStr = formatTemplateId(contract.templateId);
 
   // Fetch lifecycle to determine archived status
@@ -289,7 +290,7 @@ export function ContractDetail({
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue={defaultTab} className="flex flex-1 flex-col overflow-hidden gap-0">
+      <Tabs value={activeDetailTab} onValueChange={setActiveDetailTab} className="flex flex-1 flex-col overflow-hidden gap-0">
         <TabsList variant="line" className="w-full shrink-0 border-b px-4">
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="lifecycle">Lifecycle</TabsTrigger>
@@ -413,7 +414,7 @@ export function ContractDetail({
               {/* Action buttons */}
               <div className="flex flex-col gap-2">
                 <a
-                  href={`/debugger?contractId=${encodeURIComponent(contract.contractId)}&template=${encodeURIComponent(`${contract.templateId.moduleName}:${contract.templateId.entityName}`)}`}
+                  href={`/debugger?contractId=${encodeURIComponent(contract.contractId)}&template=${encodeURIComponent(`${contract.templateId.moduleName}:${contract.templateId.entityName}`)}&package=${encodeURIComponent(contract.templateId.packageName ?? "")}&actAs=${encodeURIComponent([...contract.signatories, ...contract.observers].join(","))}&readAs=${encodeURIComponent([...contract.signatories, ...contract.observers].join(","))}`}
                 >
                   <Button
                     variant="outline"
@@ -430,7 +431,7 @@ export function ContractDetail({
                 </a>
 
                 <a
-                  href={`/debugger?contractId=${encodeURIComponent(contract.contractId)}&template=${encodeURIComponent(`${contract.templateId.moduleName}:${contract.templateId.entityName}`)}&mode=trace`}
+                  href={`/debugger?contractId=${encodeURIComponent(contract.contractId)}&template=${encodeURIComponent(`${contract.templateId.moduleName}:${contract.templateId.entityName}`)}&package=${encodeURIComponent(contract.templateId.packageName ?? "")}&actAs=${encodeURIComponent([...contract.signatories, ...contract.observers].join(","))}&readAs=${encodeURIComponent([...contract.signatories, ...contract.observers].join(","))}&mode=trace`}
                 >
                   <Button
                     variant="outline"
@@ -450,12 +451,7 @@ export function ContractDetail({
                   variant="outline"
                   size="sm"
                   className="w-full justify-start"
-                  onClick={() =>
-                    navigate({
-                      to: "/contracts/$contractId",
-                      params: { contractId: contract.contractId },
-                    })
-                  }
+                  onClick={() => setActiveDetailTab("lifecycle")}
                 >
                   <HugeiconsIcon
                     icon={Search01Icon}

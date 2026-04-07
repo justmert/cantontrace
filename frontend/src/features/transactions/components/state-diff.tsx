@@ -11,7 +11,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { IdBadge } from "@/components/id-badge";
 
-import { formatPayloadValue, formatJsonForDisplay } from "@/lib/utils";
+import { formatPayloadValue } from "@/lib/utils";
+import { JsonView } from "@/components/json-view";
 import { PartyBadge } from "@/components/party-badge";
 import type { StateDiff, ActiveContract } from "@/lib/types";
 
@@ -115,9 +116,9 @@ function ContractCard({
           )}
 
           {expanded && !emptyPayload && (
-            <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-muted p-2 font-mono text-xs leading-relaxed text-foreground">
-              {formatJsonForDisplay(contract.payload)}
-            </pre>
+            <div className="mt-1 max-h-40 overflow-auto rounded-lg bg-muted p-2">
+              <JsonView data={contract.payload} defaultExpandDepth={3} />
+            </div>
           )}
         </div>
       </div>

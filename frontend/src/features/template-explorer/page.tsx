@@ -185,7 +185,7 @@ export default function TemplateExplorerPage() {
   }, [selected, detailsMap]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
       {/* Page header */}
       <PageHeader
         icon={BookOpen01Icon}
@@ -195,9 +195,9 @@ export default function TemplateExplorerPage() {
       />
 
       {/* Body: sidebar + content */}
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Sidebar — fixed width, scrolls independently */}
-        <div className="w-72 shrink-0 overflow-hidden border-r">
+        <div className="flex w-72 shrink-0 flex-col overflow-hidden border-r">
           <PackageSidebar
             packages={packages ?? []}
             packageDetails={detailsMap}

@@ -380,7 +380,7 @@ export default function DashboardPage() {
             </StatCard>
             <StatCard
               label="Errors"
-              value={failedCount === 0 ? "none" : failedCount}
+              value={failedCount}
               sub={failedCount === 0 ? "All clear" : "Failed completions"}
               onClick={() => navigate({ to: "/events", search: () => ({ tab: "errors" }) } as any)}
             >
@@ -564,10 +564,10 @@ export default function DashboardPage() {
                     variant="outline"
                     size="sm"
                     className="h-8 gap-1.5 text-[11px]"
-                    onClick={() => navigate({ to: "/sandbox" })}
+                    onClick={() => navigate({ to: "/events" })}
                   >
                     <HugeiconsIcon icon={FileUploadIcon} strokeWidth={2} className="size-3" />
-                    Upload DAR
+                    Browse Events
                   </Button>
                 </div>
               </div>

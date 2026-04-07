@@ -29,7 +29,8 @@ import {
 } from "@/components/ui/empty";
 import { IdBadge } from "@/components/id-badge";
 import { PartyBadge } from "@/components/party-badge";
-import { cn, formatTimestamp, formatTemplateId, formatJsonForDisplay, formatPayloadValue } from "@/lib/utils";
+import { cn, formatTimestamp, formatTemplateId, formatPayloadValue } from "@/lib/utils";
+import { JsonView } from "@/components/json-view";
 import type {
   LedgerUpdate,
   LedgerEvent,
@@ -157,9 +158,9 @@ export function EventDetail({ event }: { event: LedgerEvent }) {
           )}
           <div className="flex flex-col gap-1">
             <span className="text-xs font-medium text-muted-foreground">Payload</span>
-            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2 font-mono text-[10px]">
-              {formatJsonForDisplay(e.payload).slice(0, 800)}
-            </pre>
+            <div className="max-h-40 overflow-auto rounded-md bg-muted p-2">
+              <JsonView data={e.payload} defaultExpandDepth={3} />
+            </div>
           </div>
         </div>
       );
@@ -188,17 +189,17 @@ export function EventDetail({ event }: { event: LedgerEvent }) {
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-xs font-medium text-muted-foreground">Choice Argument</span>
-            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2 font-mono text-[10px]">
-              {formatJsonForDisplay(e.choiceArgument).slice(0, 800)}
-            </pre>
+            <div className="max-h-40 overflow-auto rounded-md bg-muted p-2">
+              <JsonView data={e.choiceArgument} defaultExpandDepth={3} />
+            </div>
           </div>
           {/* Exercise result */}
           {e.exerciseResult !== undefined && e.exerciseResult !== null && (
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-muted-foreground">Exercise Result</span>
-              <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2 font-mono text-[10px]">
-                {formatJsonForDisplay(e.exerciseResult).slice(0, 600)}
-              </pre>
+              <div className="max-h-32 overflow-auto rounded-md bg-muted p-2">
+                <JsonView data={e.exerciseResult} defaultExpandDepth={2} />
+              </div>
             </div>
           )}
           {/* Child event IDs */}
@@ -247,9 +248,9 @@ export function EventDetail({ event }: { event: LedgerEvent }) {
     }
     default:
       return (
-        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2 font-mono text-[10px]">
-          {formatJsonForDisplay(event)}
-        </pre>
+        <div className="max-h-40 overflow-auto rounded-md bg-muted p-2">
+          <JsonView data={event} defaultExpandDepth={2} />
+        </div>
       );
   }
 }

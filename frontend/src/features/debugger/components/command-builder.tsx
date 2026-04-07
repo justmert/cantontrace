@@ -122,8 +122,10 @@ export function CommandBuilder({
   const setStoreForm = useDebuggerStore((s) => s.setForm);
 
   // Local state initialized from store (or URL initialValues override)
+  // NOTE: initialValues.packageId may be a package NAME — don't use it directly.
+  // The useEffect below resolves name→ID after packages load.
   const [selectedPackageId, _setSelectedPackageId] = useState(
-    initialValues?.packageId || storeForm.packageId || ""
+    storeForm.packageId || ""
   );
   const [selectedTemplate, _setSelectedTemplate] = useState(
     parsedInitialTemplate || storeForm.template || ""
@@ -182,19 +184,34 @@ export function CommandBuilder({
     [packages]
   );
 
-  // Auto-select the first user package that contains the initial template.
-  // This fires once when packages finish loading and an initial template is provided
-  // via URL query params (e.g. from ACS Inspector "Use in Simulation").
+  // Auto-select package from URL params.
+  // initialValues.packageId may be a package NAME (e.g. "cantontrace-test") or hex ID.
+  // Resolve it to the actual packageId.
   useEffect(() => {
-    if (!parsedInitialTemplate || selectedPackageId || !packages) return;
-    // Prefer user packages, fall back to system packages
-    const candidates = [...userPackages, ...systemPackages];
-    if (candidates.length > 0) {
-      // We don't know which package contains the template until we fetch its
-      // detail, so select the first user package as a best guess.
-      setSelectedPackageId(candidates[0].packageId);
+    if (!packages || packages.length === 0) return;
+    if (selectedPackageId) {
+      // Already selected — check if it's valid
+      if (packages.some(p => p.packageId === selectedPackageId)) return;
     }
-  }, [packages, parsedInitialTemplate, selectedPackageId, userPackages, systemPackages]);
+
+    const initPkg = initialValues?.packageId;
+    if (initPkg) {
+      // Try exact match by ID first
+      const byId = packages.find(p => p.packageId === initPkg);
+      if (byId) { setSelectedPackageId(byId.packageId); return; }
+      // Try match by package name
+      const byName = packages.find(p => p.packageName === initPkg);
+      if (byName) { setSelectedPackageId(byName.packageId); return; }
+    }
+
+    // If we have an initial template, find the package containing it
+    if (parsedInitialTemplate) {
+      const candidates = [...userPackages, ...systemPackages];
+      if (candidates.length > 0) {
+        setSelectedPackageId(candidates[0].packageId);
+      }
+    }
+  }, [packages, parsedInitialTemplate, selectedPackageId, initialValues?.packageId, userPackages, systemPackages]);
 
   // Fetch package detail
   const { data: packageDetail, isLoading: detailLoading } = useQuery({

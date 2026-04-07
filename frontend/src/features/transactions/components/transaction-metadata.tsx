@@ -121,12 +121,12 @@ function buildDebuggerUrl(transaction: TransactionDetail): string | null {
 
   const params = new URLSearchParams();
   params.set("contractId", rootExercise.contractId);
-  params.set(
-    "template",
-    formatTemplateId(rootExercise.templateId)
-  );
-  if (rootExercise.choice) {
-    params.set("choice", rootExercise.choice);
+  params.set("template", formatTemplateId(rootExercise.templateId));
+  if (rootExercise.choice) params.set("choice", rootExercise.choice);
+  if (rootExercise.templateId.packageName) params.set("package", rootExercise.templateId.packageName);
+  if (rootExercise.actingParties?.length) {
+    params.set("actAs", rootExercise.actingParties.join(","));
+    params.set("readAs", rootExercise.actingParties.join(","));
   }
   return `/debugger?${params.toString()}`;
 }

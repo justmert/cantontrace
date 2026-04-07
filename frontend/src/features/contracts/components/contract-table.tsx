@@ -110,8 +110,10 @@ function RowActions({ contract }: { contract: ActiveContract }) {
     navigator.clipboard.writeText(contract.contractId).catch(() => {});
   };
 
-  const simulateUrl = `/debugger?contractId=${encodeURIComponent(contract.contractId)}&template=${encodeURIComponent(`${contract.templateId.moduleName}:${contract.templateId.entityName}`)}`;
-  const traceUrl = `/debugger?contractId=${encodeURIComponent(contract.contractId)}&template=${encodeURIComponent(`${contract.templateId.moduleName}:${contract.templateId.entityName}`)}&mode=trace`;
+  const allParties = [...new Set([...contract.signatories, ...contract.observers])].join(",");
+  const baseParams = `contractId=${encodeURIComponent(contract.contractId)}&template=${encodeURIComponent(`${contract.templateId.moduleName}:${contract.templateId.entityName}`)}&package=${encodeURIComponent(contract.templateId.packageName ?? "")}&actAs=${encodeURIComponent(allParties)}&readAs=${encodeURIComponent(allParties)}`;
+  const simulateUrl = `/debugger?${baseParams}`;
+  const traceUrl = `/debugger?${baseParams}&mode=trace`;
 
   return (
     <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/row:opacity-100">

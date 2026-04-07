@@ -14,7 +14,7 @@ import {
   ArrowDown01Icon,
   Clock01Icon,
 } from "@hugeicons/core-free-icons";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+// Tabs replaced with manual tab buttons + scrollable div for proper overflow
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from "@/components/ui/empty";
@@ -24,7 +24,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn, truncateId, formatPayloadValue, formatPartyDisplay, formatNumeric, formatTemplateId, formatJsonForDisplay } from "@/lib/utils";
+import { cn, truncateId, formatPayloadValue, formatPartyDisplay, formatNumeric, formatTemplateId } from "@/lib/utils";
+import { JsonView } from "@/components/json-view";
 import type {
   TraceStep,
   ExecutionTrace,
@@ -120,7 +121,7 @@ function ContractsTab({ step, trace }: ContractsTabProps) {
   }
 
   return (
-    <ScrollArea className="max-h-[calc(100vh-360px)]">
+    <ScrollArea className="min-h-0 flex-1">
       <div className="flex flex-col gap-2 p-2">
         {contracts.map((c) => {
           const keyFields = Object.entries(c.payload).slice(0, 5);
@@ -247,7 +248,7 @@ function AuthorizationTab({ step, trace, currentStepIndex }: AuthorizationTabPro
   const hasData = required.length > 0 || provided.length > 0;
 
   return (
-    <ScrollArea className="max-h-[calc(100vh-360px)]">
+    <ScrollArea className="min-h-0 flex-1">
       <div className="flex flex-col gap-4 p-3">
         <div className="flex flex-col gap-1.5">
           <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -366,7 +367,7 @@ function TransactionTreeTab({ trace, currentStepIndex: _currentStepIndex }: Tran
     const events = tx.eventsById ?? {};
 
     const TreeEventNode = ({ eventId, depth = 0 }: { eventId: string; depth?: number }) => {
-      const [nodeExpanded, setNodeExpanded] = useState(false);
+      const [nodeExpanded, setNodeExpanded] = useState(true);
       const evt = events[eventId] as {
         eventType?: string;
         contractId?: string;
@@ -521,7 +522,7 @@ function TransactionTreeTab({ trace, currentStepIndex: _currentStepIndex }: Tran
                           ) : isNumeric ? (
                             formatNumeric(String(v))
                           ) : typeof v === "object" && v !== null ? (
-                            formatJsonForDisplay(v)
+                            <JsonView data={v} defaultExpandDepth={2} />
                           ) : (
                             formatPayloadValue(v)
                           )}
@@ -585,7 +586,7 @@ function TransactionTreeTab({ trace, currentStepIndex: _currentStepIndex }: Tran
     };
 
     return (
-      <ScrollArea className="max-h-[calc(100vh-360px)]">
+      <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-0.5 p-2">
           <div className="mb-2 flex items-center gap-2 px-2">
             <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -621,7 +622,7 @@ function TransactionTreeTab({ trace, currentStepIndex: _currentStepIndex }: Tran
   }
 
   return (
-    <ScrollArea className="max-h-[calc(100vh-360px)]">
+    <ScrollArea className="min-h-0 flex-1">
       <div className="flex flex-col gap-0.5 p-2">
         {actionSteps.map((s) => {
           const Icon = STEP_TYPE_ICONS[s.stepType] ?? ArrowRight01Icon;
@@ -677,50 +678,51 @@ export function ContextPanel({
     );
   }
 
+  const [activeTab, setActiveTab] = useState("contracts");
+
   return (
-    <div className="flex h-full flex-col bg-background">
-      <Tabs defaultValue="contracts" className="flex flex-1 flex-col">
-        <TabsList className="mx-2 mt-2 grid w-auto grid-cols-4">
-          <TabsTrigger value="contracts" className="text-[10px]">
-            Contracts
-          </TabsTrigger>
-          <TabsTrigger value="auth" className="text-[10px]">
-            Authorization
-          </TabsTrigger>
-          <TabsTrigger value="tree" className="text-[10px]">
-            Tx Tree
-          </TabsTrigger>
-          <TabsTrigger value="profiler" className="text-[10px]">
-            Profiler
-          </TabsTrigger>
-        </TabsList>
+    <div className="flex h-full flex-col overflow-hidden bg-background">
+      {/* Tab buttons — fixed at top */}
+      <div className="shrink-0 mx-2 mt-2 grid grid-cols-4 gap-1 rounded-md bg-muted p-1">
+        {(["contracts", "auth", "tree", "profiler"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              "rounded-sm px-2 py-1 text-[10px] font-medium transition-colors",
+              activeTab === tab
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab === "contracts" ? "Contracts" : tab === "auth" ? "Authorization" : tab === "tree" ? "Tx Tree" : "Profiler"}
+          </button>
+        ))}
+      </div>
 
-        <TabsContent value="contracts" className="flex-1">
+      {/* Scrollable content area */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {activeTab === "contracts" && (
           <ContractsTab step={currentStep} trace={trace} />
-        </TabsContent>
-
-        <TabsContent value="auth" className="flex-1">
+        )}
+        {activeTab === "auth" && (
           <AuthorizationTab
             step={currentStep}
             trace={trace}
             currentStepIndex={currentStepIndex}
           />
-        </TabsContent>
-
-        <TabsContent value="tree" className="flex-1">
+        )}
+        {activeTab === "tree" && (
           <TransactionTreeTab
             trace={trace}
             currentStepIndex={currentStepIndex}
           />
-        </TabsContent>
-
-        <TabsContent value="profiler" className="flex-1">
-          {trace.profilerData ? (
-            <ScrollArea className="max-h-[calc(100vh-360px)]">
-              <pre className="p-3 text-xs text-foreground">
-                {JSON.stringify(trace.profilerData, null, 2)}
-              </pre>
-            </ScrollArea>
+        )}
+        {activeTab === "profiler" && (
+          trace.profilerData ? (
+            <div className="p-3">
+              <JsonView data={trace.profilerData} defaultExpandDepth={3} />
+            </div>
           ) : (
             <Empty className="py-8">
               <EmptyMedia variant="icon">
@@ -733,9 +735,9 @@ export function ContextPanel({
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
-          )}
-        </TabsContent>
-      </Tabs>
+          )
+        )}
+      </div>
     </div>
   );
 }

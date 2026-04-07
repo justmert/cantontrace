@@ -209,7 +209,7 @@ function TimelineCard({
   onNavigateOffset,
   children,
 }: TimelineCardProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const config = EVENT_CONFIG[configKey];
 
   return (

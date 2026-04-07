@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { SimulationResult, ExecutionTrace } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
-// Command builder form state — persisted to localStorage
+// Command builder form state — in-memory only (no localStorage)
 // ---------------------------------------------------------------------------
 
 interface CommandFormState {
@@ -17,69 +17,45 @@ interface CommandFormState {
   historicalOffset: string;
 }
 
-const FORM_STORAGE_KEY = "cantontrace-debugger-form";
-
-function loadFormState(): CommandFormState {
-  try {
-    const raw = localStorage.getItem(FORM_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return {
-    packageId: "",
-    template: "",
-    choice: "",
-    contractId: "",
-    args: {},
-    actingParties: [],
-    readAsParties: [],
-    mode: "online",
-    historicalOffset: "",
-  };
-}
-
-function saveFormState(state: CommandFormState) {
-  try {
-    localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(state));
-  } catch { /* ignore */ }
-}
+const DEFAULT_FORM: CommandFormState = {
+  packageId: "",
+  template: "",
+  choice: "",
+  contractId: "",
+  args: {},
+  actingParties: [],
+  readAsParties: [],
+  mode: "online",
+  historicalOffset: "",
+};
 
 // ---------------------------------------------------------------------------
-// Debugger store
+// Debugger store — no persistence, purely in-memory
 // ---------------------------------------------------------------------------
 
 interface DebuggerState {
-  // Command builder form (persisted)
   form: CommandFormState;
   setForm: (patch: Partial<CommandFormState>) => void;
 
-  // Simulation results
   simResult: SimulationResult | null;
   setSimResult: (result: SimulationResult | null) => void;
 
-  // Trace results
   trace: ExecutionTrace | null;
   setTrace: (trace: ExecutionTrace | null) => void;
 
-  // Active tab
   activeTab: string;
   setActiveTab: (tab: string) => void;
 
-  // Last request params (to show in collapsed state)
   lastRequest: Record<string, unknown>;
   setLastRequest: (req: Record<string, unknown>) => void;
 
-  // Reset everything
   reset: () => void;
 }
 
 export const useDebuggerStore = create<DebuggerState>((set) => ({
-  form: loadFormState(),
+  form: { ...DEFAULT_FORM },
   setForm: (patch) =>
-    set((state) => {
-      const next = { ...state.form, ...patch };
-      saveFormState(next);
-      return { form: next };
-    }),
+    set((state) => ({ form: { ...state.form, ...patch } })),
 
   simResult: null,
   setSimResult: (simResult) => set({ simResult }),
@@ -93,24 +69,12 @@ export const useDebuggerStore = create<DebuggerState>((set) => ({
   lastRequest: {},
   setLastRequest: (lastRequest) => set({ lastRequest }),
 
-  reset: () => {
-    try { localStorage.removeItem(FORM_STORAGE_KEY); } catch { /* ignore */ }
+  reset: () =>
     set({
-      form: {
-        packageId: "",
-        template: "",
-        choice: "",
-        contractId: "",
-        args: {},
-        actingParties: [],
-        readAsParties: [],
-        mode: "online",
-        historicalOffset: "",
-      },
+      form: { ...DEFAULT_FORM },
       simResult: null,
       trace: null,
       activeTab: "simulation",
       lastRequest: {},
-    });
-  },
+    }),
 }));

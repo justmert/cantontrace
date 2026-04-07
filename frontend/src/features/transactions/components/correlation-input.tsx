@@ -69,9 +69,14 @@ export function CorrelationInput({
   const handleSearch = () => {
     if (!value.trim()) return;
     switch (type) {
-      case "trace_context":
-        onSearch({ type: "trace_context", traceId: value.trim() });
+      case "trace_context": {
+        // Extract traceId from W3C trace_parent format: version-traceId-parentId-flags
+        const raw = value.trim();
+        const parts = raw.split("-");
+        const traceId = parts.length >= 3 ? parts[1]! : raw;
+        onSearch({ type: "trace_context", traceId });
         break;
+      }
       case "contract_chain":
         onSearch({ type: "contract_chain", startContractId: value.trim() });
         break;

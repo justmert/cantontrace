@@ -21,7 +21,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+// Native overflow used instead of ScrollArea for proper width containment
 import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from "@/components/ui/empty";
 import {
   Tooltip,
@@ -31,7 +31,8 @@ import {
 } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
 // Using <a> tags for contract links to avoid TanStack Router type issues
-import { cn, formatJsonForDisplay, formatPartyDisplay, formatNumeric, formatPayloadValue, formatTemplateId, truncateId } from "@/lib/utils";
+import { cn, formatPartyDisplay, formatNumeric, formatPayloadValue, formatTemplateId, truncateId } from "@/lib/utils";
+import { JsonView } from "@/components/json-view";
 import type { TraceStep, TraceStepType } from "@/lib/types";
 import type { TraceNavigation } from "@/features/debugger/hooks";
 
@@ -111,9 +112,9 @@ function FormattedValue({
     return <span title={value}>{formatNumeric(value)}</span>;
   }
   if (typeof value === "object" && value !== null) {
-    return <span>{formatJsonForDisplay(value)}</span>;
+    return <JsonView data={value} defaultExpandDepth={2} />;
   }
-  return <span>{String(value)}</span>;
+  return <span className="truncate">{String(value)}</span>;
 }
 
 /**
@@ -138,10 +139,10 @@ function FormattedVariables({
   if (entries.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-1 overflow-hidden">
       {entries.map(([key, value]) => (
-        <div key={key} className="flex items-baseline gap-2 font-mono text-[11px]">
-          <span className="text-muted-foreground">{key}:</span>
+        <div key={key} className="flex min-w-0 items-baseline gap-2 overflow-hidden font-mono text-[11px]">
+          <span className="shrink-0 text-muted-foreground">{key}:</span>
           <FormattedValue
             value={value}
             asContractLink={key === contractIdKey || isContractIdKey(key)}
@@ -179,7 +180,7 @@ function PayloadFields({ data, label }: { data: Record<string, unknown>; label: 
               ) : isNumeric ? (
                 <span title={String(v)}>{formatNumeric(String(v))}</span>
               ) : typeof v === "object" && v !== null ? (
-                <span className="whitespace-pre-wrap break-all">{formatJsonForDisplay(v)}</span>
+                <JsonView data={v} defaultExpandDepth={2} />
               ) : (
                 <span className="break-all">{formatPayloadValue(v)}</span>
               )}
@@ -198,7 +199,7 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
     : null;
 
   return (
-    <div className="mt-2 flex flex-col gap-2 text-xs">
+    <div className="mt-2 flex min-w-0 flex-col gap-2 overflow-hidden text-xs">
       {/* ── fetch_contract ── */}
       {step.stepType === "fetch_contract" && (() => {
         const contractId = String(step.variables.contractId ?? "");
@@ -616,17 +617,17 @@ function StepRow({ step, isCurrent, isLast, onClick }: StepRowProps) {
   return (
     <div
       className={cn(
-        "flex flex-col px-3 py-2 transition-colors cursor-pointer rounded-md mx-1",
+        "flex min-w-0 flex-col overflow-hidden px-3 py-2 transition-colors cursor-pointer rounded-md mx-1",
         isCurrent
           ? "ring-1 ring-primary/50 border border-primary/30"
           : step.passed
           ? "hover:bg-muted/30"
           : "ring-1 ring-destructive/30 border border-destructive/20 bg-destructive/5",
-        muted && !isCurrent && "opacity-60",
+        false && muted && !isCurrent && "opacity-60", // disabled — all steps rendered equally
       )}
       onClick={onClick}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2">
         {/* Step number */}
         <span className={cn("w-6 text-right font-mono text-muted-foreground", muted ? "text-[9px]" : "text-[10px]")}>
           {step.stepNumber}
@@ -646,7 +647,7 @@ function StepRow({ step, isCurrent, isLast, onClick }: StepRowProps) {
         />
 
         {/* Summary */}
-        <div className="flex flex-1 flex-col gap-0.5 overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden">
           <div className="flex items-center gap-1.5">
             <span className={cn("font-medium", muted ? "text-[10px] text-muted-foreground" : "text-xs")}>
               {STEP_TYPE_LABELS[step.stepType]}
@@ -719,6 +720,7 @@ export interface StepsPanelProps {
 }
 
 export function StepsPanel({ steps, navigation }: StepsPanelProps) {
+  // IMPORTANT: The root div has overflow-hidden to prevent horizontal overflow
   // Keyboard shortcut handler
   const { stepForward, stepBack, runToFailure, runToEnd } = navigation;
   React.useEffect(() => {
@@ -770,7 +772,7 @@ export function StepsPanel({ steps, navigation }: StepsPanelProps) {
   }
 
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div className="flex h-full min-w-0 flex-col overflow-hidden bg-background">
       {/* Toolbar */}
       <div className="flex items-center gap-1 border-b border-border bg-card px-2 py-1.5">
         <TooltipProvider>
@@ -860,8 +862,8 @@ export function StepsPanel({ steps, navigation }: StepsPanelProps) {
       </div>
 
       {/* Steps list */}
-      <ScrollArea className="flex-1">
-        <div className="flex flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="flex w-full flex-col">
           {steps.map((step, idx) => (
             <StepRow
               key={step.stepNumber}
@@ -872,7 +874,7 @@ export function StepsPanel({ steps, navigation }: StepsPanelProps) {
             />
           ))}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }

@@ -82,6 +82,7 @@ function LazyMonaco({
     <Editor
       height="100%"
       defaultLanguage={language}
+      language={language}
       value={value}
       theme={isDark ? "vs-dark" : "vs-light"}
       options={{
@@ -92,6 +93,54 @@ function LazyMonaco({
         fontSize: 13,
         wordWrap: "on",
         padding: { top: 8 },
+      }}
+      beforeMount={(monaco) => {
+        // Register Daml language if not already registered
+        if (!monaco.languages.getLanguages().some((l: { id: string }) => l.id === "daml")) {
+          monaco.languages.register({ id: "daml" });
+          monaco.languages.setMonarchTokensProvider("daml", {
+            keywords: [
+              "template", "with", "where", "signatory", "observer", "ensure",
+              "choice", "controller", "do", "let", "in", "if", "then", "else",
+              "case", "of", "data", "type", "module", "import", "deriving",
+              "class", "instance", "forall", "nonconsuming", "preconsuming",
+              "postconsuming", "key", "maintainer", "exerciseGuard",
+              "interface", "implements", "create", "exercise", "fetch",
+              "archive", "return", "pure",
+            ],
+            typeKeywords: [
+              "Party", "Text", "Int", "Int64", "Decimal", "Numeric", "Bool",
+              "Date", "Time", "ContractId", "Optional", "Either", "Unit",
+              "True", "False", "Some", "None", "Eq", "Show", "Ord",
+            ],
+            operators: ["=", ">", "<", ">=", "<=", "/=", "&&", "||", "++", "::", "->", "<-", "=>", "|", "\\"],
+            tokenizer: {
+              root: [
+                [/--.*$/, "comment"],
+                [/\{-/, "comment", "@comment"],
+                [/"[^"]*"/, "string"],
+                [/'[^']*'/, "string"],
+                [/[a-z_][\w']*/, { cases: { "@keywords": "keyword", "@default": "identifier" } }],
+                [/[A-Z][\w']*/, { cases: { "@typeKeywords": "type", "@default": "type.identifier" } }],
+                [/[0-9]+(\.[0-9]+)?/, "number"],
+                [/[{}()\[\]]/, "@brackets"],
+                [/[=<>!&|+\-*/\\:]+/, { cases: { "@operators": "operator", "@default": "" } }],
+              ],
+              comment: [
+                [/[^{-]+/, "comment"],
+                [/-\}/, "comment", "@pop"],
+                [/[{-]/, "comment"],
+              ],
+            },
+          } as unknown as import("monaco-editor").languages.IMonarchLanguage);
+        }
+      }}
+      onMount={(_editor, monaco) => {
+        // Switch to daml language after mount
+        const model = _editor.getModel();
+        if (model) {
+          monaco.editor.setModelLanguage(model, "daml");
+        }
       }}
     />
   );

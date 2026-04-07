@@ -101,10 +101,7 @@ export function PartyBadge({ party, variant = "default", className }: PartyBadge
           {copied ? (
             <span className="text-primary">Copied!</span>
           ) : (
-            <>
-              <span className="text-muted-foreground">Click to copy: </span>
-              {party}
-            </>
+            <span className="max-w-xs break-all font-mono text-[10px]">{party}</span>
           )}
         </TooltipContent>
       </Tooltip>

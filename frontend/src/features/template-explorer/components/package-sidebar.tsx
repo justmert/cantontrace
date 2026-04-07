@@ -304,7 +304,7 @@ export function PackageSidebar({
   onExpandPackage,
 }: PackageSidebarProps) {
   const [filter, setFilter] = useState("");
-  const [showSystem, setShowSystem] = useState(false);
+  const [showSystem, setShowSystem] = useState(true);
 
   // Partition packages into user vs system
   const [userPackages, systemPackages] = useMemo(
@@ -399,8 +399,9 @@ export function PackageSidebar({
         </div>
       </div>
 
-      {/* Package list */}
-      <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
+      {/* Package list — scrollable */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="flex flex-col gap-0.5 pb-4">
         {isLoading ? (
           <SidebarSkeleton />
         ) : filteredUserPackages.length === 0 && filteredSystemPackages.length === 0 ? (
@@ -462,6 +463,7 @@ export function PackageSidebar({
             )}
           </>
         )}
+      </div>
       </div>
     </div>
   );

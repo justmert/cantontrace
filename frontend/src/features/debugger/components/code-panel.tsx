@@ -506,7 +506,7 @@ export function CodePanel({
           }
           options={{
             readOnly: true,
-            minimap: { enabled: true },
+            minimap: { enabled: false },
             lineNumbers: "on",
             scrollBeyondLastLine: false,
             fontSize: 13,
