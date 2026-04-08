@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -274,7 +274,7 @@ function InfoTab({
 // Detail Panel — Parties Tab
 // ---------------------------------------------------------------------------
 
-function PartiesTab({ sandbox }: { sandbox: Sandbox }) {
+function PartiesTab({ sandbox, disabled }: { sandbox: Sandbox; disabled?: boolean }) {
   const connectionStore = useConnectionStore();
   const [newPartyName, setNewPartyName] = useState("");
   const [partyError, setPartyError] = useState<string | null>(null);
@@ -336,7 +336,7 @@ function PartiesTab({ sandbox }: { sandbox: Sandbox }) {
           variant="outline"
           size="xs"
           onClick={handleAllocateParty}
-          disabled={!newPartyName.trim() || allocateParty.isPending}
+          disabled={!newPartyName.trim() || allocateParty.isPending || disabled}
         >
           <HugeiconsIcon
             icon={Add01Icon}
@@ -355,7 +355,7 @@ function PartiesTab({ sandbox }: { sandbox: Sandbox }) {
 // Detail Panel — DARs Tab
 // ---------------------------------------------------------------------------
 
-function DarsTab({ sandbox }: { sandbox: Sandbox }) {
+function DarsTab({ sandbox, disabled }: { sandbox: Sandbox; disabled?: boolean }) {
   const connectionStore = useConnectionStore();
   const [lastUploadedDar, setLastUploadedDar] = useState<string | undefined>();
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -431,6 +431,21 @@ export default function SandboxManagerPage() {
   const resetSandbox = useResetSandbox();
   const connectionStore = useConnectionStore();
   const navigate = useNavigate();
+
+  // Auto-select: connected sandbox first, then first available
+  useEffect(() => {
+    if (!sandboxes || sandboxes.length === 0) {
+      setSelectedId(null);
+      return;
+    }
+    if (selectedId && sandboxes.some(s => s.id === selectedId)) return;
+    const connectedId = connectionStore.config?.sandboxId;
+    if (connectedId && sandboxes.some(s => s.id === connectedId)) {
+      setSelectedId(connectedId);
+    } else {
+      setSelectedId(sandboxes[0].id);
+    }
+  }, [sandboxes, selectedId, connectionStore.config?.sandboxId]);
 
   const selectedSandbox = sandboxes?.find((s) => s.id === selectedId) ?? null;
   const hasSandboxes = sandboxes && sandboxes.length > 0;
@@ -633,68 +648,84 @@ export default function SandboxManagerPage() {
                 </div>
               </div>
             ) : (
-              <Tabs defaultValue="info" className="flex h-full flex-col">
-                {/* Tab header */}
-                <div className="flex items-center justify-between border-b border-border/30 px-4 py-2">
+              <div className="flex h-full flex-col">
+                {/* Header with name + endpoint + actions */}
+                <div className="flex items-center justify-between border-b border-border/30 px-4 py-3">
                   <div className="flex items-center gap-3">
                     <StatusDot status={selectedSandbox.status} />
-                    <span className="font-mono text-xs font-medium">
-                      {selectedSandbox.ledgerApiEndpoint}
-                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium">
+                        {selectedSandbox.name || `Sandbox ${selectedSandbox.ledgerApiEndpoint}`}
+                      </span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {selectedSandbox.ledgerApiEndpoint}
+                      </span>
+                    </div>
                   </div>
-                  <TabsList variant="line">
-                    <TabsTrigger value="info">
-                      <HugeiconsIcon
-                        icon={InformationCircleIcon}
-                        strokeWidth={2}
-                        data-icon="inline-start"
-                        className="size-3"
-                      />
-                      Info
-                    </TabsTrigger>
-                    <TabsTrigger value="parties">
-                      <HugeiconsIcon
-                        icon={UserGroupIcon}
-                        strokeWidth={2}
-                        data-icon="inline-start"
-                        className="size-3"
-                      />
-                      Parties ({selectedSandbox.parties.length})
-                    </TabsTrigger>
-                    <TabsTrigger value="dars">
-                      <HugeiconsIcon
-                        icon={FileZipIcon}
-                        strokeWidth={2}
-                        data-icon="inline-start"
-                        className="size-3"
-                      />
-                      DARs ({selectedSandbox.uploadedDars.length})
-                    </TabsTrigger>
-                  </TabsList>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      disabled={selectedSandbox.status !== "running" || isConnecting || (connectionStore.config?.sandboxId === selectedSandbox.id && connectionStore.status === "connected")}
+                      variant={(connectionStore.config?.sandboxId === selectedSandbox.id && connectionStore.status === "connected") ? "secondary" : "default"}
+                      onClick={() => handleConnect(selectedSandbox)}
+                    >
+                      <HugeiconsIcon icon={Plug01Icon} strokeWidth={2} data-icon="inline-start" />
+                      {(connectionStore.config?.sandboxId === selectedSandbox.id && connectionStore.status === "connected") ? "Connected" : isConnecting ? "Connecting..." : "Connect"}
+                    </Button>
+                    <Button size="sm" variant="outline" disabled={selectedSandbox.status !== "running"} onClick={() => setShowResetConfirm(selectedSandbox.id)}>Reset</Button>
+                    <Button size="sm" variant="outline" className="text-destructive" disabled={selectedSandbox.status === "provisioning"} onClick={() => setShowDeleteConfirm(selectedSandbox.id)}>Delete</Button>
+                  </div>
                 </div>
 
-                {/* Tab content */}
-                <ScrollArea className="flex-1">
-                  <TabsContent value="info" className="m-0">
-                    <InfoTab
-                      sandbox={selectedSandbox}
-                      onConnect={() => handleConnect(selectedSandbox)}
-                      onReset={() => setShowResetConfirm(selectedSandbox.id)}
-                      onDelete={() => setShowDeleteConfirm(selectedSandbox.id)}
-                      onShare={handleShare}
-                      connectError={connectError}
-                      isConnecting={isConnecting}
-                      isConnected={connectionStore.config?.sandboxId === selectedSandbox.id && connectionStore.status === "connected"}
-                    />
-                  </TabsContent>
-                  <TabsContent value="parties" className="m-0">
-                    <PartiesTab sandbox={selectedSandbox} />
-                  </TabsContent>
-                  <TabsContent value="dars" className="m-0">
-                    <DarsTab sandbox={selectedSandbox} />
-                  </TabsContent>
-                </ScrollArea>
-              </Tabs>
+                {/* All sections visible, scrollable */}
+                <div className="flex-1 overflow-y-auto">
+                  {/* Info grid */}
+                  <div className="grid grid-cols-2 gap-4 border-b border-border/30 px-4 py-4 sm:grid-cols-4">
+                    <div>
+                      <span className="text-xs text-muted-foreground">Status</span>
+                      <div className="mt-1"><Badge variant="outline" className={cn("text-xs", statusBadgeClass(selectedSandbox.status))}><StatusDot status={selectedSandbox.status} />{statusLabel(selectedSandbox.status)}</Badge></div>
+                    </div>
+                    <div>
+                      <span className="text-xs text-muted-foreground">Port</span>
+                      <p className="mt-1 font-mono text-sm">{selectedSandbox.ledgerApiEndpoint.split(":").pop()}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-muted-foreground">Created</span>
+                      <p className="mt-1 text-sm">{formatTimestamp(selectedSandbox.createdAt, "datetime")}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-muted-foreground">Sandbox ID</span>
+                      <p className="mt-1 font-mono text-xs text-muted-foreground">{selectedSandbox.id.slice(0, 12)}...</p>
+                    </div>
+                  </div>
+
+                  {connectError && (
+                    <div className="border-b border-border/30 px-4 py-3">
+                      <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                        {connectError}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Parties section */}
+                  <div className="border-b border-border/30">
+                    <div className="flex items-center gap-2 px-4 py-2.5">
+                      <HugeiconsIcon icon={UserGroupIcon} strokeWidth={2} className="size-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Parties ({selectedSandbox.parties.length})</span>
+                    </div>
+                    <PartiesTab sandbox={selectedSandbox} disabled={selectedSandbox.status !== "running"} />
+                  </div>
+
+                  {/* DARs section */}
+                  <div className="border-b border-border/30">
+                    <div className="flex items-center gap-2 px-4 py-2.5">
+                      <HugeiconsIcon icon={FileZipIcon} strokeWidth={2} className="size-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">DARs ({selectedSandbox.uploadedDars.length})</span>
+                    </div>
+                    <DarsTab sandbox={selectedSandbox} disabled={selectedSandbox.status !== "running"} />
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>

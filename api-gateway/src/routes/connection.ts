@@ -47,8 +47,10 @@ export function registerConnectionRoutes(app: FastifyInstance, cache: CacheServi
       if (refresh) {
         try {
           // Re-fetch known parties
-          const partyList = await client.partyManagementService.listKnownParties();
-          bootstrapInfo.knownParties = partyList.map((p: { party: string }) => p.party);
+          const partyResult = await client.partyManagementService.listKnownParties();
+          bootstrapInfo.knownParties = partyResult.parties
+            .filter((p) => p.isLocal)
+            .map((p) => p.party);
           // Re-fetch packages
           const packages = await client.packageService.listPackagesWithMetadata();
           bootstrapInfo.packages = packages;

@@ -20,6 +20,39 @@ export function createMetadata(token: string | null): grpc.Metadata {
 }
 
 /**
+ * Create gRPC metadata for sandbox mode.
+ *
+ * When no real JWT exists (sandbox with auth disabled), Canton's
+ * InteractiveSubmissionService still requires a Bearer token with a `sub`
+ * claim to derive the user-id.  We generate a minimal unsigned JWT (alg:
+ * "none") that Canton sandbox accepts.  If a real token is available we
+ * use that instead.
+ */
+export function createSandboxMetadata(
+  token: string | null,
+  userId: string,
+): grpc.Metadata {
+  if (token) return createMetadata(token);
+
+  // Build an unsigned JWT: header.payload.
+  const header = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: userId,
+      aud: 'canton-participant',
+      iss: 'cantontrace',
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    }),
+  ).toString('base64url');
+  const unsignedJwt = `${header}.${payload}.`;
+
+  const metadata = new grpc.Metadata();
+  metadata.set('authorization', `Bearer ${unsignedJwt}`);
+  return metadata;
+}
+
+/**
  * Make a unary gRPC call and return the response as a typed object.
  * Wraps the callback-style gRPC client into a Promise.
  */

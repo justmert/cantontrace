@@ -20,6 +20,7 @@ import { PackageServiceClient } from './services/package-service.js';
 import { PartyManagementServiceClient } from './services/party-management-service.js';
 import { UserManagementServiceClient } from './services/user-management-service.js';
 import { PruningServiceClient } from './services/pruning-service.js';
+import { CommandServiceClient } from './services/command-service.js';
 import { CANTON_SERVICES } from './proto/types.js';
 import type * as protoLoader from '@grpc/proto-loader';
 import { loadCantonProtos, getServiceConstructor } from './proto-loader.js';
@@ -62,6 +63,7 @@ export class CantonClient {
   private _partyManagementService: PartyManagementServiceClient | null = null;
   private _userManagementService: UserManagementServiceClient | null = null;
   private _pruningService: PruningServiceClient | null = null;
+  private _commandService: CommandServiceClient | null = null;
 
   // Raw gRPC clients per service
   private grpcClients: Map<string, grpc.Client> = new Map();
@@ -136,6 +138,7 @@ export class CantonClient {
     this._partyManagementService = null;
     this._userManagementService = null;
     this._pruningService = null;
+    this._commandService = null;
   }
 
   /**
@@ -280,6 +283,17 @@ export class CantonClient {
       );
     }
     return this._pruningService;
+  }
+
+  get commandService(): CommandServiceClient {
+    this.ensureConnected();
+    if (!this._commandService) {
+      this._commandService = new CommandServiceClient(
+        this.getGrpcClient('COMMAND_SERVICE'),
+        () => this.token,
+      );
+    }
+    return this._commandService;
   }
 
   // ============================================================

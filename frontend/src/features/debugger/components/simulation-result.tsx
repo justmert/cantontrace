@@ -17,7 +17,6 @@ import {
   Add01Icon,
   PlayIcon,
   Delete01Icon,
-  ArrowDataTransferVerticalIcon,
 } from "@hugeicons/core-free-icons";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,7 +44,7 @@ import type {
 // Contract card
 // ---------------------------------------------------------------------------
 
-function ContractCard({
+export function ContractCard({
   contract,
   label,
   variant,
@@ -453,7 +452,7 @@ function TreeNode({ event, depth }: { event: LedgerEvent; depth: number }) {
   );
 }
 
-function SimpleTransactionTree({
+export function SimpleTransactionTree({
   transaction,
 }: {
   transaction: TransactionDetail;

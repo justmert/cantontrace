@@ -456,8 +456,8 @@ export function CommandBuilder({
 
   const handleExecuteAndCollapse = useCallback(() => {
     handleExecute();
-    onCollapsedChange?.(true);
-  }, [handleExecute, onCollapsedChange]);
+    // Don't collapse after execute — user needs to see the builder
+  }, [handleExecute]);
 
   // Compact summary for collapsed state
   const summaryParts = useMemo(() => {
@@ -467,16 +467,6 @@ export function CommandBuilder({
     if (actingParties.length > 0) parts.push(`as ${actingParties[0]}${actingParties.length > 1 ? ` +${actingParties.length - 1}` : ""}`);
     return parts.join(" / ");
   }, [selectedTemplate, selectedChoice, actingParties]);
-
-  const handleSimulateAndCollapse = useCallback(() => {
-    handleSimulate();
-    onCollapsedChange?.(true);
-  }, [handleSimulate, onCollapsedChange]);
-
-  const handleTraceAndCollapse = useCallback(() => {
-    handleTrace();
-    onCollapsedChange?.(true);
-  }, [handleTrace, onCollapsedChange]);
 
   return (
     <Card className="shrink-0">

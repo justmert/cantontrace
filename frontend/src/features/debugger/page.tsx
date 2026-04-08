@@ -26,6 +26,7 @@ import { useConnectionStore } from "@/stores/connection-store";
 import { useQuery } from "@tanstack/react-query";
 import { CommandBuilder } from "./components/command-builder";
 import { SimulationResultView } from "./components/simulation-result";
+import { ExecutionResultView } from "./components/execution-result";
 import { WhatIfPanel } from "./components/what-if-panel";
 import { CodePanel } from "./components/code-panel";
 import { StepsPanel } from "./components/steps-panel";
@@ -153,14 +154,12 @@ export default function DebuggerPage() {
   const [trace, setTrace] = useState<ExecutionTrace | null>(null);
   const [activeTab, setActiveTab] = useState("simulation");
   const [lastRequest, setLastRequest] = useState<Record<string, unknown>>({});
-  const [executeBanner, setExecuteBanner] = useState<string | null>(null);
   const resetDebugger = useCallback(() => {
     setSimResult(null);
     setLastExecuteResult(null);
     setTrace(null);
     setActiveTab("simulation");
     setLastRequest({});
-    setExecuteBanner(null);
   }, []);
 
   // Mutation state (not persisted — transient)
@@ -171,7 +170,6 @@ export default function DebuggerPage() {
 
   // Command builder collapsed state
   const [cmdCollapsed, setCmdCollapsed] = useState(false);
-  const [hasRun, setHasRun] = useState(false);
 
   // Read URL query params to pre-fill the command builder
   const urlInitialValues = useMemo(() => {
@@ -216,7 +214,7 @@ export default function DebuggerPage() {
         },
       });
     },
-    [simulation, hasRun]
+    [simulation]
   );
 
   // Handle trace
@@ -242,36 +240,12 @@ export default function DebuggerPage() {
   // Handle execute
   const handleExecute = useCallback(
     (request: ExecuteRequest) => {
-      setActiveTab("simulation");
-      setExecuteBanner(null);
+      setActiveTab("execution");
 
       executeMutation.mutate(request, {
         onSuccess: (data) => {
           setLastExecuteResult(data);
-          // Convert ExecuteResult to SimulationResult shape for display
-          if (data.transactionTree) {
-            setSimResult({
-              mode: "online",
-              success: data.success,
-              transactionTree: data.transactionTree,
-              inputContracts: data.inputContracts,
-              error: data.error,
-              simulatedAt: data.executedAt,
-              atOffset: data.completionOffset,
-              stateDriftWarning: data.success
-                ? "This transaction was committed to the ledger."
-                : "Execution failed -- see error details.",
-            });
-          }
           if (data.success) {
-            const txId = data.updateId
-              ? data.updateId.length > 16
-                ? data.updateId.slice(0, 16) + "..."
-                : data.updateId
-              : "unknown";
-            setExecuteBanner(
-              `Command submitted successfully. Transaction: ${txId}`
-            );
             // Refresh bootstrap data (new contracts, new offset)
             connectionStore.refreshBootstrap();
           }
@@ -343,7 +317,7 @@ export default function DebuggerPage() {
           {lastExecuteResult?.success && (
             <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600">Committed</Badge>
           )}
-          {(simResult || trace) && (
+          {(simResult || trace || lastExecuteResult) && (
             <button
               onClick={resetDebugger}
               className="ml-2 text-xs text-muted-foreground hover:text-destructive transition-colors"
@@ -368,28 +342,8 @@ export default function DebuggerPage() {
           initialValues={urlInitialValues}
         />
 
-        {/* Success banner for execution */}
-        {executeBanner && (
-          <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 px-5 py-3">
-            <HugeiconsIcon
-              icon={Tick02Icon}
-              className="size-5 flex-shrink-0 text-emerald-600"
-              strokeWidth={2}
-            />
-            <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-              {executeBanner}
-            </span>
-            <button
-              onClick={() => setExecuteBanner(null)}
-              className="ml-auto text-xs text-muted-foreground hover:text-foreground"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
         {/* Error display for execution */}
-        {executeMutation.isError && activeTab === "simulation" &&
+        {executeMutation.isError && activeTab === "execution" &&
           (() => {
             const err = executeMutation.error;
             return (
@@ -489,21 +443,22 @@ export default function DebuggerPage() {
         >
           <TabsList variant="line">
             <TabsTrigger value="simulation">Simulation</TabsTrigger>
+            <TabsTrigger value="execution">Execution</TabsTrigger>
             <TabsTrigger value="trace">Trace</TabsTrigger>
           </TabsList>
 
           {/* Simulation tab */}
           <TabsContent value="simulation" className="min-h-0 flex-1 overflow-auto">
-            {(simulation.isPending || executeMutation.isPending) && (
+            {simulation.isPending && (
               <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border bg-muted/20 py-16 text-center">
                 <Spinner className="size-8" />
                 <p className="text-sm text-muted-foreground">
-                  {executeMutation.isPending ? "Executing command on ledger..." : "Running simulation..."}
+                  Running simulation...
                 </p>
               </div>
             )}
 
-            {simResult && !simulation.isPending && !executeMutation.isPending && (
+            {simResult && !simulation.isPending && (
               <div className="flex flex-col gap-4">
                 <SimulationResultView result={simResult} />
                 <Separator />
@@ -514,11 +469,36 @@ export default function DebuggerPage() {
               </div>
             )}
 
-            {!simResult && !simulation.isPending && !executeMutation.isPending && (
+            {!simResult && !simulation.isPending && (
               <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
                 <div className="text-4xl text-muted-foreground/20">{">"}</div>
                 <p className="text-sm text-muted-foreground">
                   Configure a command above and click Simulate to see results
+                </p>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Execution tab */}
+          <TabsContent value="execution" className="min-h-0 flex-1 overflow-auto">
+            {executeMutation.isPending && (
+              <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border bg-muted/20 py-16 text-center">
+                <Spinner className="size-8" />
+                <p className="text-sm text-muted-foreground">
+                  Submitting command to the ledger...
+                </p>
+              </div>
+            )}
+
+            {lastExecuteResult && !executeMutation.isPending && (
+              <ExecutionResultView result={lastExecuteResult} />
+            )}
+
+            {!lastExecuteResult && !executeMutation.isPending && (
+              <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+                <HugeiconsIcon icon={Tick02Icon} className="size-10 text-muted-foreground/15" strokeWidth={1.5} />
+                <p className="text-sm text-muted-foreground">
+                  Configure a command above and click Execute to commit it to the ledger
                 </p>
               </div>
             )}

@@ -47,6 +47,7 @@ import { registerSandboxRoutes } from './routes/sandboxes.js';
 import { registerReassignmentRoutes } from './routes/reassignments.js';
 import { registerCIRoutes } from './routes/ci.js';
 import { registerExecuteRoutes } from './routes/execute.js';
+import { restoreSandboxes } from './services/sandbox-manager.js';
 
 // ============================================================
 // Configuration
@@ -261,6 +262,9 @@ async function buildServer() {
 async function main() {
   try {
     const app = await buildServer();
+
+    // Restore persisted sandboxes before accepting requests
+    await restoreSandboxes();
 
     await app.listen({ port: PORT, host: HOST });
     app.log.info(`CantonTrace API Gateway running on http://${HOST}:${PORT}`);

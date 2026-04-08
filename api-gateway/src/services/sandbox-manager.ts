@@ -11,7 +11,8 @@
 
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { writeFile, unlink } from 'fs/promises';
+import { writeFile, readFile, unlink, mkdir } from 'fs/promises';
+import path from 'path';
 import net from 'net';
 import crypto from 'crypto';
 import type { Sandbox, SandboxCreateRequest } from '../types.js';
@@ -43,6 +44,89 @@ interface SandboxState {
   processHandle?: { pid?: number; kill: (signal?: string) => void };
   /** Original creation request, kept for reset */
   originalRequest?: SandboxCreateRequest;
+}
+
+// ============================================================
+// Persistence — sandboxes survive API gateway restarts
+// ============================================================
+
+const PERSIST_DIR = path.join(
+  process.env.HOME ?? process.env.USERPROFILE ?? '/tmp',
+  '.cantontrace',
+);
+const PERSIST_PATH = path.join(PERSIST_DIR, 'sandboxes.json');
+
+interface PersistedSandbox {
+  sandbox: Sandbox;
+  originalRequest?: SandboxCreateRequest;
+}
+
+async function persistSandboxes(): Promise<void> {
+  try {
+    const data: PersistedSandbox[] = Array.from(sandboxes.values()).map((s) => ({
+      sandbox: s.sandbox,
+      originalRequest: s.originalRequest,
+    }));
+    await mkdir(PERSIST_DIR, { recursive: true });
+    await writeFile(PERSIST_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('Failed to persist sandboxes:', err);
+  }
+}
+
+async function loadPersistedSandboxes(): Promise<PersistedSandbox[]> {
+  try {
+    const raw = await readFile(PERSIST_PATH, 'utf-8');
+    return JSON.parse(raw) as PersistedSandbox[];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Restore sandboxes from disk on startup.
+ *
+ * For each persisted sandbox, check if its ports are still alive (the dpm
+ * process may still be running). If alive, mark as "running". If dead,
+ * mark as "stopped" so the user can delete or restart it.
+ */
+export async function restoreSandboxes(): Promise<void> {
+  const persisted = await loadPersistedSandboxes();
+  if (persisted.length === 0) return;
+
+  console.log(`Restoring ${persisted.length} sandbox(es) from ${PERSIST_PATH}`);
+
+  for (const entry of persisted) {
+    const { sandbox, originalRequest } = entry;
+    const port = extractPort(sandbox.ledgerApiEndpoint);
+
+    // Check if the sandbox process is still running
+    let alive = false;
+    try {
+      await execFileAsync('grpcurl', [
+        '-plaintext',
+        '-connect-timeout', '2',
+        `localhost:${port}`,
+        'grpc.health.v1.Health/Check',
+      ], { timeout: 5000 });
+      alive = true;
+    } catch {
+      // Port not responding — process is dead
+    }
+
+    sandbox.status = alive ? 'running' : 'stopped';
+
+    sandboxes.set(sandbox.id, {
+      sandbox,
+      originalRequest,
+      // No processHandle — we lost it on restart. The process is orphaned
+      // but still running. We can still kill it via port-based lsof cleanup.
+    });
+  }
+
+  console.log(
+    `Restored sandboxes: ${Array.from(sandboxes.values()).map((s) => `${s.sandbox.name} (${s.sandbox.status})`).join(', ')}`,
+  );
 }
 
 // Start well above cn-quickstart's range. Each sandbox needs 5+ consecutive ports.
@@ -97,12 +181,14 @@ export async function createSandbox(request: SandboxCreateRequest): Promise<Sand
   };
 
   sandboxes.set(id, { sandbox, originalRequest: request });
+  await persistSandboxes();
 
   // Start the sandbox asynchronously
   startSandbox(id, port, request).catch((err) => {
     const state = sandboxes.get(id);
     if (state) {
       state.sandbox.status = 'error';
+      persistSandboxes();
     }
     console.error(`Sandbox ${id} failed to start:`, err);
   });
@@ -220,6 +306,7 @@ export async function deleteSandbox(id: string): Promise<void> {
   // Mark port as freed for reuse and remove from registry
   freedPorts.add(port);
   sandboxes.delete(id);
+  await persistSandboxes();
 }
 
 /**
@@ -268,12 +355,14 @@ export async function resetSandbox(id: string): Promise<Sandbox> {
     originalRequest,
   };
   sandboxes.set(id, newState);
+  await persistSandboxes();
 
   // Restart the sandbox asynchronously
   startSandbox(id, port, originalRequest).catch((err) => {
     const s = sandboxes.get(id);
     if (s) {
       s.sandbox.status = 'error';
+      persistSandboxes();
     }
     console.error(`Sandbox ${id} failed to restart during reset:`, err);
   });
@@ -326,6 +415,7 @@ export async function uploadDar(sandboxId: string, darBase64: string): Promise<v
     ], { timeout: 120000 });
 
     state.sandbox.uploadedDars.push(darFileName);
+    await persistSandboxes();
   } catch (adminErr) {
     console.warn(`DAR upload via admin API failed for sandbox ${sandboxId}:`, adminErr);
 
@@ -424,12 +514,14 @@ export async function allocatePartyOnSandbox(
       const partyId = response.party_details?.party ?? hint;
       if (!state.sandbox.parties.includes(partyId)) {
         state.sandbox.parties.push(partyId);
+        persistSandboxes();
       }
       return partyId;
     } catch {
       // Could not parse response — use the hint as the party name
       if (!state.sandbox.parties.includes(hint)) {
         state.sandbox.parties.push(hint);
+        persistSandboxes();
       }
       return hint;
     }
@@ -526,6 +618,7 @@ canton.mediators.mediator1.admin-api.port = ${port + 5}
     // dpm sandbox takes ~10-30s to start Canton
     await waitForSandboxReady(port, 60000);
     state.sandbox.status = 'running';
+    await persistSandboxes();
 
     // Parties and DARs are added separately via the sandbox detail page
     // after the sandbox is running. No auto-provisioning during creation.

@@ -709,4 +709,5 @@ export const CANTON_SERVICES = {
   // ParticipantPruningService only has the Prune RPC.
   // We still register the admin pruning service for the Prune RPC if needed.
   PRUNING_SERVICE: 'com.daml.ledger.api.v2.admin.ParticipantPruningService',
+  COMMAND_SERVICE: 'com.daml.ledger.api.v2.CommandService',
 } as const;
