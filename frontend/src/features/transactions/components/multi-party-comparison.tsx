@@ -212,7 +212,7 @@ export function MultiPartyComparison({
                       <Badge
                         variant="outline"
                         className={cn(
-                          "text-[10px]",
+                          "text-xs",
                           !aVisible && "opacity-40"
                         )}
                       >
@@ -223,12 +223,12 @@ export function MultiPartyComparison({
                       </span>
                     </div>
                     {!aVisible && (
-                      <span className="text-[10px] italic text-muted-foreground/60">
+                      <span className="text-xs italic text-muted-foreground/60">
                         Not in this party's projection
                       </span>
                     )}
                     {category === "only_a" && (
-                      <Badge className="bg-primary/10 text-primary text-[9px] px-1 py-0">
+                      <Badge className="bg-primary/10 text-primary text-[11px] px-1 py-0">
                         unique
                       </Badge>
                     )}
@@ -277,7 +277,7 @@ export function MultiPartyComparison({
                       <Badge
                         variant="outline"
                         className={cn(
-                          "text-[10px]",
+                          "text-xs",
                           !bVisible && "opacity-40"
                         )}
                       >
@@ -288,12 +288,12 @@ export function MultiPartyComparison({
                       </span>
                     </div>
                     {!bVisible && (
-                      <span className="text-[10px] italic text-muted-foreground/60">
+                      <span className="text-xs italic text-muted-foreground/60">
                         Not in this party's projection
                       </span>
                     )}
                     {category === "only_b" && (
-                      <Badge className="bg-primary/10 text-primary text-[9px] px-1 py-0">
+                      <Badge className="bg-primary/10 text-primary text-[11px] px-1 py-0">
                         unique
                       </Badge>
                     )}

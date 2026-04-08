@@ -124,7 +124,7 @@ function PrivacyEventNode({
           <div className="mb-2 flex items-center justify-between">
             <Badge
               variant="outline"
-              className={cn("text-[10px]", typeConfig.bgColor)}
+              className={cn("text-xs", typeConfig.bgColor)}
             >
               {typeConfig.label}
             </Badge>
@@ -133,7 +133,7 @@ function PrivacyEventNode({
                 <TooltipTrigger asChild>
                   <div className="flex items-center gap-0.5">
                     <HugeiconsIcon icon={ShieldEnergyIcon} strokeWidth={2} className="size-3 text-secondary-foreground" />
-                    <span className="text-[9px] text-secondary-foreground">
+                    <span className="text-[11px] text-secondary-foreground">
                       Disclosed
                     </span>
                   </div>
@@ -164,18 +164,18 @@ function PrivacyEventNode({
           {/* Template + Event ID */}
           <div className="mb-2 flex flex-col gap-0.5">
             {event.eventType === "exercised" && (
-              <div className="truncate text-[10px] text-muted-foreground" title={formatTemplateId(event.templateId)}>
+              <div className="truncate text-xs text-muted-foreground" title={formatTemplateId(event.templateId)}>
                 {event.templateId.entityName}
               </div>
             )}
-            <div className="truncate font-mono text-[10px] text-muted-foreground" title={event.eventId}>
+            <div className="truncate font-mono text-xs text-muted-foreground" title={event.eventId}>
               {event.eventId}
             </div>
           </div>
 
           {/* Party visibility dots */}
           {isGrayed ? (
-            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <HugeiconsIcon icon={ViewOffIcon} strokeWidth={2} className="size-3" />
               <span className="italic">
                 {highlightedParty

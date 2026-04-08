@@ -41,7 +41,7 @@ export function PartyBadge({ party, variant = "default", className }: PartyBadge
 
   const avatar = (
     <span
-      className="inline-flex size-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold uppercase leading-none"
+      className="inline-flex size-4 shrink-0 items-center justify-center rounded-full text-[11px] font-bold uppercase leading-none"
       style={avatarStyle}
     >
       {displayName.charAt(0)}
@@ -101,7 +101,7 @@ export function PartyBadge({ party, variant = "default", className }: PartyBadge
           {copied ? (
             <span className="text-primary">Copied!</span>
           ) : (
-            <span className="max-w-xs break-all font-mono text-[10px]">{party}</span>
+            <span className="max-w-xs break-all font-mono text-xs">{party}</span>
           )}
         </TooltipContent>
       </Tooltip>

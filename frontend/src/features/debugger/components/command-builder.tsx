@@ -9,6 +9,7 @@ import {
   ArrowDown01Icon,
   ArrowRight01Icon,
   Bug01Icon,
+  FlashIcon,
 } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,11 +55,23 @@ import { PartyMultiSelect } from "@/components/smart-fields/party-multi-select";
 import type {
   SimulationRequest,
   SimulationCommand,
+  ExecuteRequest,
   TraceRequest,
   DisclosedContract,
   TemplateDefinition,
   TemplateId,
 } from "@/lib/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { ArgumentForm } from "./argument-form";
 
 // ---------------------------------------------------------------------------
@@ -81,8 +94,10 @@ interface DisclosedEntry {
 export interface CommandBuilderProps {
   onSimulate: (request: SimulationRequest) => void;
   onTrace?: (request: TraceRequest) => void;
+  onExecute?: (request: ExecuteRequest) => void;
   isSimulating: boolean;
   isTracing?: boolean;
+  isExecuting?: boolean;
   /** When true, the command builder starts collapsed (e.g. after first run) */
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
@@ -102,8 +117,10 @@ export interface CommandBuilderProps {
 export function CommandBuilder({
   onSimulate,
   onTrace,
+  onExecute,
   isSimulating,
   isTracing = false,
+  isExecuting = false,
   collapsed = false,
   onCollapsedChange,
   initialValues,
@@ -175,7 +192,7 @@ export function CommandBuilder({
   const { data: packages, isLoading: packagesLoading } = useQuery({
     queryKey: ["packages-summary"],
     queryFn: () => api.getPackages().then((r) => r.data),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60_000,
   });
 
   // Partition packages into user vs system
@@ -393,6 +410,55 @@ export function CommandBuilder({
     onTrace(request);
   };
 
+  // Submit execute
+  const handleExecute = () => {
+    if (!currentTemplate || !onExecute) return;
+
+    const module = packageDetail?.modules.find((m) =>
+      m.templates.some((t) => t.name === selectedTemplate)
+    );
+
+    const templateId: TemplateId = {
+      packageName: packageDetail?.packageName ?? selectedPackageId,
+      moduleName: module?.name ?? "",
+      entityName: selectedTemplate,
+    };
+
+    const command: SimulationCommand = {
+      templateId,
+      choice: selectedChoice || undefined,
+      contractId: contractId || undefined,
+      arguments: args,
+    };
+
+    const disclosed: DisclosedContract[] = disclosedEntries
+      .filter((e) => e.contractId)
+      .map((e) => ({
+        contractId: e.contractId,
+        templateId: {
+          packageName: e.templatePackage,
+          moduleName: e.templateModule,
+          entityName: e.templateEntity,
+        },
+        payload: {},
+        createdEventBlob: e.eventBlob || undefined,
+      }));
+
+    const request: ExecuteRequest = {
+      commands: [command],
+      actAs: actingParties.filter(Boolean),
+      readAs: readAsParties.filter(Boolean),
+      disclosedContracts: disclosed.length > 0 ? disclosed : undefined,
+    };
+
+    onExecute(request);
+  };
+
+  const handleExecuteAndCollapse = useCallback(() => {
+    handleExecute();
+    onCollapsedChange?.(true);
+  }, [handleExecute, onCollapsedChange]);
+
   // Compact summary for collapsed state
   const summaryParts = useMemo(() => {
     const parts: string[] = [];
@@ -451,7 +517,7 @@ export function CommandBuilder({
           <div className="flex items-center rounded-full bg-muted p-0.5">
             <button
               className={cn(
-                "rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors",
+                "rounded-full px-2 py-0.5 text-xs font-medium transition-colors",
                 mode === "online"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -462,7 +528,7 @@ export function CommandBuilder({
             </button>
             <button
               className={cn(
-                "rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors",
+                "rounded-full px-2 py-0.5 text-xs font-medium transition-colors",
                 mode === "offline"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -488,7 +554,7 @@ export function CommandBuilder({
             {/* Command selection row: Package, Template, Choice */}
             <div className="grid grid-cols-3 gap-2">
               <Field>
-                <FieldLabel className="text-[11px]">Package</FieldLabel>
+                <FieldLabel className="text-xs">Package</FieldLabel>
                 {packagesLoading ? (
                   <Skeleton className="h-8 w-full" />
                 ) : (
@@ -502,7 +568,7 @@ export function CommandBuilder({
                     <SelectContent>
                       {userPackages.length > 0 && (
                         <SelectGroup>
-                          <SelectLabel className="text-[10px] text-muted-foreground">
+                          <SelectLabel className="text-xs text-muted-foreground">
                             User Packages
                           </SelectLabel>
                           {userPackages.map((pkg) => (
@@ -523,7 +589,7 @@ export function CommandBuilder({
                         <>
                           {userPackages.length > 0 && <SelectSeparator />}
                           <SelectGroup>
-                            <SelectLabel className="text-[10px] text-muted-foreground">
+                            <SelectLabel className="text-xs text-muted-foreground">
                               System Packages
                             </SelectLabel>
                             {systemPackages.map((pkg) => (
@@ -549,7 +615,7 @@ export function CommandBuilder({
               </Field>
 
               <Field>
-                <FieldLabel className="text-[11px]">Template</FieldLabel>
+                <FieldLabel className="text-xs">Template</FieldLabel>
                 {detailLoading ? (
                   <Skeleton className="h-8 w-full" />
                 ) : (
@@ -583,16 +649,19 @@ export function CommandBuilder({
               </Field>
 
               <Field>
-                <FieldLabel className="text-[11px]">Choice</FieldLabel>
+                <FieldLabel className="text-xs">Choice</FieldLabel>
                 <Select
-                  value={selectedChoice}
-                  onValueChange={setSelectedChoice}
+                  value={selectedChoice || "__create__"}
+                  onValueChange={(v) => setSelectedChoice(v === "__create__" ? "" : v)}
                   disabled={!currentTemplate}
                 >
                   <SelectTrigger className="h-8">
                     <SelectValue placeholder="Select..." />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="__create__">
+                      <span className="text-xs text-muted-foreground">Create (no choice)</span>
+                    </SelectItem>
                     {currentTemplate?.choices.map((c) => (
                       <SelectItem key={c.name} value={c.name}>
                         <span className="flex items-center gap-2 text-xs">
@@ -600,7 +669,7 @@ export function CommandBuilder({
                           {c.consuming && (
                             <Badge
                               variant="outline"
-                              className="text-[9px] text-destructive"
+                              className="text-[11px] text-destructive"
                             >
                               consuming
                             </Badge>
@@ -616,7 +685,7 @@ export function CommandBuilder({
             {/* Contract ID - shown when a choice is selected */}
             {selectedChoice && (
               <Field>
-                <FieldLabel className="text-[11px]">Contract ID</FieldLabel>
+                <FieldLabel className="text-xs">Contract ID</FieldLabel>
                 <ContractIdCombobox
                   value={contractId}
                   onChange={setContractId}
@@ -629,7 +698,7 @@ export function CommandBuilder({
             {/* Parties row */}
             <div className="grid grid-cols-2 gap-2">
               <Field>
-                <FieldLabel className="text-[11px]">Acting As</FieldLabel>
+                <FieldLabel className="text-xs">Acting As</FieldLabel>
                 <PartyMultiSelect
                   value={actingParties}
                   onChange={setActingParties}
@@ -637,7 +706,7 @@ export function CommandBuilder({
                 />
               </Field>
               <Field>
-                <FieldLabel className="text-[11px]">Read As</FieldLabel>
+                <FieldLabel className="text-xs">Read As</FieldLabel>
                 <PartyMultiSelect
                   value={readAsParties}
                   onChange={setReadAsParties}
@@ -649,7 +718,7 @@ export function CommandBuilder({
             {/* Historical offset (only for offline mode) */}
             {mode === "offline" && (
               <Field>
-                <FieldLabel className="text-[11px]">Historical Offset</FieldLabel>
+                <FieldLabel className="text-xs">Historical Offset</FieldLabel>
                 <Input
                   className="h-8 font-mono text-xs"
                   placeholder="Leave blank for current ledger end"
@@ -659,12 +728,12 @@ export function CommandBuilder({
               </Field>
             )}
 
-            {/* Dynamic choice arguments */}
-            {currentChoice && (
+            {/* Dynamic arguments — choice params for Exercise, template fields for Create */}
+            {currentChoice ? (
               <>
                 <Separator />
                 <Field>
-                  <FieldLabel className="text-[11px]">Choice Arguments</FieldLabel>
+                  <FieldLabel className="text-xs">Choice Arguments</FieldLabel>
                   <div className="rounded-lg border bg-muted/30 p-2.5">
                     <ArgumentForm
                       parameters={currentChoice.parameters}
@@ -674,7 +743,25 @@ export function CommandBuilder({
                   </div>
                 </Field>
               </>
-            )}
+            ) : currentTemplate && !selectedChoice ? (
+              <>
+                <Separator />
+                <Field>
+                  <FieldLabel className="text-xs">Template Fields (Create)</FieldLabel>
+                  <div className="rounded-lg border bg-muted/30 p-2.5">
+                    <ArgumentForm
+                      parameters={currentTemplate.fields.map(f => ({
+                        name: f.name,
+                        type: f.type,
+                        optional: f.optional,
+                      }))}
+                      values={args}
+                      onChange={setArgs}
+                    />
+                  </div>
+                </Field>
+              </>
+            ) : null}
 
             {/* Disclosed contracts - collapsible */}
             <Separator />
@@ -696,7 +783,7 @@ export function CommandBuilder({
                   )}
                   Disclosed Contracts
                   {disclosedEntries.length > 0 && (
-                    <Badge variant="secondary" className="text-[10px]">
+                    <Badge variant="secondary" className="text-xs">
                       {disclosedEntries.length}
                     </Badge>
                   )}
@@ -815,7 +902,7 @@ export function CommandBuilder({
                     <Button
                       className="flex-1"
                       onClick={handleSimulate}
-                      disabled={!currentTemplate || isSimulating || isTracing}
+                      disabled={!currentTemplate || isSimulating || isTracing || isExecuting}
                     >
                       {isSimulating ? (
                         <Spinner data-icon="inline-start" className="size-4" />
@@ -839,7 +926,7 @@ export function CommandBuilder({
                   className="flex-1"
                   variant="outline"
                   onClick={handleTrace}
-                  disabled={!currentTemplate || isSimulating || isTracing}
+                  disabled={!currentTemplate || isSimulating || isTracing || isExecuting}
                 >
                   {isTracing ? (
                     <Spinner data-icon="inline-start" className="size-4" />
@@ -852,6 +939,53 @@ export function CommandBuilder({
                   )}
                   Trace
                 </Button>
+              )}
+              {onExecute && (
+                <AlertDialog>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            className="flex-1"
+                            variant="destructive"
+                            disabled={!currentTemplate || isSimulating || isTracing || isExecuting}
+                          >
+                            {isExecuting ? (
+                              <Spinner data-icon="inline-start" className="size-4" />
+                            ) : (
+                              <HugeiconsIcon
+                                icon={FlashIcon}
+                                data-icon="inline-start"
+                                strokeWidth={2}
+                              />
+                            )}
+                            Execute
+                          </Button>
+                        </AlertDialogTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Submit this command to the ledger. This will mutate ledger state.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Execute command on ledger?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will submit the command to the Canton ledger and commit the
+                        transaction. This action cannot be undone -- contracts will be
+                        created or archived on the live ledger.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction variant="destructive" onClick={handleExecuteAndCollapse}>
+                        Execute
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               )}
             </div>
           </FieldGroup>

@@ -160,7 +160,7 @@ function PrivacyTabContent({ updateId }: { updateId: string }) {
 
             {/* Party chips */}
             <div className="ml-auto flex items-center gap-2">
-              <span className="text-[10px] text-muted-foreground/50">{parties.length} {parties.length === 1 ? "party" : "parties"}</span>
+              <span className="text-xs text-muted-foreground/50">{parties.length} {parties.length === 1 ? "party" : "parties"}</span>
               {parties.map((party) => {
                 const isSelected = selectedParties.has(party);
                 const isHighlighted = highlightedParty === party;
@@ -181,7 +181,7 @@ function PrivacyTabContent({ updateId }: { updateId: string }) {
                     )}
                   >
                     <span
-                      className="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold uppercase"
+                      className="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold uppercase"
                       style={{
                         backgroundColor: isSelected ? `oklch(0.65 0.15 ${hue})` : "var(--muted)",
                         color: isSelected ? `oklch(0.98 0.01 ${hue})` : "var(--muted-foreground)",

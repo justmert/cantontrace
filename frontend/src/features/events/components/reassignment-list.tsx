@@ -80,7 +80,7 @@ function StatusBadge({ status }: { status: Reassignment["status"] }) {
   return (
     <Badge
       variant="outline"
-      className={cn("flex items-center gap-1 text-[10px]", config.className)}
+      className={cn("flex items-center gap-1 text-xs", config.className)}
     >
       {config.animated && (
         <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-2.5 animate-spin" />

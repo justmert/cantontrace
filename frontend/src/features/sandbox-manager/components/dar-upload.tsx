@@ -22,6 +22,8 @@ export interface DarUploadProps {
   isUploading: boolean;
   uploadProgress?: number;
   lastUploadedFileName?: string;
+  /** Error message from a failed upload attempt. Shown inline below the drop zone. */
+  uploadError?: string | null;
 }
 
 export function DarUpload({
@@ -29,11 +31,26 @@ export function DarUpload({
   isUploading,
   uploadProgress,
   lastUploadedFileName,
+  uploadError,
 }: DarUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [sizeError, setSizeError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Clear file state after a successful upload (detected when isUploading
+  // transitions from true to false and we have a lastUploadedFileName).
+  const prevIsUploading = useRef(isUploading);
+  React.useEffect(() => {
+    if (prevIsUploading.current && !isUploading && lastUploadedFileName) {
+      // Upload finished successfully — clear the selected file
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+    prevIsUploading.current = isUploading;
+  }, [isUploading, lastUploadedFileName]);
 
   const validateAndAccept = useCallback(
     (file: File) => {
@@ -162,6 +179,14 @@ export function DarUpload({
         </div>
       )}
 
+      {/* Upload error from server */}
+      {uploadError && !isUploading && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <p className="font-medium">Upload failed</p>
+          <p className="mt-1">{uploadError}</p>
+        </div>
+      )}
+
       {/* Selected / uploaded file info */}
       {selectedFile && !isUploading && (
         <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
@@ -192,7 +217,7 @@ export function DarUpload({
             Successfully uploaded{" "}
             <span className="font-medium">{lastUploadedFileName}</span>
           </span>
-          <Badge variant="secondary" className="text-[10px]">
+          <Badge variant="secondary" className="text-xs">
             Source extracted
           </Badge>
         </div>

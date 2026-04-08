@@ -271,38 +271,7 @@ export default function SettingsPage() {
                   </>
                 )}
 
-                {/* Default party selector */}
-                {bootstrap && allParties.length > 0 && (
-                  <>
-                    <Separator />
-                    <Field>
-                      <FieldLabel>
-                        <HugeiconsIcon
-                          icon={User02Icon}
-                          strokeWidth={2}
-                          className="size-4"
-                        />
-                        Default Party
-                      </FieldLabel>
-                      <NativeSelect
-                        value={defaultParty}
-                        onChange={(e) => setDefaultParty(e.target.value)}
-                      >
-                        <NativeSelectOption value="">
-                          None
-                        </NativeSelectOption>
-                        {allParties.map((party) => (
-                          <NativeSelectOption key={party} value={party}>
-                            {party}
-                          </NativeSelectOption>
-                        ))}
-                      </NativeSelect>
-                      <FieldDescription>
-                        Pre-selects this party in filters across all tools.
-                      </FieldDescription>
-                    </Field>
-                  </>
-                )}
+                {/* Default party selector removed — not wired to consumers */}
               </FieldGroup>
             </CardContent>
           </Card>
@@ -324,7 +293,7 @@ export default function SettingsPage() {
                     {bootstrap.featureDescriptors.map((f) => (
                       <span
                         key={f.name}
-                        className="inline-flex rounded-md bg-muted/60 px-2 py-0.5 font-mono text-[10px] text-muted-foreground ring-1 ring-border/50"
+                        className="inline-flex rounded-md bg-muted/60 px-2 py-0.5 font-mono text-xs text-muted-foreground ring-1 ring-border/50"
                       >
                         {f.name}
                       </span>

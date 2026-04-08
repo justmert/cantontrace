@@ -80,11 +80,11 @@ export function ReassignmentTimeline({
           <span className={cn("text-xs font-medium", sourceStyle.text)}>
             Source Synchronizer
           </span>
-          <span className="max-w-[140px] truncate font-mono text-[10px] text-muted-foreground">
+          <span className="max-w-[140px] truncate font-mono text-xs text-muted-foreground">
             {r.sourceSynchronizer}
           </span>
           {r.unassignedAt && (
-            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} className="size-2.5" />
               <span>
                 {new Date(r.unassignedAt).toLocaleTimeString()}
@@ -92,7 +92,7 @@ export function ReassignmentTimeline({
             </div>
           )}
           {r.status === "unassigned" && (
-            <Badge variant="outline" className="text-[10px] border-secondary-foreground/50 text-secondary-foreground">
+            <Badge variant="outline" className="text-xs border-secondary-foreground/50 text-secondary-foreground">
               Unassigned
             </Badge>
           )}
@@ -133,7 +133,7 @@ export function ReassignmentTimeline({
           {isInFlight ? (
             <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-4 animate-spin text-accent-foreground" />
           ) : (
-            <span className="font-mono text-[10px] text-muted-foreground">
+            <span className="font-mono text-xs text-muted-foreground">
               {durationStr}
             </span>
           )}
@@ -177,11 +177,11 @@ export function ReassignmentTimeline({
           >
             Target Synchronizer
           </span>
-          <span className="max-w-[140px] truncate font-mono text-[10px] text-muted-foreground">
+          <span className="max-w-[140px] truncate font-mono text-xs text-muted-foreground">
             {r.targetSynchronizer}
           </span>
           {r.assignedAt && (
-            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} className="size-2.5" />
               <span>
                 {new Date(r.assignedAt).toLocaleTimeString()}
@@ -189,12 +189,12 @@ export function ReassignmentTimeline({
             </div>
           )}
           {isCompleted && (
-            <Badge variant="outline" className="text-[10px] border-primary/50 text-primary">
+            <Badge variant="outline" className="text-xs border-primary/50 text-primary">
               Assigned
             </Badge>
           )}
           {isFailed && (
-            <Badge variant="outline" className="text-[10px] border-destructive/50 text-destructive">
+            <Badge variant="outline" className="text-xs border-destructive/50 text-destructive">
               Failed
             </Badge>
           )}

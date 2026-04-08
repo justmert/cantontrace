@@ -8,6 +8,8 @@ import type {
   ConnectionConfig,
   ContractLifecycle,
   EventStreamFilter,
+  ExecuteRequest,
+  ExecuteResult,
   ExecutionTrace,
   ActiveContract,
   LedgerUpdate,
@@ -44,7 +46,7 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<T> {
     const headers: Record<string, string> = {
-      "Content-Type": "application/json",
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
       ...(options.headers as Record<string, string>),
     };
 
@@ -231,6 +233,12 @@ class ApiClient {
     return this.post("/simulate", request);
   }
 
+  async execute(
+    request: ExecuteRequest
+  ): Promise<ApiResponse<ExecuteResult>> {
+    return this.post("/execute", request);
+  }
+
   // ============================================================
   // Execution Trace
   // ============================================================
@@ -274,6 +282,10 @@ class ApiClient {
 
   async getSandboxes(): Promise<ApiResponse<Sandbox[]>> {
     return this.get("/sandboxes");
+  }
+
+  async getSandbox(id: string): Promise<ApiResponse<Sandbox>> {
+    return this.get(`/sandboxes/${encodeURIComponent(id)}`);
   }
 
   async createSandbox(

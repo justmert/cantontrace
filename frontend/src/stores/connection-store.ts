@@ -1,6 +1,11 @@
 import { create } from "zustand";
+import { QueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { BootstrapInfo, ConnectionConfig } from "@/lib/types";
+
+// Reference to the global query client — set by the app root
+let _queryClient: QueryClient | null = null;
+export function setQueryClient(qc: QueryClient) { _queryClient = qc; }
 
 interface ConnectionState {
   status: "disconnected" | "connecting" | "connected" | "error";
@@ -9,6 +14,7 @@ interface ConnectionState {
   error: string | null;
   connect: (config: ConnectionConfig) => Promise<void>;
   disconnect: () => void;
+  refreshBootstrap: () => Promise<void>;
   createSandbox: () => Promise<void>;
   checkExistingConnection: () => Promise<void>;
 }
@@ -47,6 +53,8 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
     try {
       const response = await api.connect(config);
       saveConfig(config);
+      // Clear all stale data from previous connection and force re-fetch
+      _queryClient?.clear();
       set({
         status: "connected",
         bootstrap: response.data,
@@ -67,12 +75,45 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
   disconnect: () => {
     api.disconnect().catch(() => {});
     clearConfig();
+    // Clear all cached data from previous connection
+    _queryClient?.clear();
+    // Stop the event stream WebSocket and clear buffered events
+    try {
+      const { useEventStreamStore } = require("@/stores/event-stream-store");
+      const eventStore = useEventStreamStore.getState();
+      eventStore.stopCollection();
+      eventStore.clearEvents();
+    } catch { /* ignore if not available */ }
+    // Clear ACS filter store so stale filters don't apply to next connection
+    try {
+      const { useACSFilterStore } = require("@/stores/acs-filter-store");
+      useACSFilterStore.getState().clearFilters();
+    } catch {}
+    // Reset debugger store (form state, simulation results, traces)
+    try {
+      const { useDebuggerStore } = require("@/stores/debugger-store");
+      useDebuggerStore.getState().reset();
+    } catch {}
     set({
       status: "disconnected",
       config: null,
       bootstrap: null,
       error: null,
     });
+  },
+
+  refreshBootstrap: async () => {
+    try {
+      const res = await fetch("/api/v1/connect?refresh=true");
+      if (res.ok && res.status === 200) {
+        const data = await res.json();
+        if (data.data?.apiVersion) {
+          set({ bootstrap: data.data });
+          // Also invalidate queries that depend on bootstrap data
+          _queryClient?.invalidateQueries();
+        }
+      }
+    } catch { /* ignore */ }
   },
 
   createSandbox: async () => {
@@ -109,15 +150,32 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
   },
 
   // Check if the API gateway already has an active connection
-  // and restore it on page load — does NOT re-connect, just reads existing state
+  // and restore it on page load
   checkExistingConnection: async () => {
     try {
-      // First: try GET /connect which returns existing bootstrap without re-connecting
+      // Try GET /connect which returns existing bootstrap
       const existingRes = await fetch("/api/v1/connect");
       if (existingRes.ok && existingRes.status === 200) {
         const existing = await existingRes.json();
         if (existing.data?.apiVersion) {
           const savedConfig = loadConfig();
+
+          // If it was a sandbox connection, verify the sandbox still exists
+          if (savedConfig?.sandboxId) {
+            try {
+              const sbRes = await fetch(`/api/v1/sandboxes/${savedConfig.sandboxId}`);
+              if (!sbRes.ok) {
+                // Sandbox was deleted — disconnect and clear
+                clearConfig();
+                await fetch("/api/v1/connect", { method: "DELETE" }).catch(() => {});
+                set({ status: "disconnected", config: null, bootstrap: null });
+                return;
+              }
+            } catch {
+              // Can't verify — proceed anyway
+            }
+          }
+
           set({
             status: "connected",
             config: savedConfig ?? { ledgerApiEndpoint: "" },
@@ -129,8 +187,9 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
       }
 
       // Gateway not connected — try auto-reconnect with saved config
+      // Only for non-sandbox connections (sandboxes may not survive restart)
       const savedConfig = loadConfig();
-      if (savedConfig) {
+      if (savedConfig && !savedConfig.sandboxId) {
         set({ status: "connecting", config: savedConfig });
         try {
           const response = await api.connect(savedConfig);
@@ -143,6 +202,9 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
           clearConfig();
           set({ status: "disconnected", config: null });
         }
+      } else if (savedConfig?.sandboxId) {
+        // Don't auto-reconnect to sandboxes — they may have been deleted
+        clearConfig();
       }
     } catch {
       // No API gateway running — stay disconnected

@@ -4,6 +4,8 @@ import { api } from "@/lib/api";
 import type {
   SimulationRequest,
   SimulationResult,
+  ExecuteRequest,
+  ExecuteResult,
   TraceRequest,
   ExecutionTrace,
 } from "@/lib/types";
@@ -15,6 +17,16 @@ import type {
 export function useSimulation() {
   return useMutation<SimulationResult, Error, SimulationRequest>({
     mutationFn: (request) => api.simulate(request).then((r) => r.data),
+  });
+}
+
+// ===========================================================================
+// Execute (Ledger Submission)
+// ===========================================================================
+
+export function useExecute() {
+  return useMutation<ExecuteResult, Error, ExecuteRequest>({
+    mutationFn: (request) => api.execute(request).then((r) => r.data),
   });
 }
 
@@ -54,7 +66,7 @@ export function useKnownParties() {
   return useQuery({
     queryKey: ["bootstrap-parties"],
     queryFn: () => api.getBootstrap().then((r) => r.data.knownParties),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30_000,
   });
 }
 

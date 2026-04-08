@@ -47,12 +47,12 @@ function ValueNode({
         >
           {name}
         </span>
-        <span className="text-[10px] text-muted-foreground">{typeLabel}</span>
+        <span className="text-xs text-muted-foreground">{typeLabel}</span>
         <span className="font-mono text-xs text-muted-foreground">
           {String(value)}
         </span>
         {hasChanged && (
-          <span className="flex items-center gap-1 text-[10px] text-accent-foreground">
+          <span className="flex items-center gap-1 text-xs text-accent-foreground">
             <HugeiconsIcon icon={ArrowRight01Icon} className="size-2.5" strokeWidth={2} />
             changed
           </span>
@@ -79,7 +79,7 @@ function ValueNode({
         >
           {name}
         </span>
-        <span className="text-[10px] text-muted-foreground">{typeLabel}</span>
+        <span className="text-xs text-muted-foreground">{typeLabel}</span>
         <span
           className={cn(
             "font-mono text-xs",
@@ -95,7 +95,7 @@ function ValueNode({
           {display}
         </span>
         {hasChanged && previousValue !== undefined && (
-          <span className="flex items-center gap-1 text-[10px] text-accent-foreground">
+          <span className="flex items-center gap-1 text-xs text-accent-foreground">
             <HugeiconsIcon icon={ArrowRight01Icon} className="size-2.5" strokeWidth={2} />
             was:{" "}
             <span className="line-through">
@@ -140,13 +140,13 @@ function ValueNode({
         >
           {name}
         </span>
-        <span className="text-[10px] text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           {typeLabel}({entries.length})
         </span>
         {hasChanged && (
           <Badge
             variant="outline"
-            className="text-[9px] text-accent-foreground"
+            className="text-[11px] text-accent-foreground"
           >
             modified
           </Badge>

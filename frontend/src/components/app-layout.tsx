@@ -166,7 +166,7 @@ export function AppLayout() {
                     <Separator />
                   </div>
                 ) : (
-                  <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/50 px-3 pt-4 pb-1">
+                  <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground/50 px-3 pt-4 pb-1">
                     {group.label}
                   </div>
                 )}
@@ -302,7 +302,7 @@ export function AppLayout() {
               className="hidden sm:flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/50 transition-colors"
             >
               <span>Search...</span>
-              <kbd className="pointer-events-none rounded border border-border/50 bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              <kbd className="pointer-events-none rounded border border-border/50 bg-background px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
                 ⌘K
               </kbd>
             </button>

@@ -136,7 +136,7 @@ function PackageItem({
           <span className="truncate font-medium">
             {pkg.packageName ?? "Unnamed Package"}
           </span>
-          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
             {pkg.packageVersion && (
               <span>v{pkg.packageVersion}</span>
             )}
@@ -189,7 +189,7 @@ function SystemPackageCompactItem({ pkg }: { pkg: PackageSummary }) {
       <span className="truncate text-xs">
         {pkg.packageName ?? "Unnamed Package"}
       </span>
-      <Badge variant="secondary" className="ml-auto text-[9px] px-1 py-0 text-muted-foreground/40">
+      <Badge variant="secondary" className="ml-auto text-[11px] px-1 py-0 text-muted-foreground/40">
         0 templates
       </Badge>
     </div>
@@ -248,7 +248,7 @@ function ModuleItem({
         <span className="truncate font-medium text-muted-foreground">
           {mod.name}
         </span>
-        <Badge variant="secondary" className="ml-auto text-[9px] px-1 py-0">
+        <Badge variant="secondary" className="ml-auto text-[11px] px-1 py-0">
           {mod.templates.length}
         </Badge>
       </button>
@@ -256,7 +256,7 @@ function ModuleItem({
       {expanded && (
         <div className="ml-4">
           {mod.templates.length === 0 && (
-            <p className="px-2 py-1 text-[10px] italic text-muted-foreground">
+            <p className="px-2 py-1 text-xs italic text-muted-foreground">
               No templates (types only)
             </p>
           )}
@@ -413,7 +413,7 @@ export function PackageSidebar({
             {/* User packages - shown first, expanded */}
             {filteredUserPackages.length > 0 && (
               <div className="mb-2">
-                <div className="px-3 pb-1 pt-3 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60">
+                <div className="px-3 pb-1 pt-3 text-xs font-medium uppercase tracking-widest text-muted-foreground/60">
                   Your Packages
                 </div>
                 <div className="flex flex-col gap-0.5 px-2">
@@ -438,7 +438,7 @@ export function PackageSidebar({
               <div className="border-t border-border/30 pt-2">
                 <button
                   onClick={() => setShowSystem(!showSystem)}
-                  className="flex w-full items-center gap-1.5 px-3 py-1 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors"
+                  className="flex w-full items-center gap-1.5 px-3 py-1 text-xs font-medium uppercase tracking-widest text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors"
                 >
                   <HugeiconsIcon icon={ArrowRight01Icon} className={cn("size-3 transition-transform", showSystem && "rotate-90")} strokeWidth={2} />
                   System Packages ({filteredSystemPackages.length})

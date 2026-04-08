@@ -56,13 +56,13 @@ function TxCard({
         </Badge>
       </div>
       <div className="flex flex-col gap-1">
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Update ID
         </span>
         <span className="font-mono text-xs">{truncateId(updateId, 12)}</span>
       </div>
       <div className="flex flex-col gap-1">
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Timestamp
         </span>
         <span className="font-mono text-xs">{formatTimestamp(timestamp)}</span>
@@ -140,7 +140,7 @@ export function ContentionTimeline({
               <span className="text-xs font-medium text-primary">
                 Your Tx
               </span>
-              <span className="font-mono text-[10px] text-muted-foreground">
+              <span className="font-mono text-xs text-muted-foreground">
                 {formatTimestamp(contention.yourTransaction.timestamp)}
               </span>
             </div>
@@ -157,7 +157,7 @@ export function ContentionTimeline({
               </div>
               <span className="text-xs font-medium">Contested Contract</span>
               <button
-                className="font-mono text-[10px] text-primary underline hover:text-primary/80"
+                className="font-mono text-xs text-primary underline hover:text-primary/80"
                 onClick={() =>
                   onNavigateContract?.(contention.contestedContractId)
                 }
@@ -179,7 +179,7 @@ export function ContentionTimeline({
               <span className="text-xs font-medium text-accent-foreground">
                 Competing Tx
               </span>
-              <span className="font-mono text-[10px] text-muted-foreground">
+              <span className="font-mono text-xs text-muted-foreground">
                 {formatTimestamp(contention.competingTransaction.timestamp)}
               </span>
             </div>

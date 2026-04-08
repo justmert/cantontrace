@@ -164,7 +164,7 @@ function TimelineRuler({
   const durationMs = latest.getTime() - earliest.getTime();
 
   return (
-    <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-1.5 text-[10px] text-muted-foreground">
+    <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground">
       <span className="font-mono">
         {earliest.toLocaleTimeString()}
       </span>
@@ -339,7 +339,7 @@ export function WorkflowTimeline({
           </Badge>
         </div>
         {/* Legend */}
-        <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <div className="h-2 w-4 rounded-sm border-l-2 border-l-primary bg-muted" />
             <span>Create</span>

@@ -37,11 +37,30 @@ export function registerConnectionRoutes(app: FastifyInstance, cache: CacheServi
         200: { type: 'object', additionalProperties: true },
       },
     },
-  }, async (_request: FastifyRequest, reply: FastifyReply) => {
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
     const client = getActiveClient();
     const bootstrapInfo = getActiveBootstrapInfo();
 
     if (client?.isConnected() && bootstrapInfo) {
+      // If refresh requested, re-fetch dynamic data (parties, packages, offset)
+      const refresh = (request.query as Record<string, string>).refresh === 'true';
+      if (refresh) {
+        try {
+          // Re-fetch known parties
+          const partyList = await client.partyManagementService.listKnownParties();
+          bootstrapInfo.knownParties = partyList.map((p: { party: string }) => p.party);
+          // Re-fetch packages
+          const packages = await client.packageService.listPackagesWithMetadata();
+          bootstrapInfo.packages = packages;
+          // Re-fetch current offset
+          bootstrapInfo.currentOffset = await client.stateService.getLedgerEnd();
+          // Update cached bootstrap
+          setActiveConnection(client, bootstrapInfo);
+        } catch (err) {
+          request.log.warn({ err }, 'Failed to refresh bootstrap data');
+        }
+      }
+
       return reply.send({
         data: bootstrapInfo,
         meta: {
@@ -187,36 +206,46 @@ export function registerConnectionRoutes(app: FastifyInstance, cache: CacheServi
       });
     }
 
-    try {
-      await client.connect();
-    } catch (err) {
-      if (activeOAuth2Service) {
-        activeOAuth2Service.stop();
-        activeOAuth2Service = null;
+    // Connect with retry — Canton sandboxes may need a few seconds to register all gRPC services
+    let bootstrapInfo: BootstrapInfo | null = null;
+    let lastError: string = '';
+    const maxAttempts = 5;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        // Reconnect fresh on each attempt (reflection results may differ)
+        if (attempt > 1) {
+          client.disconnect();
+          await new Promise(r => setTimeout(r, 2000));
+        }
+        await client.connect();
+
+        bootstrapInfo = await client.bootstrap({
+          skipUserManagement: !iamUrl,
+        });
+        break; // Success
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : 'Connection failed';
+        const isRetryable = lastError.includes('not initialized') ||
+                            lastError.includes('UNAVAILABLE') ||
+                            lastError.includes('not found in proto');
+        if (!isRetryable || attempt === maxAttempts) {
+          app.log.warn({ attempt, maxAttempts, error: lastError }, 'Connection attempt failed');
+          break;
+        }
+        app.log.info({ attempt, maxAttempts }, `Canton not ready, retrying in 2s...`);
       }
-      const message = err instanceof Error ? err.message : 'Connection failed';
-      return reply.code(502).send({
-        code: 'CONNECTION_FAILED',
-        message: `Failed to connect to Canton participant at ${ledgerApiEndpoint}: ${message}`,
-      });
     }
 
-    // Run bootstrap sequence
-    let bootstrapInfo: BootstrapInfo;
-    try {
-      bootstrapInfo = await client.bootstrap({
-        skipUserManagement: !iamUrl, // Skip user management for sandbox
-      });
-    } catch (err) {
+    if (!bootstrapInfo) {
       if (activeOAuth2Service) {
         activeOAuth2Service.stop();
         activeOAuth2Service = null;
       }
       client.disconnect();
-      const message = err instanceof Error ? err.message : 'Bootstrap failed';
       return reply.code(502).send({
-        code: 'BOOTSTRAP_FAILED',
-        message: `Bootstrap sequence failed: ${message}`,
+        code: 'CONNECTION_FAILED',
+        message: `Failed to connect to Canton participant at ${ledgerApiEndpoint}: ${lastError}`,
       });
     }
 

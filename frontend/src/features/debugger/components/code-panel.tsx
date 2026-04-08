@@ -164,8 +164,8 @@ function registerDamlLanguage(monaco: Monaco) {
   });
 
   // Theme contributions for Daml — colours aligned to the app's oklch palette.
-  // Dark: background oklch(0.205 0 0) ≈ #2b2b2b, foreground oklch(0.985 0 0) ≈ #fbfbfb
-  // Light: background oklch(1 0 0) = #ffffff, foreground oklch(0.145 0 0) ≈ #1a1a1a
+  // Dark: bg oklch(0.13) ≈ #1f1f1f, card oklch(0.17) ≈ #272727
+  // Light: bg oklch(0.995) ≈ #fefefe
   monaco.editor.defineTheme("daml-dark", {
     base: "vs-dark",
     inherit: true,
@@ -178,11 +178,11 @@ function registerDamlLanguage(monaco: Monaco) {
       { token: "operator", foreground: "d4d4d4" },
     ],
     colors: {
-      "editor.background": "#1a1a1a",
-      "editor.foreground": "#e5e5e5",
-      "editorLineNumber.foreground": "#555555",
-      "editorGutter.background": "#1a1a1a",
-      "editor.lineHighlightBackground": "#222222",
+      "editor.background": "#1f1f1f",
+      "editor.foreground": "#e0e0e0",
+      "editorLineNumber.foreground": "#4a4a4a",
+      "editorGutter.background": "#1f1f1f",
+      "editor.lineHighlightBackground": "#262626",
     },
   });
 
@@ -471,20 +471,20 @@ export function CodePanel({
         </span>
         <div className="ml-auto flex-shrink-0">
           {sourceAvailable ? (
-            <Badge variant="secondary" className="text-[10px]">
+            <Badge variant="secondary" className="text-xs">
               Source Available
             </Badge>
           ) : decompiledLoading ? (
-            <Badge variant="outline" className="text-[10px]">
+            <Badge variant="outline" className="text-xs">
               <Spinner className="mr-1 size-3" />
               Loading...
             </Badge>
           ) : decompiledSource ? (
-            <Badge variant="outline" className="text-[10px]">
+            <Badge variant="outline" className="text-xs">
               Decompiled from Daml-LF
             </Badge>
           ) : packageId ? (
-            <Badge variant="outline" className="text-[10px] text-muted-foreground">
+            <Badge variant="outline" className="text-xs text-muted-foreground">
               No source found
             </Badge>
           ) : null}
@@ -519,6 +519,7 @@ export function CodePanel({
             folding: true,
             automaticLayout: true,
           }}
+          beforeMount={(monaco) => registerDamlLanguage(monaco)}
           onMount={handleEditorMount}
         />
       </div>

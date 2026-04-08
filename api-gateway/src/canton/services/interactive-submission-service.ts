@@ -1,8 +1,5 @@
 /**
- * InteractiveSubmissionService wrapper — PrepareSubmission ONLY
- *
- * CRITICAL: This service wrapper NEVER calls ExecuteSubmission.
- * Pure simulation only.
+ * InteractiveSubmissionService wrapper — PrepareSubmission & ExecuteSubmission
  *
  * Uses package-name format for template references (package-id deprecated in Canton 3.5).
  * prepared_transaction_hash is ADVISORY — always flag this to the user.
@@ -66,8 +63,6 @@ export class InteractiveSubmissionServiceClient {
 
   /**
    * Prepare a submission without executing it.
-   *
-   * NEVER calls ExecuteSubmission — pure simulation.
    */
   async prepareSubmission(
     commands: SimulationCommand[],
@@ -111,9 +106,58 @@ export class InteractiveSubmissionServiceClient {
     return this.mapPrepareResponse(response);
   }
 
+  /**
+   * Execute a previously prepared submission on the ledger.
+   *
+   * This is the second step of the two-step interactive submission flow:
+   * PrepareSubmission -> ExecuteSubmission.
+   *
+   * In sandbox mode, party_signatures can be omitted (empty map).
+   */
+  async executeSubmission(
+    preparedTransactionBytes: Uint8Array,
+    preparedTransactionHash: Uint8Array,
+    hashingSchemeVersion: number,
+    submissionId: string,
+    partySignatures?: Record<string, unknown>,
+  ): Promise<ExecuteResult> {
+    const metadata = createMetadata(this.getToken());
+
+    const request: Record<string, unknown> = {
+      prepared_transaction: preparedTransactionBytes,
+      prepared_transaction_hash: preparedTransactionHash,
+      hashing_scheme_version: hashingSchemeVersion,
+      submission_id: submissionId,
+      party_signatures: partySignatures ?? {},
+    };
+
+    const response = await makeUnaryCall<Record<string, unknown>, ExecuteSubmissionResponse>(
+      this.client,
+      'ExecuteSubmission',
+      request,
+      metadata,
+    );
+
+    return this.mapExecuteResponse(response);
+  }
+
   // ============================================================
   // Response Mapping
   // ============================================================
+
+  private mapExecuteResponse(response: ExecuteSubmissionResponse): ExecuteResult {
+    // ExecuteSubmissionResponse has a completion_offset and potentially a status
+    return {
+      updateId: response.update_id ?? '',
+      completionOffset: response.completion_offset ?? '',
+      status: response.status
+        ? {
+            code: response.status.code ?? 0,
+            message: response.status.message ?? '',
+          }
+        : undefined,
+    };
+  }
 
   private mapPrepareResponse(response: PrepareSubmissionResponse): PrepareResult {
     const hashVersionMap: Record<number, string> = {
@@ -211,6 +255,25 @@ export class InteractiveSubmissionServiceClient {
 // ============================================================
 // Result Types
 // ============================================================
+
+export interface ExecuteResult {
+  updateId: string;
+  completionOffset: string;
+  status?: {
+    code: number;
+    message: string;
+  };
+}
+
+interface ExecuteSubmissionResponse {
+  update_id?: string;
+  completion_offset?: string;
+  status?: {
+    code: number;
+    message: string;
+    details?: unknown[];
+  };
+}
 
 export interface PrepareResult {
   preparedTransactionBytes: Uint8Array;

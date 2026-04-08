@@ -156,7 +156,7 @@ export function TransactionSearch({
                         <Badge
                           key={et}
                           variant={eventTypeBadgeVariant(et)}
-                          className="shrink-0 text-[10px]"
+                          className="shrink-0 text-xs"
                         >
                           {et}
                         </Badge>
@@ -169,7 +169,7 @@ export function TransactionSearch({
 
                       {/* Relative time */}
                       {tx.recordTime && (
-                        <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+                        <span className="ml-auto shrink-0 text-xs text-muted-foreground">
                           {formatDistanceToNow(new Date(tx.recordTime), {
                             addSuffix: true,
                           })}

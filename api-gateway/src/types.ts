@@ -408,6 +408,32 @@ export interface SimulationResult {
 }
 
 // ============================================================
+// Execute (Ledger Submission) Types
+// ============================================================
+
+export interface ExecuteRequest {
+  commands: SimulationCommand[];
+  actAs: string[];
+  readAs: string[];
+  synchronizerId?: string;
+  disclosedContracts?: DisclosedContract[];
+}
+
+export interface ExecuteResult {
+  success: boolean;
+  committed: true;
+  updateId: string;
+  completionOffset: string;
+  transactionTree?: TransactionDetail;
+  inputContracts?: Array<{
+    contract: ActiveContract;
+    createdAt: string;
+  }>;
+  error?: CommandError;
+  executedAt: string;
+}
+
+// ============================================================
 // Execution Trace Types
 // ============================================================
 
@@ -544,6 +570,7 @@ export interface DisclosedBoundary {
 
 export interface Sandbox {
   id: string;
+  name: string;
   status: 'provisioning' | 'running' | 'stopped' | 'error';
   ledgerApiEndpoint: string;
   createdAt: string;
@@ -554,6 +581,7 @@ export interface Sandbox {
 }
 
 export interface SandboxCreateRequest {
+  name?: string;
   darFile?: string;
   parties?: string[];
   enableProfiling?: boolean;

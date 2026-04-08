@@ -273,7 +273,7 @@ export function ContractDetail({
           {lifecycle && (
             <Badge
               variant={isArchived ? "destructive" : "default"}
-              className="text-[10px] px-1.5 py-0"
+              className="text-xs px-1.5 py-0"
             >
               {isArchived ? "Archived" : "Active"}
             </Badge>
@@ -327,7 +327,7 @@ export function ContractDetail({
                     className="size-3"
                   />
                 </a>
-                <span className="truncate text-[10px] text-muted-foreground">
+                <span className="truncate text-xs text-muted-foreground">
                   {contract.templateId.moduleName}
                 </span>
               </div>
@@ -338,7 +338,7 @@ export function ContractDetail({
                   <span className="text-xs font-medium text-muted-foreground">
                     Package
                   </span>
-                  <span className="truncate font-mono text-[10px] text-muted-foreground">
+                  <span className="truncate font-mono text-xs text-muted-foreground">
                     {contract.templateId.packageName}
                   </span>
                 </div>

@@ -66,7 +66,7 @@ function ArgumentField({
           <option value="true">True</option>
           <option value="false">False</option>
         </select>
-        <span className="text-[10px] text-muted-foreground">{field.type}</span>
+        <span className="text-xs text-muted-foreground">{field.type}</span>
       </div>
     );
   }
@@ -77,11 +77,11 @@ function ArgumentField({
         <div className="flex items-center gap-2">
           <Label className="text-xs">{field.name}</Label>
           {field.optional && (
-            <Badge variant="outline" className="text-[9px]">
+            <Badge variant="outline" className="text-[11px]">
               optional
             </Badge>
           )}
-          <span className="ml-auto text-[10px] text-muted-foreground">
+          <span className="ml-auto text-xs text-muted-foreground">
             {field.type}
           </span>
         </div>
@@ -105,11 +105,11 @@ function ArgumentField({
       <div className="flex items-center gap-2">
         <Label className="text-xs">{field.name}</Label>
         {field.optional && (
-          <Badge variant="outline" className="text-[9px]">
+          <Badge variant="outline" className="text-[11px]">
             optional
           </Badge>
         )}
-        <span className="ml-auto text-[10px] text-muted-foreground">
+        <span className="ml-auto text-xs text-muted-foreground">
           {field.type}
         </span>
       </div>
@@ -235,7 +235,7 @@ export function CommandForm({ onTrace, isTracing }: CommandFormProps) {
   const { data: packages, isLoading: packagesLoading } = useQuery({
     queryKey: ["packages-summary"],
     queryFn: () => api.getPackages().then((r) => r.data),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60_000,
   });
 
   // Partition packages into user vs system (system packages have no templates)
@@ -378,7 +378,7 @@ export function CommandForm({ onTrace, isTracing }: CommandFormProps) {
           <HugeiconsIcon icon={Package01Icon} className="size-4 text-muted-foreground" strokeWidth={2} />
           Command Configuration
           {currentTemplate && (
-            <Badge variant="outline" className="ml-2 font-mono text-[10px]">
+            <Badge variant="outline" className="ml-2 font-mono text-xs">
               {selectedTemplate}
               {selectedChoice && ` / ${selectedChoice}`}
             </Badge>
@@ -413,7 +413,7 @@ export function CommandForm({ onTrace, isTracing }: CommandFormProps) {
                   <SelectContent>
                     {userPackages.length > 0 && (
                       <SelectGroup>
-                        <SelectLabel className="text-[10px] text-muted-foreground">
+                        <SelectLabel className="text-xs text-muted-foreground">
                           User Packages
                         </SelectLabel>
                         {userPackages.map((pkg) => (
@@ -430,7 +430,7 @@ export function CommandForm({ onTrace, isTracing }: CommandFormProps) {
                       <>
                         {userPackages.length > 0 && <SelectSeparator />}
                         <SelectGroup>
-                          <SelectLabel className="text-[10px] text-muted-foreground">
+                          <SelectLabel className="text-xs text-muted-foreground">
                             System Packages (no templates)
                           </SelectLabel>
                           {systemPackages.map((pkg) => (
@@ -507,7 +507,7 @@ export function CommandForm({ onTrace, isTracing }: CommandFormProps) {
                         {c.consuming && (
                           <Badge
                             variant="outline"
-                            className="text-[9px] text-destructive"
+                            className="text-[11px] text-destructive"
                           >
                             consuming
                           </Badge>

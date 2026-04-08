@@ -83,7 +83,7 @@ function KeyFieldsPreview({
         return (
           <div
             key={key}
-            className="flex items-baseline gap-1 text-[10px] leading-tight"
+            className="flex items-baseline gap-1 text-xs leading-tight"
             title={`${key}: ${fullValue}`}
           >
             <span className="shrink-0 text-muted-foreground">{key}:</span>
@@ -92,7 +92,7 @@ function KeyFieldsPreview({
         );
       })}
       {remaining > 0 && (
-        <span className="text-[10px] text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           +{remaining} more
         </span>
       )}
@@ -340,7 +340,7 @@ export function ContractTable({
                       <Badge variant="outline" className="font-mono text-xs">
                         {contract.templateId.entityName}
                       </Badge>
-                      <div className="mt-0.5 text-[10px] text-muted-foreground">
+                      <div className="mt-0.5 text-xs text-muted-foreground">
                         {contract.templateId.moduleName}
                       </div>
                     </TableCell>

@@ -141,7 +141,7 @@ function FormattedVariables({
   return (
     <div className="flex min-w-0 flex-col gap-1 overflow-hidden">
       {entries.map(([key, value]) => (
-        <div key={key} className="flex min-w-0 items-baseline gap-2 overflow-hidden font-mono text-[11px]">
+        <div key={key} className="flex min-w-0 items-baseline gap-2 overflow-hidden font-mono text-xs">
           <span className="shrink-0 text-muted-foreground">{key}:</span>
           <FormattedValue
             value={value}
@@ -163,7 +163,7 @@ function PayloadFields({ data, label }: { data: Record<string, unknown>; label: 
   if (entries.length === 0) return null;
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+      <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
         {label}
       </span>
       <div className="flex flex-col gap-0.5 overflow-hidden rounded-md border border-border/50 bg-muted/20 p-2">
@@ -171,7 +171,7 @@ function PayloadFields({ data, label }: { data: Record<string, unknown>; label: 
           const isParty = typeof v === "string" && v.includes("::");
           const isNumeric = typeof v === "string" && /^-?\d+\.\d+$/.test(v);
           return (
-            <div key={k} className="flex items-baseline gap-2 font-mono text-[11px]">
+            <div key={k} className="flex items-baseline gap-2 font-mono text-xs">
               <span className="text-muted-foreground">{k}:</span>
               {isParty ? (
                 <span className="text-primary/80" title={String(v)}>
@@ -212,17 +212,17 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
             {/* Contract ID + source badge */}
             {contractId && (
               <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-muted/20 p-2">
-                <span className="text-[10px] text-muted-foreground">Contract:</span>
+                <span className="text-xs text-muted-foreground">Contract:</span>
                 <a
                   href={`/contracts/${encodeURIComponent(contractId)}`}
-                  className="font-mono text-[11px] text-primary underline underline-offset-2 hover:text-primary/80"
+                  className="font-mono text-xs text-primary underline underline-offset-2 hover:text-primary/80"
                   title={contractId}
                 >
                   {truncateId(contractId, 24)}
                 </a>
                 <Badge
                   variant={source === "ACS" ? "default" : "secondary"}
-                  className="text-[9px]"
+                  className="text-[11px]"
                 >
                   {source}
                 </Badge>
@@ -247,24 +247,24 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
             {/* Template + Choice + Consuming badge */}
             <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-muted/20 p-2">
               {templateLabel && (
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   Template:{" "}
-                  <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-foreground">
+                  <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-xs text-foreground">
                     {templateLabel}
                   </code>
                 </span>
               )}
               {ctx.choice && (
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   Choice:{" "}
-                  <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-foreground">
+                  <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-xs text-foreground">
                     {ctx.choice}
                   </code>
                 </span>
               )}
               <Badge
                 variant={isConsuming ? "destructive" : "secondary"}
-                className="text-[9px]"
+                className="text-[11px]"
               >
                 {isConsuming ? "Consuming" : "Non-consuming"}
               </Badge>
@@ -273,10 +273,10 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
             {/* Contract ID link */}
             {contractId && (
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground">Contract:</span>
+                <span className="text-xs text-muted-foreground">Contract:</span>
                 <a
                   href={`/contracts/${encodeURIComponent(contractId)}`}
-                  className="font-mono text-[11px] text-primary underline underline-offset-2 hover:text-primary/80"
+                  className="font-mono text-xs text-primary underline underline-offset-2 hover:text-primary/80"
                   title={contractId}
                 >
                   {truncateId(contractId, 24)}
@@ -292,9 +292,9 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
             {/* Acting parties */}
             {actingParties && (
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Acting Parties:</span>
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Acting Parties:</span>
                 {(Array.isArray(actingParties) ? actingParties : [actingParties]).map(p => (
-                  <Badge key={String(p)} variant="outline" className="max-w-full font-mono text-[9px]" title={String(p)}>
+                  <Badge key={String(p)} variant="outline" className="max-w-full font-mono text-[11px]" title={String(p)}>
                     <span className="truncate">{formatPartyDisplay(String(p))}</span>
                   </Badge>
                 ))}
@@ -312,19 +312,19 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
           <>
             <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-muted/20 p-2">
               {templateLabel && (
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   Template:{" "}
-                  <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-foreground">
+                  <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-xs text-foreground">
                     {templateLabel}
                   </code>
                 </span>
               )}
               {contractId && (
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   Contract:{" "}
                   <a
                     href={`/contracts/${encodeURIComponent(contractId)}`}
-                    className="font-mono text-[10px] text-primary underline underline-offset-2 hover:text-primary/80"
+                    className="font-mono text-xs text-primary underline underline-offset-2 hover:text-primary/80"
                     title={contractId}
                   >
                     {truncateId(contractId, 24)}
@@ -333,7 +333,7 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
               )}
             </div>
             {ctx.choice && (
-              <div className="flex items-center gap-2 text-[10px]">
+              <div className="flex items-center gap-2 text-xs">
                 <span className="text-muted-foreground">Archived by:</span>
                 <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-foreground">{ctx.choice}</code>
               </div>
@@ -352,15 +352,15 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
           <>
             <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-muted/20 p-2">
               {templateLabel && (
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   Template:{" "}
-                  <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-foreground">
+                  <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-xs text-foreground">
                     {templateLabel}
                   </code>
                 </span>
               )}
               {contractId && (
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   New Contract:{" "}
                   <span className="font-mono text-foreground" title={contractId}>
                     {truncateId(contractId, 24)}
@@ -377,9 +377,9 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
             {/* Signatories */}
             {signatoriesVar && (
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Signatories:</span>
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Signatories:</span>
                 {(Array.isArray(signatoriesVar) ? signatoriesVar : [signatoriesVar]).map(s => (
-                  <Badge key={String(s)} variant="outline" className="max-w-full font-mono text-[9px]" title={String(s)}>
+                  <Badge key={String(s)} variant="outline" className="max-w-full font-mono text-[11px]" title={String(s)}>
                     <span className="truncate">{formatPartyDisplay(String(s))}</span>
                   </Badge>
                 ))}
@@ -389,9 +389,9 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
             {/* Stakeholders */}
             {stakeholdersVar && (
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Stakeholders:</span>
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Stakeholders:</span>
                 {(Array.isArray(stakeholdersVar) ? stakeholdersVar : [stakeholdersVar]).map(s => (
-                  <Badge key={String(s)} variant="outline" className="max-w-full font-mono text-[9px]" title={String(s)}>
+                  <Badge key={String(s)} variant="outline" className="max-w-full font-mono text-[11px]" title={String(s)}>
                     <span className="truncate">{formatPartyDisplay(String(s))}</span>
                   </Badge>
                 ))}
@@ -409,31 +409,31 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
             <div className="flex flex-col gap-1 rounded-md border border-border/50 bg-muted/20 p-2">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 {ctx.actionType && (
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     Action:{" "}
                     <span className="font-medium text-foreground">{ctx.actionType}</span>
                   </span>
                 )}
                 {templateLabel && (
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     Template:{" "}
-                    <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-foreground">
+                    <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-xs text-foreground">
                       {templateLabel}
                     </code>
                   </span>
                 )}
                 {ctx.choice && (
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     Choice:{" "}
-                    <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-foreground">
+                    <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-xs text-foreground">
                       {ctx.choice}
                     </code>
                   </span>
                 )}
                 {ctx.resultingContractId && (
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     Contract:{" "}
-                    <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-foreground" title={ctx.resultingContractId}>
+                    <code className="rounded bg-muted/50 px-1 py-0.5 font-mono text-xs text-foreground" title={ctx.resultingContractId}>
                       {truncateId(ctx.resultingContractId, 24)}
                     </code>
                   </span>
@@ -452,10 +452,10 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
       {/* Source location detail */}
       {step.sourceLocation && (
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Source
           </span>
-          <code className="rounded bg-muted/50 px-1.5 py-0.5 font-mono text-[10px] text-foreground">
+          <code className="rounded bg-muted/50 px-1.5 py-0.5 font-mono text-xs text-foreground">
             {step.sourceLocation.file}:{step.sourceLocation.startLine}:{step.sourceLocation.startCol}
             {(step.sourceLocation.endLine !== step.sourceLocation.startLine ||
               step.sourceLocation.endCol !== step.sourceLocation.startCol) &&
@@ -469,7 +469,7 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
         <div className="flex gap-4">
           {ctx.requiredAuthority && (
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Required Authority
               </span>
               <div className="flex flex-wrap gap-1">
@@ -477,7 +477,7 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
                   <Badge
                     key={a}
                     variant="outline"
-                    className="max-w-full font-mono text-[9px]"
+                    className="max-w-full font-mono text-[11px]"
                     title={a}
                   >
                     <span className="truncate">{formatPartyDisplay(a)}</span>
@@ -488,7 +488,7 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
           )}
           {ctx.providedAuthority && (
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Provided Authority
               </span>
               <div className="flex flex-wrap gap-1">
@@ -496,7 +496,7 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
                   <Badge
                     key={a}
                     variant="outline"
-                    className="max-w-full font-mono text-[9px]"
+                    className="max-w-full font-mono text-[11px]"
                     title={a}
                   >
                     <span className="truncate">{formatPartyDisplay(a)}</span>
@@ -511,7 +511,7 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
       {/* Variables — formatted with smart party/numeric/link display */}
       {Object.keys(step.variables).length > 0 && (
         <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Variables
           </span>
           <div className="overflow-hidden rounded-md border border-border/50 p-2">
@@ -528,14 +528,14 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
         ctx.contractPayloads &&
         Object.keys(ctx.contractPayloads).length > 0 && (
           <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Contract Payloads
             </span>
             {Object.entries(ctx.contractPayloads).map(([cid, pl]) => (
               <div key={cid} className="flex flex-col gap-1">
                 <a
                   href={`/contracts/${encodeURIComponent(cid)}`}
-                  className="font-mono text-[10px] text-primary underline underline-offset-2 hover:text-primary/80"
+                  className="font-mono text-xs text-primary underline underline-offset-2 hover:text-primary/80"
                   title={cid}
                 >
                   {truncateId(cid, 20)}
@@ -549,17 +549,17 @@ function StepExpandedContent({ step }: { step: TraceStep }) {
       {/* Guard info */}
       {ctx.guardExpression && (
         <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Guard
           </span>
           <div className="flex items-center gap-2">
-            <code className="rounded bg-muted/50 px-1.5 py-0.5 font-mono text-[11px]">
+            <code className="rounded bg-muted/50 px-1.5 py-0.5 font-mono text-xs">
               {ctx.guardExpression}
             </code>
             {ctx.guardResult !== undefined && (
               <Badge
                 variant={ctx.guardResult ? "default" : "destructive"}
-                className="text-[9px]"
+                className="text-[11px]"
               >
                 {ctx.guardResult ? "passed" : "failed"}
               </Badge>
@@ -629,7 +629,7 @@ function StepRow({ step, isCurrent, isLast, onClick }: StepRowProps) {
     >
       <div className="flex min-w-0 items-center gap-2">
         {/* Step number */}
-        <span className={cn("w-6 text-right font-mono text-muted-foreground", muted ? "text-[9px]" : "text-[10px]")}>
+        <span className={cn("w-6 text-right font-mono text-muted-foreground", muted ? "text-[11px]" : "text-xs")}>
           {step.stepNumber}
         </span>
 
@@ -649,17 +649,17 @@ function StepRow({ step, isCurrent, isLast, onClick }: StepRowProps) {
         {/* Summary */}
         <div className="flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden">
           <div className="flex items-center gap-1.5">
-            <span className={cn("font-medium", muted ? "text-[10px] text-muted-foreground" : "text-xs")}>
+            <span className={cn("font-medium", muted ? "text-xs text-muted-foreground" : "text-xs")}>
               {STEP_TYPE_LABELS[step.stepType]}
             </span>
             {step.sourceLocation && (
-              <span className="truncate font-mono text-[10px] text-muted-foreground">
+              <span className="truncate font-mono text-xs text-muted-foreground">
                 {step.sourceLocation.file.split("/").pop()}:
                 {step.sourceLocation.startLine}
               </span>
             )}
           </div>
-          <p className={cn("truncate text-muted-foreground", muted ? "text-[10px]" : "text-[11px]")}>
+          <p className={cn("truncate text-muted-foreground", muted ? "text-xs" : "text-xs")}>
             {step.summary}
           </p>
         </div>
@@ -855,7 +855,7 @@ export function StepsPanel({ steps, navigation }: StepsPanelProps) {
 
         {/* Step counter */}
         <div className="ml-auto">
-          <span className="font-mono text-[10px] text-muted-foreground">
+          <span className="font-mono text-xs text-muted-foreground">
             Step {navigation.currentStep + 1} of {navigation.totalSteps}
           </span>
         </div>

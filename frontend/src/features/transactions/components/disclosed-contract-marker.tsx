@@ -45,27 +45,27 @@ export function DisclosedContractMarker({
 
             <div className="flex flex-col gap-1 border-t pt-2">
               <div className="flex items-center gap-1">
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   Contract:
                 </span>
-                <span className="font-mono text-[10px]">
+                <span className="font-mono text-xs">
                   {truncateId(boundary.contractId)}
                 </span>
                 <CopyButton text={boundary.contractId} />
               </div>
               <div className="flex items-center gap-1 min-w-0">
-                <span className="shrink-0 text-[10px] text-muted-foreground">
+                <span className="shrink-0 text-xs text-muted-foreground">
                   Accessed by:
                 </span>
-                <span className="min-w-0 truncate font-mono text-[10px]" title={boundary.accessedBy}>
+                <span className="min-w-0 truncate font-mono text-xs" title={boundary.accessedBy}>
                   {boundary.accessedBy}
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   Reason:
                 </span>
-                <span className="text-[10px]">{boundary.reason}</span>
+                <span className="text-xs">{boundary.reason}</span>
               </div>
             </div>
           </div>
@@ -83,7 +83,7 @@ export function DisclosedBadge() {
   return (
     <Badge
       variant="outline"
-      className="border-dashed border-secondary-foreground/50 text-[10px] text-secondary-foreground"
+      className="border-dashed border-secondary-foreground/50 text-xs text-secondary-foreground"
     >
       <HugeiconsIcon icon={ShieldEnergyIcon} data-icon="inline-start" strokeWidth={2} />
       Disclosed

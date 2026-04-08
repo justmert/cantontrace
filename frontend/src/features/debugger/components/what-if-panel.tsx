@@ -86,7 +86,7 @@ function ResultComparison({
               : "border-destructive/20 bg-destructive/5"
           )}
         >
-          <Badge variant="outline" className="text-[10px]">
+          <Badge variant="outline" className="text-xs">
             Original
           </Badge>
           {original.success ? (
@@ -97,7 +97,7 @@ function ResultComparison({
           <span className="text-xs font-medium">
             {original.success ? "Success" : "Failed"}
           </span>
-          <span className="font-mono text-[10px] text-muted-foreground">
+          <span className="font-mono text-xs text-muted-foreground">
             offset {original.atOffset}
           </span>
         </div>
@@ -110,7 +110,7 @@ function ResultComparison({
               : "border-destructive/20 bg-destructive/5"
           )}
         >
-          <Badge variant="outline" className="text-[10px]">
+          <Badge variant="outline" className="text-xs">
             Modified
           </Badge>
           {modified.success ? (
@@ -121,7 +121,7 @@ function ResultComparison({
           <span className="text-xs font-medium">
             {modified.success ? "Success" : "Failed"}
           </span>
-          <span className="font-mono text-[10px] text-muted-foreground">
+          <span className="font-mono text-xs text-muted-foreground">
             offset {modified.atOffset}
           </span>
         </div>
@@ -144,10 +144,10 @@ function ResultComparison({
                     className="flex items-center gap-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs"
                   >
                     <HugeiconsIcon icon={MinusSignIcon} className="size-3 text-destructive" strokeWidth={2} />
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       Only in original:
                     </span>
-                    <Badge variant="outline" className="font-mono text-[9px]">
+                    <Badge variant="outline" className="font-mono text-[11px]">
                       {c.templateId.entityName}
                     </Badge>
                     <span className="font-mono">
@@ -165,10 +165,10 @@ function ResultComparison({
                     className="flex items-center gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs"
                   >
                     <HugeiconsIcon icon={Add01Icon} className="size-3 text-primary" strokeWidth={2} />
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       Only in modified:
                     </span>
-                    <Badge variant="outline" className="font-mono text-[9px]">
+                    <Badge variant="outline" className="font-mono text-[11px]">
                       {c.templateId.entityName}
                     </Badge>
                     <span className="font-mono">

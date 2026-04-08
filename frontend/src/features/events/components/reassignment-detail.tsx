@@ -206,7 +206,7 @@ function StatusBadge({ status }: { status: Reassignment["status"] }) {
 
   const c = config[status];
   return (
-    <Badge variant="outline" className={`text-[10px] ${c.className}`}>
+    <Badge variant="outline" className={`text-xs ${c.className}`}>
       {c.label}
     </Badge>
   );

@@ -63,7 +63,7 @@ export function ChoiceDetail({
         <span className="text-sm font-semibold">{choice.name}</span>
         <Badge
           variant={choice.consuming ? "destructive" : "secondary"}
-          className="text-[10px]"
+          className="text-xs"
         >
           {choice.consuming ? "Consuming" : "Non-consuming"}
         </Badge>
@@ -105,7 +105,7 @@ export function ChoiceDetail({
                     </TableCell>
                     <TableCell className="py-1.5 text-xs">
                       {param.optional ? (
-                        <Badge variant="outline" className="text-[9px]">
+                        <Badge variant="outline" className="text-[11px]">
                           Optional
                         </Badge>
                       ) : (
@@ -146,7 +146,7 @@ export function ChoiceDetail({
             <span className="text-xs font-medium text-muted-foreground">
               Source
             </span>
-            <Badge variant="outline" className="text-[9px]">
+            <Badge variant="outline" className="text-[11px]">
               {choice.sourceCode ? "Daml Source" : "Decompiled LF"}
             </Badge>
           </div>

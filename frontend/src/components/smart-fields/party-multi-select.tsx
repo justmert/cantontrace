@@ -111,7 +111,7 @@ export function PartyMultiSelect({
                 <Badge
                   key={party}
                   variant="secondary"
-                  className="gap-1 font-mono text-[10px]"
+                  className="gap-1 font-mono text-xs"
                 >
                   {truncateId(party, 20)}
                   <button
@@ -164,7 +164,7 @@ export function PartyMultiSelect({
                   {!knownParties.includes(party) && (
                     <Badge
                       variant="outline"
-                      className="ml-auto text-[9px]"
+                      className="ml-auto text-[11px]"
                     >
                       custom
                     </Badge>

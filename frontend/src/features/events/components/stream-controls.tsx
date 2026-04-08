@@ -90,7 +90,7 @@ export function StreamControls({
 
       {/* Event shape counts */}
       {shapeCounts && eventCount > 0 && (
-        <div className="flex items-center gap-2.5 text-[11px] tabular-nums">
+        <div className="flex items-center gap-2.5 text-xs tabular-nums">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>

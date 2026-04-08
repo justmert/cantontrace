@@ -50,7 +50,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2">
       <div className="flex flex-col gap-0.5 overflow-hidden">
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           {label}
         </span>
         <span className="truncate font-mono text-xs">{value}</span>

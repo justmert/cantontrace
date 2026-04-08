@@ -46,6 +46,7 @@ import { registerPrivacyRoutes } from './routes/privacy.js';
 import { registerSandboxRoutes } from './routes/sandboxes.js';
 import { registerReassignmentRoutes } from './routes/reassignments.js';
 import { registerCIRoutes } from './routes/ci.js';
+import { registerExecuteRoutes } from './routes/execute.js';
 
 // ============================================================
 // Configuration
@@ -225,6 +226,7 @@ async function buildServer() {
   registerSandboxRoutes(app);
   registerReassignmentRoutes(app);
   registerCIRoutes(app);
+  registerExecuteRoutes(app);
 
   // ============================================================
   // Graceful Shutdown

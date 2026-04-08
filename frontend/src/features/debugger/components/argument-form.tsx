@@ -200,7 +200,7 @@ function OptionalField({
             if (!checked) onChange(undefined);
           }}
         />
-        <Label className="text-[10px] text-muted-foreground">
+        <Label className="text-xs text-muted-foreground">
           {enabled ? "Some" : "None"}
         </Label>
       </div>
@@ -238,14 +238,14 @@ function ListField({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           {items.length} item{items.length !== 1 ? "s" : ""}
         </span>
         <Button
           size="sm"
           variant="outline"
           onClick={addItem}
-          className="h-6 text-[10px]"
+          className="h-6 text-xs"
         >
           <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" strokeWidth={2} />
           Add
@@ -316,11 +316,11 @@ function RecordField({
                 <div className="flex items-center gap-2">
                   <Label className="text-xs">{f.name}</Label>
                   {f.optional && (
-                    <Badge variant="outline" className="text-[8px]">
+                    <Badge variant="outline" className="text-[10px]">
                       optional
                     </Badge>
                   )}
-                  <span className="ml-auto text-[9px] text-muted-foreground">
+                  <span className="ml-auto text-[11px] text-muted-foreground">
                     {f.type}
                   </span>
                 </div>
@@ -474,11 +474,11 @@ export function ArgumentForm({
           <div className="flex items-center gap-2">
             <Label className="text-xs font-medium">{param.name}</Label>
             {param.optional && (
-              <Badge variant="outline" className="text-[9px]">
+              <Badge variant="outline" className="text-[11px]">
                 optional
               </Badge>
             )}
-            <span className="ml-auto text-[10px] text-muted-foreground">
+            <span className="ml-auto text-xs text-muted-foreground">
               {param.type}
             </span>
           </div>

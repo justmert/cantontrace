@@ -62,13 +62,13 @@ export function CreateNode({ data }: NodeProps) {
 
       <div className="flex flex-col gap-1 overflow-hidden px-3 py-2">
         <div className="flex items-center gap-1 overflow-hidden">
-          <span className="shrink-0 text-[10px] text-muted-foreground">Contract:</span>
+          <span className="shrink-0 text-xs text-muted-foreground">Contract:</span>
           <IdBadge id={event.contractId} truncateLen={8} href={`/contracts/${encodeURIComponent(event.contractId)}`} />
         </div>
 
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
         >
           {expanded ? (
             <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} className="size-3" />
@@ -114,7 +114,7 @@ export function ExerciseNode({ data }: NodeProps) {
         </span>
         <Badge
           variant={event.consuming ? "destructive" : "secondary"}
-          className="ml-auto text-[8px] px-1 py-0"
+          className="ml-auto text-[10px] px-1 py-0"
         >
           {event.consuming ? "Consuming" : "Non-consuming"}
         </Badge>
@@ -128,22 +128,22 @@ export function ExerciseNode({ data }: NodeProps) {
         </div>
 
         <div className="flex items-center gap-1 overflow-hidden">
-          <span className="shrink-0 text-[10px] text-muted-foreground">Template:</span>
+          <span className="shrink-0 text-xs text-muted-foreground">Template:</span>
           <a
             href={`/templates?template=${encodeURIComponent(formatTemplateId(event.templateId))}`}
-            className="truncate text-[10px] text-event-exercise hover:underline"
+            className="truncate text-xs text-event-exercise hover:underline"
           >
             {event.templateId.entityName}
           </a>
         </div>
 
         <div className="flex items-center gap-1 overflow-hidden">
-          <span className="shrink-0 text-[10px] text-muted-foreground">Contract:</span>
+          <span className="shrink-0 text-xs text-muted-foreground">Contract:</span>
           <IdBadge id={event.contractId} truncateLen={8} href={`/contracts/${encodeURIComponent(event.contractId)}`} />
         </div>
 
         <div className="flex items-center gap-1 overflow-hidden">
-          <span className="shrink-0 text-[10px] text-muted-foreground">Actor:</span>
+          <span className="shrink-0 text-xs text-muted-foreground">Actor:</span>
           <div className="flex flex-wrap gap-0.5">
             {event.actingParties.map((p) => (
               <PartyBadge key={p} party={p} variant="compact" />
@@ -153,7 +153,7 @@ export function ExerciseNode({ data }: NodeProps) {
 
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
         >
           {expanded ? (
             <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} className="size-3" />
@@ -203,7 +203,7 @@ export function ArchiveNode({ data }: NodeProps) {
 
       <div className="flex flex-col gap-1 overflow-hidden px-3 py-2">
         <div className="flex items-center gap-1 overflow-hidden">
-          <span className="shrink-0 text-[10px] text-muted-foreground">Contract:</span>
+          <span className="shrink-0 text-xs text-muted-foreground">Contract:</span>
           <IdBadge id={event.contractId} truncateLen={8} href={`/contracts/${encodeURIComponent(event.contractId)}`} />
         </div>
       </div>

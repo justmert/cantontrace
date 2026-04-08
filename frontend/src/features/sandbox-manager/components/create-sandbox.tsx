@@ -1,304 +1,71 @@
-import React, { useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  Add01Icon,
-  Cancel01Icon,
-  Loading03Icon,
-  CheckmarkCircle02Icon,
-  CircleIcon,
-} from "@hugeicons/core-free-icons";
+import { Add01Icon, Loading03Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
-import {
-  FieldGroup,
-  Field,
-  FieldLabel,
-  FieldDescription,
-} from "@/components/ui/field";
-import { cn } from "@/lib/utils";
-import { DarUpload } from "./dar-upload";
-import { useCreateSandbox, useUploadDar } from "../hooks";
-
-// ---------------------------------------------------------------------------
-// Provisioning steps
-// ---------------------------------------------------------------------------
-
-type ProvisioningStep =
-  | "idle"
-  | "creating"
-  | "starting_node"
-  | "uploading_dar"
-  | "allocating_parties"
-  | "ready"
-  | "error";
-
-const STEP_LABELS: Record<ProvisioningStep, string> = {
-  idle: "",
-  creating: "Creating sandbox instance...",
-  starting_node: "Starting Canton node...",
-  uploading_dar: "Uploading DAR...",
-  allocating_parties: "Allocating parties...",
-  ready: "Ready!",
-  error: "Error occurred",
-};
-
-const STEP_ORDER: ProvisioningStep[] = [
-  "creating",
-  "starting_node",
-  "uploading_dar",
-  "allocating_parties",
-  "ready",
-];
-
-function ProvisioningProgress({
-  currentStep,
-  hasDar,
-  hasParties,
-}: {
-  currentStep: ProvisioningStep;
-  hasDar: boolean;
-  hasParties: boolean;
-}) {
-  const activeSteps = STEP_ORDER.filter((s) => {
-    if (s === "uploading_dar" && !hasDar) return false;
-    if (s === "allocating_parties" && !hasParties) return false;
-    return true;
-  });
-
-  const currentIdx = activeSteps.indexOf(currentStep);
-
-  return (
-    <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-4">
-      {activeSteps.map((step, idx) => {
-        const isCompleted = idx < currentIdx || currentStep === "ready";
-        const isActive = step === currentStep && currentStep !== "ready";
-
-        return (
-          <div
-            key={step}
-            className={cn(
-              "flex items-center gap-2.5 text-sm transition-all",
-              isCompleted && "text-primary",
-              isActive && "text-foreground font-medium",
-              !isCompleted && !isActive && "text-muted-foreground"
-            )}
-          >
-            {isCompleted ? (
-              <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-4" />
-            ) : isActive ? (
-              <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-4 animate-spin text-primary" />
-            ) : (
-              <HugeiconsIcon icon={CircleIcon} strokeWidth={2} className="size-4" />
-            )}
-            <span>{STEP_LABELS[step]}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Create Sandbox Form
-// ---------------------------------------------------------------------------
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { useCreateSandbox } from "../hooks";
 
 export interface CreateSandboxFormProps {
   onCreated?: (sandboxId: string) => void;
+  onClose?: () => void;
 }
 
-export function CreateSandboxForm({ onCreated }: CreateSandboxFormProps) {
-  const [partyInput, setPartyInput] = useState("");
-  const [parties, setParties] = useState<string[]>([]);
-  const [enableProfiling, setEnableProfiling] = useState(false);
-  const [darFile, setDarFile] = useState<File | null>(null);
-  const [provisioningStep, setProvisioningStep] =
-    useState<ProvisioningStep>("idle");
-  const [autoConnect, setAutoConnect] = useState(true);
-
+export function CreateSandboxForm({ onCreated, onClose }: CreateSandboxFormProps) {
+  const [sandboxName, setSandboxName] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
   const createSandbox = useCreateSandbox();
-  const uploadDar = useUploadDar();
-
-  const handleAddParty = useCallback(() => {
-    const trimmed = partyInput.trim();
-    if (trimmed && !parties.includes(trimmed)) {
-      setParties((prev) => [...prev, trimmed]);
-      setPartyInput("");
-    }
-  }, [partyInput, parties]);
-
-  const handleRemoveParty = useCallback((party: string) => {
-    setParties((prev) => prev.filter((p) => p !== party));
-  }, []);
-
-  const handlePartyKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleAddParty();
-    } else if (e.key === "," || e.key === "Tab") {
-      e.preventDefault();
-      handleAddParty();
-    }
-  };
-
-  const handleDarSelect = useCallback((file: File) => {
-    setDarFile(file);
-  }, []);
 
   const handleCreate = useCallback(async () => {
     try {
-      setProvisioningStep("creating");
+      setErrorMessage(null);
+      setIsCreating(true);
       const sandbox = await createSandbox.mutateAsync({
-        parties: parties.length > 0 ? parties : undefined,
-        enableProfiling,
+        name: sandboxName.trim() || undefined,
       });
 
-      setProvisioningStep("starting_node");
-
-      if (darFile) {
-        setProvisioningStep("uploading_dar");
-        await uploadDar.mutateAsync({
-          sandboxId: sandbox.id,
-          dar: darFile,
-        });
-      }
-
-      setProvisioningStep("ready");
       onCreated?.(sandbox.id);
-
-      setTimeout(() => {
-        setProvisioningStep("idle");
-        setParties([]);
-        setDarFile(null);
-        setEnableProfiling(false);
-      }, 2000);
-    } catch {
-      setProvisioningStep("error");
-      setTimeout(() => setProvisioningStep("idle"), 3000);
+      onClose?.();
+      setSandboxName("");
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "Failed to create sandbox"
+      );
+    } finally {
+      setIsCreating(false);
     }
-  }, [
-    createSandbox,
-    uploadDar,
-    parties,
-    enableProfiling,
-    darFile,
-    onCreated,
-  ]);
-
-  const isProvisioning =
-    provisioningStep !== "idle" && provisioningStep !== "error";
+  }, [createSandbox, sandboxName, onCreated, onClose]);
 
   return (
     <FieldGroup>
-      {/* DAR upload */}
       <Field>
-        <FieldLabel className="text-xs">DAR File (optional)</FieldLabel>
-        <DarUpload
-          onUpload={handleDarSelect}
-          isUploading={provisioningStep === "uploading_dar"}
+        <FieldLabel className="text-xs">Name</FieldLabel>
+        <Input
+          placeholder="My Sandbox"
+          value={sandboxName}
+          onChange={(e) => setSandboxName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+          disabled={isCreating}
+          className="h-8"
         />
       </Field>
 
-      {/* Party names */}
-      <Field>
-        <FieldLabel className="text-xs">Party Names</FieldLabel>
-        <div className="flex gap-2">
-          <Input
-            className="flex-1 text-xs"
-            placeholder="Enter party name, press Enter or comma to add"
-            value={partyInput}
-            onChange={(e) => setPartyInput(e.target.value)}
-            onKeyDown={handlePartyKeyDown}
-            disabled={isProvisioning}
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleAddParty}
-            disabled={!partyInput.trim() || isProvisioning}
-          >
-            <HugeiconsIcon icon={Add01Icon} strokeWidth={2} className="size-3.5" />
-          </Button>
-        </div>
-        {parties.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pt-1">
-            {parties.map((party) => (
-              <Badge
-                key={party}
-                variant="secondary"
-                className="flex items-center gap-1 font-mono text-xs"
-              >
-                {party}
-                <button
-                  onClick={() => handleRemoveParty(party)}
-                  className="ml-0.5 rounded-full hover:bg-muted"
-                  disabled={isProvisioning}
-                >
-                  <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-3" />
-                </button>
-              </Badge>
-            ))}
-          </div>
-        )}
-      </Field>
-
-      {/* Profiling toggle */}
-      <Field orientation="horizontal">
-        <div className="flex flex-col gap-0.5">
-          <FieldLabel className="text-xs font-medium">Enable Profiling</FieldLabel>
-          <FieldDescription>
-            May require Enterprise Edition
-          </FieldDescription>
-        </div>
-        <Switch
-          checked={enableProfiling}
-          onCheckedChange={setEnableProfiling}
-          disabled={isProvisioning}
-        />
-      </Field>
-
-      {/* Auto-connect toggle */}
-      <Field orientation="horizontal">
-        <div className="flex flex-col gap-0.5">
-          <FieldLabel className="text-xs font-medium">Auto-Connect</FieldLabel>
-          <FieldDescription>
-            Set as active connection when ready
-          </FieldDescription>
-        </div>
-        <Switch
-          checked={autoConnect}
-          onCheckedChange={setAutoConnect}
-          disabled={isProvisioning}
-        />
-      </Field>
-
-      {/* Provisioning progress */}
-      {provisioningStep !== "idle" && (
-        <ProvisioningProgress
-          currentStep={provisioningStep}
-          hasDar={!!darFile}
-          hasParties={parties.length > 0}
-        />
-      )}
-
-      {/* Error state */}
-      {provisioningStep === "error" && (
+      {errorMessage && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-xs text-destructive">
-          Failed to create sandbox. Please try again.
+          {errorMessage}
         </div>
       )}
 
-      {/* Create button */}
       <Button
         className="w-full"
         onClick={handleCreate}
-        disabled={isProvisioning}
+        disabled={isCreating}
       >
-        {isProvisioning ? (
+        {isCreating ? (
           <>
             <HugeiconsIcon icon={Loading03Icon} data-icon="inline-start" strokeWidth={2} className="animate-spin" />
-            Provisioning...
+            Creating...
           </>
         ) : (
           <>
@@ -311,5 +78,4 @@ export function CreateSandboxForm({ onCreated }: CreateSandboxFormProps) {
   );
 }
 
-// Keep backward-compatible export
 export const CreateSandbox = CreateSandboxForm;

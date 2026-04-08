@@ -93,7 +93,7 @@ export function WorkflowTransactionCard({
                 <span>
                   <Badge
                     variant="secondary"
-                    className="max-w-[100px] truncate text-[10px]"
+                    className="max-w-[100px] truncate text-xs"
                   >
                     {party}
                   </Badge>
@@ -105,7 +105,7 @@ export function WorkflowTransactionCard({
             </Tooltip>
           ))}
           {tx.actingParties.length > 2 && (
-            <Badge variant="secondary" className="text-[10px]">
+            <Badge variant="secondary" className="text-xs">
               +{tx.actingParties.length - 2}
             </Badge>
           )}
@@ -117,7 +117,7 @@ export function WorkflowTransactionCard({
             <Tooltip>
               <TooltipTrigger asChild>
                 <span>
-                  <Badge className="bg-primary/15 text-primary hover:bg-primary/25 text-[10px]">
+                  <Badge className="bg-primary/15 text-primary hover:bg-primary/25 text-xs">
                     +{tx.contractsCreated.length} created
                   </Badge>
                 </span>
@@ -137,7 +137,7 @@ export function WorkflowTransactionCard({
             <Tooltip>
               <TooltipTrigger asChild>
                 <span>
-                  <Badge className="bg-destructive/15 text-destructive hover:bg-destructive/25 text-[10px]">
+                  <Badge className="bg-destructive/15 text-destructive hover:bg-destructive/25 text-xs">
                     -{tx.contractsConsumed.length} consumed
                   </Badge>
                 </span>
@@ -156,7 +156,7 @@ export function WorkflowTransactionCard({
         </div>
 
         {/* Timestamp */}
-        <div className="text-[10px] font-mono text-muted-foreground">
+        <div className="text-xs font-mono text-muted-foreground">
           {timeStr}
         </div>
 

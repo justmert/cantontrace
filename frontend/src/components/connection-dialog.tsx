@@ -1,10 +1,15 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Loading03Icon,
   Plug01Icon,
   ServerStack01Icon,
+  Add01Icon,
+  Plug02Icon,
 } from "@hugeicons/core-free-icons";
+import { api } from "@/lib/api";
+import type { Sandbox } from "@/lib/types";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { useNavigate } from "@tanstack/react-router";
 import { useConnectionStore } from "@/stores/connection-store";
 
 interface ConnectionDialogProps {
@@ -187,43 +193,123 @@ export function ConnectionDialog({ open, onOpenChange }: ConnectionDialogProps) 
           </TabsContent>
 
           <TabsContent value="sandbox" className="pt-4">
-            <div className="flex flex-col gap-4">
-              <p className="text-sm text-muted-foreground">
-                Create a local Canton sandbox for development and testing. This
-                will provision a new sandbox with default configuration.
-              </p>
-
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              {isConnecting && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-4 animate-spin" />
-                  <span>Provisioning sandbox...</span>
-                </div>
-              )}
-
-              <Button
-                onClick={handleCreateSandbox}
-                disabled={isConnecting}
-                className="w-full"
-              >
-                {isConnecting ? (
-                  <>
-                    <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-4 animate-spin" data-icon="inline-start" />
-                    Creating Sandbox...
-                  </>
-                ) : (
-                  "Create Sandbox"
-                )}
-              </Button>
-            </div>
+            <SandboxTabContent
+              isConnecting={isConnecting}
+              error={error}
+              onCreateSandbox={handleCreateSandbox}
+              onConnect={async (endpoint: string, sandboxId: string) => {
+                try {
+                  await connect({ ledgerApiEndpoint: endpoint, sandboxId });
+                  onOpenChange(false);
+                } catch { /* error handled by store */ }
+              }}
+              onOpenChange={onOpenChange}
+            />
           </TabsContent>
         </Tabs>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sandbox tab — shows existing sandboxes + create new
+// ---------------------------------------------------------------------------
+
+function SandboxTabContent({
+  isConnecting,
+  error,
+  onCreateSandbox,
+  onConnect,
+  onOpenChange,
+}: {
+  isConnecting: boolean;
+  error: string | null;
+  onCreateSandbox: () => void;
+  onConnect: (endpoint: string, sandboxId: string) => void;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { data: sandboxes } = useQuery({
+    queryKey: ["sandboxes"],
+    queryFn: async () => {
+      const res = await api.getSandboxes();
+      return res.data as Sandbox[];
+    },
+    refetchInterval: 5000,
+  });
+
+  const runningSandboxes = (sandboxes ?? []).filter((s) => s.status === "running");
+  const hasSandboxes = runningSandboxes.length > 0;
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Existing running sandboxes */}
+      {hasSandboxes && (
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Running Sandboxes</span>
+          <div className="flex flex-col gap-1.5">
+            {runningSandboxes.map((sb) => (
+              <button
+                key={sb.id}
+                disabled={isConnecting}
+                onClick={() => onConnect(sb.ledgerApiEndpoint, sb.id)}
+                className="flex items-center gap-3 rounded-md border border-border/50 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
+              >
+                <span className="size-2 shrink-0 rounded-full bg-primary" />
+                <div className="flex flex-1 flex-col">
+                  <span className="font-mono text-sm font-medium">{sb.ledgerApiEndpoint}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {sb.parties.length} parties · {sb.uploadedDars.length} DARs
+                  </span>
+                </div>
+                <HugeiconsIcon icon={Plug02Icon} strokeWidth={2} className="size-4 text-muted-foreground" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Divider */}
+      {hasSandboxes && (
+        <div className="flex items-center gap-3">
+          <div className="h-px flex-1 bg-border/50" />
+          <span className="text-xs text-muted-foreground/50">or</span>
+          <div className="h-px flex-1 bg-border/50" />
+        </div>
+      )}
+
+      {/* Create new */}
+      <p className="text-sm text-muted-foreground">
+        {hasSandboxes
+          ? "Create another sandbox instance."
+          : "Create a local Canton sandbox for development and testing."}
+      </p>
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {isConnecting && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-4 animate-spin" />
+          <span>Provisioning sandbox...</span>
+        </div>
+      )}
+
+      <Button
+        onClick={() => {
+          onOpenChange(false);
+          // Navigate handled by parent — we just need to get to /sandbox
+          window.location.href = "/sandbox";
+        }}
+        variant="outline"
+        className="w-full"
+      >
+        <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
+        Create New Sandbox
+      </Button>
+    </div>
   );
 }

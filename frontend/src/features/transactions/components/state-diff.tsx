@@ -65,7 +65,7 @@ function ContractCard({
           {/* Signatories */}
           {contract.signatories && contract.signatories.length > 0 && (
             <div className="flex items-center gap-1 flex-wrap">
-              <span className="text-[10px] text-muted-foreground shrink-0">Signatories:</span>
+              <span className="text-xs text-muted-foreground shrink-0">Signatories:</span>
               {contract.signatories.map((party) => (
                 <PartyBadge key={party} party={party} variant="compact" />
               ))}

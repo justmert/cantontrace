@@ -250,7 +250,7 @@ function TimelineCard({
               <div className="flex flex-wrap items-center gap-2">
                 <span
                   className={cn(
-                    "inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold leading-none",
+                    "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold leading-none",
                     config.badgeClass
                   )}
                 >
@@ -273,7 +273,7 @@ function TimelineCard({
                   {formatTimestamp(timestamp)}
                 </span>
                 {offset && (
-                  <span className="font-mono text-[10px] text-muted-foreground/70">
+                  <span className="font-mono text-xs text-muted-foreground/70">
                     offset {offset}
                   </span>
                 )}
@@ -292,7 +292,7 @@ function TimelineCard({
               {/* Transaction link */}
               {updateId ? (
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     Tx
                   </span>
                   <IdBadge id={updateId} truncateLen={10} />
@@ -311,10 +311,10 @@ function TimelineCard({
                 </div>
               ) : offset ? (
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     Offset
                   </span>
-                  <span className="rounded-sm bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
+                  <span className="rounded-sm bg-muted/50 px-1 py-0.5 font-mono text-xs text-muted-foreground">
                     {offset}
                   </span>
                   {onNavigateOffset && (
@@ -331,7 +331,7 @@ function TimelineCard({
                   )}
                 </div>
               ) : (
-                <span className="text-[10px] text-muted-foreground italic">
+                <span className="text-xs text-muted-foreground italic">
                   Transaction ID not available
                 </span>
               )}
@@ -357,7 +357,7 @@ function TimelineCard({
               <div className="flex flex-wrap items-center gap-3 bg-muted/30 px-4 py-3">
                 {updateId ? (
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Transaction
                     </span>
                     <IdBadge id={updateId} truncateLen={14} />
@@ -378,7 +378,7 @@ function TimelineCard({
                   </div>
                 ) : offset ? (
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Offset
                     </span>
                     <span className="rounded-sm bg-muted/50 px-1 py-0.5 font-mono text-xs text-muted-foreground">
@@ -418,7 +418,7 @@ function TimelineCard({
               {/* Acting parties */}
               {actingParties && actingParties.length > 0 && (
                 <div className="flex flex-col gap-1.5 px-4 py-3">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     Acting Parties
                   </span>
                   <div className="flex flex-wrap gap-1.5">
@@ -518,7 +518,7 @@ export function LifecycleTimeline({
             {/* Signatories / Observers */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Signatories
                 </span>
                 <div className="flex flex-wrap gap-1.5">
@@ -528,7 +528,7 @@ export function LifecycleTimeline({
                 </div>
               </div>
               <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Observers
                 </span>
                 <div className="flex flex-wrap gap-1.5">
@@ -545,7 +545,7 @@ export function LifecycleTimeline({
 
             {/* Payload */}
             <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Payload
               </span>
               <div className="rounded-md border bg-muted/30 p-3">
@@ -584,7 +584,7 @@ export function LifecycleTimeline({
               <div className="flex flex-col gap-4">
                 {/* Choice arguments */}
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     Choice Arguments
                   </span>
                   <div className="rounded-md border bg-muted/30 p-3">
@@ -595,7 +595,7 @@ export function LifecycleTimeline({
                 {/* Child contracts */}
                 {exercise.childContractIds.length > 0 && (
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Child Contracts Created
                     </span>
                     <div className="flex flex-col gap-1.5">
@@ -640,7 +640,7 @@ export function LifecycleTimeline({
             <div className="flex flex-col gap-4">
               {/* Choice arguments */}
               <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Choice Arguments
                 </span>
                 <div className="rounded-md border bg-muted/30 p-3">
@@ -651,7 +651,7 @@ export function LifecycleTimeline({
               {/* Child contracts */}
               {lifecycle.archival.childContractIds.length > 0 && (
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     Child Contracts Created
                   </span>
                   <div className="flex flex-col gap-1.5">

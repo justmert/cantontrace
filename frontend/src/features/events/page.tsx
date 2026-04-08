@@ -266,7 +266,7 @@ function StreamTabContent({
             {/* Detail header */}
             <div className="flex items-center justify-between border-b px-4 py-3">
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className="text-[10px]">
+                <Badge variant="outline" className="text-xs">
                   {sel.event.eventType.toUpperCase()}
                 </Badge>
                 {"templateId" in sel.event && sel.event.templateId && (
@@ -303,7 +303,7 @@ function StreamTabContent({
 
               {/* Footer actions */}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>Update:</span>
                   <IdBadge id={sel.update.updateId} truncateLen={12} />
                 </div>

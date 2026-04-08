@@ -5,7 +5,7 @@ import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { router } from "@/router";
-import { useConnectionStore } from "@/stores/connection-store";
+import { useConnectionStore, setQueryClient } from "@/stores/connection-store";
 import { useEventStreamStore } from "@/stores/event-stream-store";
 
 const queryClient = new QueryClient({
@@ -16,6 +16,9 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Wire up query client for cache clearing on disconnect
+setQueryClient(queryClient);
 
 function AutoReconnect() {
   const checkExistingConnection = useConnectionStore(

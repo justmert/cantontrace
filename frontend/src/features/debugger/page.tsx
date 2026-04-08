@@ -5,6 +5,7 @@ import {
   AlertCircleIcon,
   LockIcon,
   DragDropVerticalIcon,
+  Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import { PageHeader } from "@/components/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,11 +15,14 @@ import { Spinner } from "@/components/ui/spinner";
 import type {
   SimulationRequest,
   SimulationResult,
+  ExecuteRequest,
+  ExecuteResult,
   TraceRequest,
   ExecutionTrace,
 } from "@/lib/types";
 import { ApiRequestError, api } from "@/lib/api";
-import { useSimulation, useTrace, useTraceNavigation } from "@/features/debugger/hooks";
+import { useSimulation, useExecute, useTrace, useTraceNavigation } from "@/features/debugger/hooks";
+import { useConnectionStore } from "@/stores/connection-store";
 import { useQuery } from "@tanstack/react-query";
 import { CommandBuilder } from "./components/command-builder";
 import { SimulationResultView } from "./components/simulation-result";
@@ -140,20 +144,28 @@ function ResizableTriplePanel({
 // ---------------------------------------------------------------------------
 
 export default function DebuggerPage() {
+  // Connection store for refreshing bootstrap after execute
+  const connectionStore = useConnectionStore();
+
   // Local state (reset on page navigation — avoids stale Zustand persistence)
   const [simResult, setSimResult] = useState<SimulationResult | null>(null);
+  const [lastExecuteResult, setLastExecuteResult] = useState<ExecuteResult | null>(null);
   const [trace, setTrace] = useState<ExecutionTrace | null>(null);
   const [activeTab, setActiveTab] = useState("simulation");
   const [lastRequest, setLastRequest] = useState<Record<string, unknown>>({});
+  const [executeBanner, setExecuteBanner] = useState<string | null>(null);
   const resetDebugger = useCallback(() => {
     setSimResult(null);
+    setLastExecuteResult(null);
     setTrace(null);
     setActiveTab("simulation");
     setLastRequest({});
+    setExecuteBanner(null);
   }, []);
 
   // Mutation state (not persisted — transient)
   const simulation = useSimulation();
+  const executeMutation = useExecute();
   const traceMutation = useTrace();
   const navigation = useTraceNavigation(trace?.steps.length ?? 0);
 
@@ -227,6 +239,48 @@ export default function DebuggerPage() {
     [traceMutation.mutate, navigationReset]
   );
 
+  // Handle execute
+  const handleExecute = useCallback(
+    (request: ExecuteRequest) => {
+      setActiveTab("simulation");
+      setExecuteBanner(null);
+
+      executeMutation.mutate(request, {
+        onSuccess: (data) => {
+          setLastExecuteResult(data);
+          // Convert ExecuteResult to SimulationResult shape for display
+          if (data.transactionTree) {
+            setSimResult({
+              mode: "online",
+              success: data.success,
+              transactionTree: data.transactionTree,
+              inputContracts: data.inputContracts,
+              error: data.error,
+              simulatedAt: data.executedAt,
+              atOffset: data.completionOffset,
+              stateDriftWarning: data.success
+                ? "This transaction was committed to the ledger."
+                : "Execution failed -- see error details.",
+            });
+          }
+          if (data.success) {
+            const txId = data.updateId
+              ? data.updateId.length > 16
+                ? data.updateId.slice(0, 16) + "..."
+                : data.updateId
+              : "unknown";
+            setExecuteBanner(
+              `Command submitted successfully. Transaction: ${txId}`
+            );
+            // Refresh bootstrap data (new contracts, new offset)
+            connectionStore.refreshBootstrap();
+          }
+        },
+      });
+    },
+    [executeMutation, connectionStore]
+  );
+
   // Current step data for trace
   const currentStep = trace?.steps[navigation.currentStep] ?? null;
   const previousStep =
@@ -251,7 +305,7 @@ export default function DebuggerPage() {
   const { data: packagesSummary } = useQuery({
     queryKey: ["packages-summary"],
     queryFn: () => api.getPackages().then((r) => r.data),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60_000,
   });
 
   const tracedPackageId = useMemo(() => {
@@ -286,10 +340,13 @@ export default function DebuggerPage() {
               </span>
             </>
           )}
+          {lastExecuteResult?.success && (
+            <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600">Committed</Badge>
+          )}
           {(simResult || trace) && (
             <button
               onClick={resetDebugger}
-              className="ml-2 text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+              className="ml-2 text-xs text-muted-foreground hover:text-destructive transition-colors"
             >
               Reset
             </button>
@@ -302,12 +359,57 @@ export default function DebuggerPage() {
         <CommandBuilder
           onSimulate={handleSimulate}
           onTrace={handleTrace}
+          onExecute={handleExecute}
           isSimulating={simulation.isPending}
           isTracing={traceMutation.isPending}
+          isExecuting={executeMutation.isPending}
           collapsed={cmdCollapsed}
           onCollapsedChange={setCmdCollapsed}
           initialValues={urlInitialValues}
         />
+
+        {/* Success banner for execution */}
+        {executeBanner && (
+          <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 px-5 py-3">
+            <HugeiconsIcon
+              icon={Tick02Icon}
+              className="size-5 flex-shrink-0 text-emerald-600"
+              strokeWidth={2}
+            />
+            <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+              {executeBanner}
+            </span>
+            <button
+              onClick={() => setExecuteBanner(null)}
+              className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* Error display for execution */}
+        {executeMutation.isError && activeTab === "simulation" &&
+          (() => {
+            const err = executeMutation.error;
+            return (
+              <div className="flex items-start gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 px-5 py-4">
+                <HugeiconsIcon
+                  icon={AlertCircleIcon}
+                  className="mt-0.5 size-5 flex-shrink-0 text-destructive"
+                  strokeWidth={2}
+                />
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm font-medium text-destructive">
+                    Execution Failed
+                  </span>
+                  <p className="text-sm text-destructive/80">
+                    {err?.message ?? "An unknown error occurred during execution"}
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
 
         {/* Error display for simulation */}
         {simulation.isError && activeTab === "simulation" &&
@@ -392,16 +494,16 @@ export default function DebuggerPage() {
 
           {/* Simulation tab */}
           <TabsContent value="simulation" className="min-h-0 flex-1 overflow-auto">
-            {simulation.isPending && (
+            {(simulation.isPending || executeMutation.isPending) && (
               <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border bg-muted/20 py-16 text-center">
                 <Spinner className="size-8" />
                 <p className="text-sm text-muted-foreground">
-                  Running simulation...
+                  {executeMutation.isPending ? "Executing command on ledger..." : "Running simulation..."}
                 </p>
               </div>
             )}
 
-            {simResult && !simulation.isPending && (
+            {simResult && !simulation.isPending && !executeMutation.isPending && (
               <div className="flex flex-col gap-4">
                 <SimulationResultView result={simResult} />
                 <Separator />
@@ -412,7 +514,7 @@ export default function DebuggerPage() {
               </div>
             )}
 
-            {!simResult && !simulation.isPending && (
+            {!simResult && !simulation.isPending && !executeMutation.isPending && (
               <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
                 <div className="text-4xl text-muted-foreground/20">{">"}</div>
                 <p className="text-sm text-muted-foreground">

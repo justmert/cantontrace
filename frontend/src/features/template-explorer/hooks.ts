@@ -8,7 +8,7 @@ export function usePackages() {
   return useQuery({
     queryKey: ["packages"],
     queryFn: () => api.getPackages().then((r) => r.data),
-    staleTime: 5 * 60 * 1000, // packages rarely change
+    staleTime: 60_000, // packages rarely change
   });
 }
 

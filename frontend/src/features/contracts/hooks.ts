@@ -95,7 +95,7 @@ export function usePackageSummaries() {
   return useQuery({
     queryKey: ["packages-summary"],
     queryFn: () => api.getPackages().then((r) => r.data),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60_000,
   });
 }
 

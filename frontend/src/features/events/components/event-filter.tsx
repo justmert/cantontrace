@@ -115,7 +115,7 @@ export function EventFilter({
               aria-label={`Toggle ${et.label} events`}
               aria-pressed={isActive}
               className={cn(
-                "flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] transition-colors",
+                "flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs transition-colors",
                 isActive
                   ? "border-border bg-secondary font-medium text-secondary-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground"
@@ -206,7 +206,7 @@ export function EventFilter({
         <div className="flex rounded-md border bg-muted p-0.5">
           <button
             className={cn(
-              "rounded-sm px-2 py-0.5 text-[11px] font-medium transition-colors",
+              "rounded-sm px-2 py-0.5 text-xs font-medium transition-colors",
               filter.transactionShape === "ACS_DELTA"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -218,7 +218,7 @@ export function EventFilter({
           </button>
           <button
             className={cn(
-              "rounded-sm px-2 py-0.5 text-[11px] font-medium transition-colors",
+              "rounded-sm px-2 py-0.5 text-xs font-medium transition-colors",
               filter.transactionShape === "LEDGER_EFFECTS"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"

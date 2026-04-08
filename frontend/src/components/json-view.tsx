@@ -17,7 +17,7 @@ interface JsonViewProps {
 
 export function JsonView({ data, defaultExpandDepth = 2, label, className }: JsonViewProps) {
   return (
-    <div className={cn("font-mono text-[11px] leading-relaxed", className)}>
+    <div className={cn("font-mono text-xs leading-relaxed", className)}>
       {label && <span className="text-muted-foreground">{label}: </span>}
       <JsonNode value={data} depth={0} defaultExpandDepth={defaultExpandDepth} />
     </div>
@@ -95,7 +95,7 @@ function CollapsibleObject({
         onClick={() => setExpanded(true)}
         className="text-muted-foreground hover:text-foreground"
       >
-        {"{"} <span className="text-[10px]">{entries.length} fields</span> {"}"}
+        {"{"} <span className="text-xs">{entries.length} fields</span> {"}"}
       </button>
     );
   }
@@ -142,7 +142,7 @@ function CollapsibleArray({
         onClick={() => setExpanded(true)}
         className="text-muted-foreground hover:text-foreground"
       >
-        [<span className="text-[10px]">{items.length} items</span>]
+        [<span className="text-xs">{items.length} items</span>]
       </button>
     );
   }

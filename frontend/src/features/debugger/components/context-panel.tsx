@@ -131,7 +131,7 @@ function ContractsTab({ step, trace }: ContractsTabProps) {
               className="flex flex-col gap-2 rounded-md border border-border bg-card p-3"
             >
               {c.templateId && (
-                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   {c.templateId}
                 </span>
               )}
@@ -145,7 +145,7 @@ function ContractsTab({ step, trace }: ContractsTabProps) {
                 <Badge
                   variant="outline"
                   className={cn(
-                    "flex-shrink-0 text-[9px]",
+                    "flex-shrink-0 text-[11px]",
                     c.eventType === "created" && "border-primary/30 text-primary",
                     c.eventType === "exercised" && "border-event-exercise/30 text-event-exercise",
                   )}
@@ -163,7 +163,7 @@ function ContractsTab({ step, trace }: ContractsTabProps) {
                       ? formatted.slice(0, 30) + "..."
                       : formatted;
                     return (
-                      <span key={k} className="text-[10px] text-foreground" title={`${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`}>
+                      <span key={k} className="text-xs text-foreground" title={`${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`}>
                         <span className="text-muted-foreground">{k}:</span>{" "}
                         <span className="font-mono">{display}</span>
                       </span>
@@ -173,7 +173,7 @@ function ContractsTab({ step, trace }: ContractsTabProps) {
               )}
               <a
                 href={`/contracts/${encodeURIComponent(c.contractId)}`}
-                className="flex items-center gap-1 text-[10px] text-primary hover:underline"
+                className="flex items-center gap-1 text-xs text-primary hover:underline"
               >
                 <HugeiconsIcon icon={LinkSquare01Icon} className="size-2.5" strokeWidth={2} />
                 View Lifecycle
@@ -251,7 +251,7 @@ function AuthorizationTab({ step, trace, currentStepIndex }: AuthorizationTabPro
     <ScrollArea className="min-h-0 flex-1">
       <div className="flex flex-col gap-4 p-3">
         <div className="flex flex-col gap-1.5">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Acting As (Provided)
           </span>
           <div className="flex flex-wrap gap-1">
@@ -259,7 +259,7 @@ function AuthorizationTab({ step, trace, currentStepIndex }: AuthorizationTabPro
               <span className="text-xs text-muted-foreground">None</span>
             ) : (
               provided.map((p) => (
-                <Badge key={p} variant="outline" className="max-w-full font-mono text-[10px]" title={p}>
+                <Badge key={p} variant="outline" className="max-w-full font-mono text-xs" title={p}>
                   <span className="truncate">{formatPartyDisplay(p)}</span>
                 </Badge>
               ))
@@ -268,7 +268,7 @@ function AuthorizationTab({ step, trace, currentStepIndex }: AuthorizationTabPro
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Required Signatories
           </span>
           <div className="flex flex-wrap gap-1">
@@ -282,7 +282,7 @@ function AuthorizationTab({ step, trace, currentStepIndex }: AuthorizationTabPro
                     key={r}
                     variant="outline"
                     className={cn(
-                      "flex max-w-full items-center gap-1 font-mono text-[10px]",
+                      "flex max-w-full items-center gap-1 font-mono text-xs",
                       met ? "border-primary/30 text-primary" : "border-destructive/30 text-destructive"
                     )}
                     title={r}
@@ -423,10 +423,10 @@ function TransactionTreeTab({ trace, currentStepIndex: _currentStepIndex }: Tran
             <div className="flex flex-col gap-0.5 overflow-hidden">
               <div className="flex items-center gap-1.5">
                 {hasExpandableContent && <HugeiconsIcon icon={Icon} className={cn("size-3 flex-shrink-0", colorClass)} strokeWidth={2} />}
-                <span className={cn("font-mono text-[11px] leading-tight", colorClass)}>{label}</span>
+                <span className={cn("font-mono text-xs leading-tight", colorClass)}>{label}</span>
               </div>
               {evt.contractId && (
-                <span className="font-mono text-[10px] text-muted-foreground" title={evt.contractId}>
+                <span className="font-mono text-xs text-muted-foreground" title={evt.contractId}>
                   {truncateId(evt.contractId, 20)}
                 </span>
               )}
@@ -442,12 +442,12 @@ function TransactionTreeTab({ trace, currentStepIndex: _currentStepIndex }: Tran
               {/* Exercise: choice args + acting parties */}
               {evt.eventType === "exercised" && evt.choiceArgument && Object.keys(evt.choiceArgument).length > 0 && (
                 <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Choice Arguments</span>
+                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Choice Arguments</span>
                   <div className="flex flex-col gap-0.5 rounded border bg-muted/30 p-2">
                     {Object.entries(evt.choiceArgument).map(([k, v]) => {
                       const isParty = typeof v === "string" && v.includes("::");
                       return (
-                        <span key={k} className="font-mono text-[10px]">
+                        <span key={k} className="font-mono text-xs">
                           <span className="text-muted-foreground">{k}:</span>{" "}
                           {isParty ? (
                             <TooltipProvider>
@@ -458,7 +458,7 @@ function TransactionTreeTab({ trace, currentStepIndex: _currentStepIndex }: Tran
                                   </span>
                                 </TooltipTrigger>
                                 <TooltipContent side="top">
-                                  <p className="max-w-xs break-all font-mono text-[10px]">{String(v)}</p>
+                                  <p className="max-w-xs break-all font-mono text-xs">{String(v)}</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -475,17 +475,17 @@ function TransactionTreeTab({ trace, currentStepIndex: _currentStepIndex }: Tran
               {/* Exercise: acting parties */}
               {evt.eventType === "exercised" && evt.actingParties && evt.actingParties.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[10px] text-muted-foreground">Acting Parties:</span>
+                  <span className="text-xs text-muted-foreground">Acting Parties:</span>
                   {evt.actingParties.map(p => (
                     <TooltipProvider key={p}>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Badge variant="outline" className="max-w-full cursor-help font-mono text-[9px]">
+                          <Badge variant="outline" className="max-w-full cursor-help font-mono text-[11px]">
                             <span className="truncate">{formatPartyDisplay(p)}</span>
                           </Badge>
                         </TooltipTrigger>
                         <TooltipContent side="top">
-                          <p className="max-w-xs break-all font-mono text-[10px]">{p}</p>
+                          <p className="max-w-xs break-all font-mono text-xs">{p}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -496,7 +496,7 @@ function TransactionTreeTab({ trace, currentStepIndex: _currentStepIndex }: Tran
               {/* Created / Archived: payload */}
               {evt.payload && Object.keys(evt.payload).length > 0 && (
                 <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     {evt.eventType === "archived" ? "Consumed Contract Payload" : "Contract Payload"}
                   </span>
                   <div className="flex flex-col gap-0.5 rounded border bg-muted/30 p-2">
@@ -504,7 +504,7 @@ function TransactionTreeTab({ trace, currentStepIndex: _currentStepIndex }: Tran
                       const isParty = typeof v === "string" && v.includes("::");
                       const isNumeric = typeof v === "string" && /^-?\d+\.\d+$/.test(v);
                       return (
-                        <span key={k} className="font-mono text-[10px]">
+                        <span key={k} className="font-mono text-xs">
                           <span className="text-muted-foreground">{k}:</span>{" "}
                           {isParty ? (
                             <TooltipProvider>
@@ -515,7 +515,7 @@ function TransactionTreeTab({ trace, currentStepIndex: _currentStepIndex }: Tran
                                   </span>
                                 </TooltipTrigger>
                                 <TooltipContent side="top">
-                                  <p className="max-w-xs break-all font-mono text-[10px]">{String(v)}</p>
+                                  <p className="max-w-xs break-all font-mono text-xs">{String(v)}</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -536,17 +536,17 @@ function TransactionTreeTab({ trace, currentStepIndex: _currentStepIndex }: Tran
               {/* Signatories */}
               {evt.signatories && evt.signatories.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[10px] text-muted-foreground">Signatories:</span>
+                  <span className="text-xs text-muted-foreground">Signatories:</span>
                   {evt.signatories.map(s => (
                     <TooltipProvider key={s}>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Badge variant="outline" className="max-w-full cursor-help font-mono text-[9px]">
+                          <Badge variant="outline" className="max-w-full cursor-help font-mono text-[11px]">
                             <span className="truncate">{formatPartyDisplay(s)}</span>
                           </Badge>
                         </TooltipTrigger>
                         <TooltipContent side="top">
-                          <p className="max-w-xs break-all font-mono text-[10px]">{s}</p>
+                          <p className="max-w-xs break-all font-mono text-xs">{s}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -557,17 +557,17 @@ function TransactionTreeTab({ trace, currentStepIndex: _currentStepIndex }: Tran
               {/* Observers */}
               {evt.observers && evt.observers.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[10px] text-muted-foreground">Observers:</span>
+                  <span className="text-xs text-muted-foreground">Observers:</span>
                   {evt.observers.map(o => (
                     <TooltipProvider key={o}>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Badge variant="outline" className="max-w-full cursor-help font-mono text-[9px]">
+                          <Badge variant="outline" className="max-w-full cursor-help font-mono text-[11px]">
                             <span className="truncate">{formatPartyDisplay(o)}</span>
                           </Badge>
                         </TooltipTrigger>
                         <TooltipContent side="top">
-                          <p className="max-w-xs break-all font-mono text-[10px]">{o}</p>
+                          <p className="max-w-xs break-all font-mono text-xs">{o}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -589,7 +589,7 @@ function TransactionTreeTab({ trace, currentStepIndex: _currentStepIndex }: Tran
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-0.5 p-2">
           <div className="mb-2 flex items-center gap-2 px-2">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Transaction {tx.updateId ? truncateId(tx.updateId, 12) : ""}
             </span>
           </div>
@@ -632,7 +632,7 @@ function TransactionTreeTab({ trace, currentStepIndex: _currentStepIndex }: Tran
               className="flex items-start gap-2 rounded-md px-2 py-1.5 text-xs"
             >
               <HugeiconsIcon icon={Icon} className="mt-0.5 size-3 flex-shrink-0" strokeWidth={2} />
-              <span className="font-mono text-[11px]">{s.summary}</span>
+              <span className="font-mono text-xs">{s.summary}</span>
             </div>
           );
         })}
@@ -689,7 +689,7 @@ export function ContextPanel({
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={cn(
-              "rounded-sm px-2 py-1 text-[10px] font-medium transition-colors",
+              "rounded-sm px-2 py-1 text-xs font-medium transition-colors",
               activeTab === tab
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"

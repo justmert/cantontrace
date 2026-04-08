@@ -151,7 +151,7 @@ export function VisibilityMatrix({
                         partyColors[party]?.bg
                       )}
                     />
-                    <span className="max-w-[80px] truncate font-mono text-[10px]">
+                    <span className="max-w-[80px] truncate font-mono text-xs">
                       {party}
                     </span>
                     <HugeiconsIcon
@@ -179,7 +179,7 @@ export function VisibilityMatrix({
                   <Badge
                     variant="outline"
                     className={cn(
-                      "text-[10px]",
+                      "text-xs",
                       event.eventType === "created" &&
                         "border-primary/50 text-primary",
                       event.eventType === "exercised" &&

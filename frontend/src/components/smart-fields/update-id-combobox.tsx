@@ -135,12 +135,12 @@ export function UpdateIdCombobox({
                 </span>
                 <Badge
                   variant="outline"
-                  className="ml-auto flex-shrink-0 text-[9px]"
+                  className="ml-auto flex-shrink-0 text-[11px]"
                 >
                   {c.status}
                 </Badge>
               </div>
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 {c.commandId && (
                   <span className="truncate">cmd: {truncateId(c.commandId, 16)}</span>
                 )}

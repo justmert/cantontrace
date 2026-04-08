@@ -163,13 +163,13 @@ export function ContractIdCombobox({
                   </span>
                   <Badge
                     variant="outline"
-                    className="ml-auto flex-shrink-0 text-[9px]"
+                    className="ml-auto flex-shrink-0 text-[11px]"
                   >
                     {formatTemplateId(c.templateId)}
                   </Badge>
                 </div>
                 {sublabel && (
-                  <span className="truncate text-[10px] text-muted-foreground">
+                  <span className="truncate text-xs text-muted-foreground">
                     {sublabel}
                   </span>
                 )}

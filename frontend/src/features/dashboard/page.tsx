@@ -84,7 +84,7 @@ function StatCard({
       onClick={onClick}
       className="group flex flex-col gap-1 rounded-xl border bg-card/50 px-4 py-3.5 text-left ring-1 ring-border/50 transition-all hover:bg-card hover:ring-primary/20"
     >
-      <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/50">
+      <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground/50">
         {label}
       </span>
       <div className="flex items-end justify-between">
@@ -97,7 +97,7 @@ function StatCard({
         )}
         {children}
       </div>
-      {sub && <span className="text-[10px] text-muted-foreground/60">{sub}</span>}
+      {sub && <span className="text-xs text-muted-foreground/60">{sub}</span>}
     </button>
   );
 }
@@ -146,14 +146,14 @@ function ActivityRow({
       <div className={cn("size-1.5 shrink-0 rounded-full", dotColor)} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-medium text-muted-foreground">{eventLabel}</span>
+          <span className="text-xs font-medium text-muted-foreground">{eventLabel}</span>
           {templateName && <span className="truncate font-mono text-xs">{templateName}</span>}
         </div>
         {actingParty && (
-          <span className="text-[10px] text-muted-foreground/50">by {formatPartyDisplay(actingParty)}</span>
+          <span className="text-xs text-muted-foreground/50">by {formatPartyDisplay(actingParty)}</span>
         )}
       </div>
-      <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/40">
+      <span className="shrink-0 text-xs tabular-nums text-muted-foreground/40">
         {eventCount}e · {time}
       </span>
     </button>
@@ -169,7 +169,7 @@ function PartyRow({ party, contractCount, onClick }: { party: string; contractCo
   return (
     <div className="flex items-center gap-2.5 px-3 py-1.5">
       <span
-        className="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold uppercase leading-none"
+        className="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold uppercase leading-none"
         style={{ backgroundColor: `oklch(0.75 0.1 ${hue})`, color: `oklch(0.25 0.05 ${hue})` }}
       >
         {name.charAt(0)}
@@ -181,10 +181,10 @@ function PartyRow({ party, contractCount, onClick }: { party: string; contractCo
       >
         {name}
         {contractCount != null && (
-          <span className="ml-1 font-mono text-[10px] text-muted-foreground/50">({contractCount})</span>
+          <span className="ml-1 font-mono text-xs text-muted-foreground/50">({contractCount})</span>
         )}
       </button>
-      <span className="hidden max-w-[140px] truncate font-mono text-[10px] text-muted-foreground/40 sm:block">
+      <span className="hidden max-w-[140px] truncate font-mono text-xs text-muted-foreground/40 sm:block">
         {truncateId(party, 20)}
       </span>
       <button
@@ -398,12 +398,12 @@ export default function DashboardPage() {
                 </h2>
                 <div className="flex items-center gap-3">
                   {events.length > 0 && (
-                    <span className="text-[10px] tabular-nums text-muted-foreground/40">{events.length} total</span>
+                    <span className="text-xs tabular-nums text-muted-foreground/40">{events.length} total</span>
                   )}
                   <button
                     type="button"
                     onClick={() => navigate({ to: "/events" })}
-                    className="flex items-center gap-1 text-[10px] text-muted-foreground/50 transition-colors hover:text-primary"
+                    className="flex items-center gap-1 text-xs text-muted-foreground/50 transition-colors hover:text-primary"
                   >
                     View all
                     <HugeiconsIcon icon={ArrowUpRight01Icon} strokeWidth={2} className="size-2.5" />
@@ -417,7 +417,7 @@ export default function DashboardPage() {
                     <HugeiconsIcon icon={Clock01Icon} strokeWidth={1.5} className="size-5 text-muted-foreground/50" />
                   </div>
                   <p className="text-xs font-medium text-muted-foreground/60">No events yet</p>
-                  <p className="mt-1 text-[10px] text-muted-foreground/40">Activity appears as transactions stream in</p>
+                  <p className="mt-1 text-xs text-muted-foreground/40">Activity appears as transactions stream in</p>
                 </div>
               ) : (
                 <div className="flex flex-col divide-y divide-border/20">
@@ -454,7 +454,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex flex-col gap-2 px-4 py-3">
                   {eventBreakdown.total === 0 ? (
-                    <p className="py-2 text-center text-[10px] text-muted-foreground/40">No events yet</p>
+                    <p className="py-2 text-center text-xs text-muted-foreground/40">No events yet</p>
                   ) : (
                     <>
                       <div className="flex items-center justify-between">
@@ -510,7 +510,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex flex-col divide-y divide-border/20">
                   {topTemplates.length === 0 ? (
-                    <p className="px-4 py-3 text-center text-[10px] text-muted-foreground/40">No activity yet</p>
+                    <p className="px-4 py-3 text-center text-xs text-muted-foreground/40">No activity yet</p>
                   ) : (
                     topTemplates.map(([name, count]) => (
                       <button
@@ -520,7 +520,7 @@ export default function DashboardPage() {
                         className="flex items-center justify-between px-4 py-2 text-left transition-colors hover:bg-muted/30"
                       >
                         <span className="truncate font-mono text-xs">{name}</span>
-                        <Badge variant="secondary" className="ml-2 shrink-0 px-1.5 py-0 text-[9px] tabular-nums">{count}</Badge>
+                        <Badge variant="secondary" className="ml-2 shrink-0 px-1.5 py-0 text-[11px] tabular-nums">{count}</Badge>
                       </button>
                     ))
                   )}
@@ -536,7 +536,7 @@ export default function DashboardPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 gap-1.5 text-[11px]"
+                    className="h-8 gap-1.5 text-xs"
                     onClick={() => navigate({ to: "/debugger" })}
                   >
                     <HugeiconsIcon icon={PlayIcon} strokeWidth={2} className="size-3" />
@@ -545,7 +545,7 @@ export default function DashboardPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 gap-1.5 text-[11px]"
+                    className="h-8 gap-1.5 text-xs"
                     onClick={() => navigate({ to: "/debugger" })}
                   >
                     <HugeiconsIcon icon={TestTube01Icon} strokeWidth={2} className="size-3" />
@@ -554,7 +554,7 @@ export default function DashboardPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 gap-1.5 text-[11px]"
+                    className="h-8 gap-1.5 text-xs"
                     onClick={() => navigate({ to: "/sandbox" })}
                   >
                     <HugeiconsIcon icon={PlusSignSquareIcon} strokeWidth={2} className="size-3" />
@@ -563,7 +563,7 @@ export default function DashboardPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 gap-1.5 text-[11px]"
+                    className="h-8 gap-1.5 text-xs"
                     onClick={() => navigate({ to: "/events" })}
                   >
                     <HugeiconsIcon icon={FileUploadIcon} strokeWidth={2} className="size-3" />
@@ -579,26 +579,26 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex flex-col gap-2 px-4 py-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-muted-foreground/50">Endpoint</span>
-                    <span className="max-w-[180px] truncate font-mono text-[11px] text-foreground/80">{endpoint}</span>
+                    <span className="text-xs text-muted-foreground/50">Endpoint</span>
+                    <span className="max-w-[180px] truncate font-mono text-xs text-foreground/80">{endpoint}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-muted-foreground/50">API</span>
-                    <span className="font-mono text-[11px] text-primary">{bootstrap.apiVersion}</span>
+                    <span className="text-xs text-muted-foreground/50">API</span>
+                    <span className="font-mono text-xs text-primary">{bootstrap.apiVersion}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-muted-foreground/50">Offset</span>
-                    <span className="font-mono text-[11px] tabular-nums">{bootstrap.currentOffset}</span>
+                    <span className="text-xs text-muted-foreground/50">Offset</span>
+                    <span className="font-mono text-xs tabular-nums">{bootstrap.currentOffset}</span>
                   </div>
                   {bootstrap.pruningOffset && bootstrap.pruningOffset !== "0" && (
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-muted-foreground/50">Pruned</span>
-                      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">&lt; {bootstrap.pruningOffset}</span>
+                      <span className="text-xs text-muted-foreground/50">Pruned</span>
+                      <span className="font-mono text-xs tabular-nums text-muted-foreground">&lt; {bootstrap.pruningOffset}</span>
                     </div>
                   )}
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-muted-foreground/50">Stream</span>
-                    <span className={cn("text-[11px]", isStreaming ? "text-event-create" : "text-muted-foreground")}>
+                    <span className="text-xs text-muted-foreground/50">Stream</span>
+                    <span className={cn("text-xs", isStreaming ? "text-event-create" : "text-muted-foreground")}>
                       {isStreaming ? "Live" : "Disconnected"}
                     </span>
                   </div>

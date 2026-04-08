@@ -220,7 +220,7 @@ export function TemplateDetail({
             <TabsTrigger value="choices" className="gap-1 text-xs">
               <HugeiconsIcon icon={Layers01Icon} strokeWidth={2} className="size-3.5" />
               Choices
-              <Badge variant="secondary" className="ml-1 px-1 py-0 text-[9px]">
+              <Badge variant="secondary" className="ml-1 px-1 py-0 text-[11px]">
                 {template.choices.length}
               </Badge>
             </TabsTrigger>
@@ -238,7 +238,7 @@ export function TemplateDetail({
               <TabsTrigger value="interfaces" className="gap-1 text-xs">
                 <HugeiconsIcon icon={InformationCircleIcon} strokeWidth={2} className="size-3.5" />
                 Interfaces
-                <Badge variant="secondary" className="ml-1 px-1 py-0 text-[9px]">
+                <Badge variant="secondary" className="ml-1 px-1 py-0 text-[11px]">
                   {template.implements.length}
                 </Badge>
               </TabsTrigger>
@@ -332,11 +332,11 @@ export function TemplateDetail({
                           </TableCell>
                           <TableCell className="py-2 text-xs">
                             {field.optional ? (
-                              <Badge variant="outline" className="text-[9px]">
+                              <Badge variant="outline" className="text-[11px]">
                                 Optional
                               </Badge>
                             ) : (
-                              <Badge variant="secondary" className="text-[9px]">
+                              <Badge variant="secondary" className="text-[11px]">
                                 Required
                               </Badge>
                             )}

@@ -171,7 +171,7 @@ export function EventDetail({ event }: { event: LedgerEvent }) {
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs font-semibold">{e.choice}</span>
-            <Badge variant={e.consuming ? "destructive" : "secondary"} className="text-[9px]">
+            <Badge variant={e.consuming ? "destructive" : "secondary"} className="text-[11px]">
               {e.consuming ? "Consuming" : "Non-consuming"}
             </Badge>
           </div>
@@ -386,7 +386,7 @@ function EventCard({
         </div>
 
         {/* Badge */}
-        <Badge variant={getBadgeVariant(event.eventType)} className={cn("shrink-0 text-[9px]", style.textColorClass)}>
+        <Badge variant={getBadgeVariant(event.eventType)} className={cn("shrink-0 text-[11px]", style.textColorClass)}>
           {event.eventType.toUpperCase()}
         </Badge>
 
@@ -425,7 +425,7 @@ function EventCard({
 
         {/* Payload preview for created events */}
         {payloadPreview && (
-          <span className="hidden truncate text-[10px] text-muted-foreground lg:inline">
+          <span className="hidden truncate text-xs text-muted-foreground lg:inline">
             {payloadPreview.map((f, i) => (
               <span key={f.key}>
                 {i > 0 && <span className="mx-1 text-muted-foreground/30">{"\u00B7"}</span>}
@@ -479,7 +479,7 @@ function EventCard({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="shrink-0 cursor-default font-mono text-[10px] text-muted-foreground">
+              <span className="shrink-0 cursor-default font-mono text-xs text-muted-foreground">
                 {formattedTime}
               </span>
             </TooltipTrigger>

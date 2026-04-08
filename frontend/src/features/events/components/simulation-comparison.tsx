@@ -117,7 +117,7 @@ function SidePanel({
       )}
 
       <div className="flex flex-col gap-1.5">
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Contracts in Scope
         </span>
         <ScrollArea className="max-h-[300px]">
@@ -212,10 +212,10 @@ export function SimulationComparison({
               <div className="flex size-8 items-center justify-center rounded-full border-2 border-primary bg-primary/10">
                 <HugeiconsIcon icon={Tick02Icon} className="size-4 text-primary" strokeWidth={2} />
               </div>
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 Simulation
               </span>
-              <span className="font-mono text-[10px]">
+              <span className="font-mono text-xs">
                 {simulationResult.atOffset}
               </span>
             </div>
@@ -227,10 +227,10 @@ export function SimulationComparison({
               <div className="flex size-8 items-center justify-center rounded-full border-2 border-destructive bg-destructive/10">
                 <HugeiconsIcon icon={Cancel01Icon} className="size-4 text-destructive" strokeWidth={2} />
               </div>
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 Execution
               </span>
-              <span className="font-mono text-[10px]">{executionOffset}</span>
+              <span className="font-mono text-xs">{executionOffset}</span>
             </div>
           </div>
         </CardContent>

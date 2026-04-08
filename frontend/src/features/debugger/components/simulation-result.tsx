@@ -64,7 +64,7 @@ function ContractCard({
       className={cn(
         "rounded-md border",
         isInput
-          ? "border-destructive/30"
+          ? "border-muted-foreground/30"
           : "border-primary/30"
       )}
     >
@@ -80,9 +80,9 @@ function ContractCard({
         <Badge
           variant="outline"
           className={cn(
-            "text-[9px]",
+            "text-[11px]",
             isInput
-              ? "border-destructive/30 text-destructive"
+              ? "border-muted-foreground/30 text-muted-foreground"
               : "border-primary/30 text-primary"
           )}
         >
@@ -94,12 +94,12 @@ function ContractCard({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="ml-auto cursor-help text-[10px] text-muted-foreground">
+              <span className="ml-auto cursor-help text-xs text-muted-foreground">
                 {contract.templateId.entityName}
               </span>
             </TooltipTrigger>
             <TooltipContent side="top">
-              <p className="font-mono text-[10px]">{formatTemplateId(contract.templateId)}</p>
+              <p className="font-mono text-xs">{formatTemplateId(contract.templateId)}</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -111,7 +111,7 @@ function ContractCard({
             {/* Template */}
             <div className="flex items-center gap-2 min-w-0">
               <span className="shrink-0 text-muted-foreground">Template:</span>
-              <Badge variant="outline" className="max-w-full font-mono text-[10px]">
+              <Badge variant="outline" className="max-w-full font-mono text-xs">
                 <span className="truncate">{formatTemplateId(contract.templateId)}</span>
               </Badge>
             </div>
@@ -123,7 +123,7 @@ function ContractCard({
               <CopyButton text={contract.contractId} />
               {onNavigateContract && (
                 <button
-                  className="flex items-center gap-1 text-[10px] text-primary hover:underline"
+                  className="flex items-center gap-1 text-xs text-primary hover:underline"
                   onClick={() => onNavigateContract(contract.contractId)}
                 >
                   <HugeiconsIcon icon={LinkSquare01Icon} className="size-2.5" strokeWidth={2} />
@@ -139,12 +139,12 @@ function ContractCard({
                 <TooltipProvider key={s}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Badge variant="outline" className="max-w-full cursor-help font-mono text-[9px]">
+                      <Badge variant="outline" className="max-w-full cursor-help font-mono text-[11px]">
                         <span className="truncate">{formatPartyDisplay(s)}</span>
                       </Badge>
                     </TooltipTrigger>
                     <TooltipContent side="top">
-                      <p className="max-w-xs break-all font-mono text-[10px]">{s}</p>
+                      <p className="max-w-xs break-all font-mono text-xs">{s}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -153,7 +153,7 @@ function ContractCard({
 
             {/* Decoded payload */}
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Payload
               </span>
               {contract.payload && Object.keys(contract.payload).length > 0 ? (
@@ -165,7 +165,7 @@ function ContractCard({
                       const isNumeric = typeof value === "string" && /^-?\d+\.\d+$/.test(value);
 
                       return (
-                        <div key={key} className="flex items-baseline gap-2 font-mono text-[10px]">
+                        <div key={key} className="flex items-baseline gap-2 font-mono text-xs">
                           <span className="shrink-0 text-muted-foreground">{key}:</span>
                           {isParty ? (
                             <TooltipProvider>
@@ -176,7 +176,7 @@ function ContractCard({
                                   </span>
                                 </TooltipTrigger>
                                 <TooltipContent side="top">
-                                  <p className="max-w-xs break-all font-mono text-[10px]">{String(value)}</p>
+                                  <p className="max-w-xs break-all font-mono text-xs">{String(value)}</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -194,7 +194,7 @@ function ContractCard({
                 </div>
               ) : (
                 <div className="rounded border border-dashed bg-muted/20 px-2 py-1.5">
-                  <span className="text-[10px] italic text-muted-foreground">
+                  <span className="text-xs italic text-muted-foreground">
                     Payload not available
                   </span>
                 </div>
@@ -288,9 +288,9 @@ function TreeNode({ event, depth }: { event: LedgerEvent; depth: number }) {
             {hasDetails && <HugeiconsIcon icon={Icon} className={cn("size-3 flex-shrink-0", colorClass)} strokeWidth={2} />}
             <span className={cn("font-medium", colorClass)}>{label}</span>
           </div>
-          <span className="truncate font-mono text-[10px] text-muted-foreground">{detail}</span>
+          <span className="truncate font-mono text-xs text-muted-foreground">{detail}</span>
           {actingParties && actingParties.length > 0 && (
-            <span className="text-[10px] text-muted-foreground/60">
+            <span className="text-xs text-muted-foreground/60">
               Actor: {actingParties.map(p => formatPartyDisplay(p)).join(", ")}
             </span>
           )}
@@ -306,7 +306,7 @@ function TreeNode({ event, depth }: { event: LedgerEvent; depth: number }) {
           {event.eventType === "exercised" && (
             <Badge
               variant={isConsuming ? "destructive" : "secondary"}
-              className="w-fit text-[9px]"
+              className="w-fit text-[11px]"
             >
               {isConsuming ? "Consuming" : "Non-consuming"}
             </Badge>
@@ -315,17 +315,17 @@ function TreeNode({ event, depth }: { event: LedgerEvent; depth: number }) {
           {/* Acting parties for exercise */}
           {actingParties && actingParties.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] text-muted-foreground">Acting Parties:</span>
+              <span className="text-xs text-muted-foreground">Acting Parties:</span>
               {actingParties.map(p => (
                 <TooltipProvider key={p}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Badge variant="outline" className="max-w-full cursor-help font-mono text-[9px]">
+                      <Badge variant="outline" className="max-w-full cursor-help font-mono text-[11px]">
                         <span className="truncate">{formatPartyDisplay(p)}</span>
                       </Badge>
                     </TooltipTrigger>
                     <TooltipContent side="top">
-                      <p className="max-w-xs break-all font-mono text-[10px]">{p}</p>
+                      <p className="max-w-xs break-all font-mono text-xs">{p}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -336,12 +336,12 @@ function TreeNode({ event, depth }: { event: LedgerEvent; depth: number }) {
           {/* Choice arguments for exercise */}
           {choiceArg && Object.keys(choiceArg).length > 0 && (
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Choice Arguments</span>
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Choice Arguments</span>
               <div className="flex flex-col gap-0.5 rounded border bg-muted/30 p-2">
                 {Object.entries(choiceArg).map(([k, v]) => {
                   const isParty = typeof v === "string" && v.includes("::");
                   return (
-                    <span key={k} className="font-mono text-[10px]">
+                    <span key={k} className="font-mono text-xs">
                       <span className="text-muted-foreground">{k}:</span>{" "}
                       {isParty ? (
                         <TooltipProvider>
@@ -352,7 +352,7 @@ function TreeNode({ event, depth }: { event: LedgerEvent; depth: number }) {
                               </span>
                             </TooltipTrigger>
                             <TooltipContent side="top">
-                              <p className="max-w-xs break-all font-mono text-[10px]">{String(v)}</p>
+                              <p className="max-w-xs break-all font-mono text-xs">{String(v)}</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -369,7 +369,7 @@ function TreeNode({ event, depth }: { event: LedgerEvent; depth: number }) {
           {/* Payload for created/archived */}
           {payload && Object.keys(payload).length > 0 && (
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 {event.eventType === "archived" ? "Consumed Contract Payload" : "Contract Payload"}
               </span>
               <div className="flex flex-col gap-0.5 rounded border bg-muted/30 p-2">
@@ -377,7 +377,7 @@ function TreeNode({ event, depth }: { event: LedgerEvent; depth: number }) {
                   const isParty = typeof v === "string" && v.includes("::");
                   const isNumeric = typeof v === "string" && /^-?\d+\.\d+$/.test(v);
                   return (
-                    <span key={k} className="font-mono text-[10px]">
+                    <span key={k} className="font-mono text-xs">
                       <span className="text-muted-foreground">{k}:</span>{" "}
                       {isParty ? (
                         <TooltipProvider>
@@ -388,7 +388,7 @@ function TreeNode({ event, depth }: { event: LedgerEvent; depth: number }) {
                               </span>
                             </TooltipTrigger>
                             <TooltipContent side="top">
-                              <p className="max-w-xs break-all font-mono text-[10px]">{String(v)}</p>
+                              <p className="max-w-xs break-all font-mono text-xs">{String(v)}</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -409,17 +409,17 @@ function TreeNode({ event, depth }: { event: LedgerEvent; depth: number }) {
           {/* Signatories */}
           {signatories && signatories.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] text-muted-foreground">Signatories:</span>
+              <span className="text-xs text-muted-foreground">Signatories:</span>
               {signatories.map(s => (
                 <TooltipProvider key={s}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Badge variant="outline" className="max-w-full cursor-help font-mono text-[9px]">
+                      <Badge variant="outline" className="max-w-full cursor-help font-mono text-[11px]">
                         <span className="truncate">{formatPartyDisplay(s)}</span>
                       </Badge>
                     </TooltipTrigger>
                     <TooltipContent side="top">
-                      <p className="max-w-xs break-all font-mono text-[10px]">{s}</p>
+                      <p className="max-w-xs break-all font-mono text-xs">{s}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -430,17 +430,17 @@ function TreeNode({ event, depth }: { event: LedgerEvent; depth: number }) {
           {/* Observers */}
           {observers && observers.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] text-muted-foreground">Observers:</span>
+              <span className="text-xs text-muted-foreground">Observers:</span>
               {observers.map(o => (
                 <TooltipProvider key={o}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Badge variant="outline" className="max-w-full cursor-help font-mono text-[9px]">
+                      <Badge variant="outline" className="max-w-full cursor-help font-mono text-[11px]">
                         <span className="truncate">{formatPartyDisplay(o)}</span>
                       </Badge>
                     </TooltipTrigger>
                     <TooltipContent side="top">
-                      <p className="max-w-xs break-all font-mono text-[10px]">{o}</p>
+                      <p className="max-w-xs break-all font-mono text-xs">{o}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -608,7 +608,7 @@ export function SimulationResultView({
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span>
                 Mode:{" "}
-                <Badge variant="outline" className="text-[9px]">
+                <Badge variant="outline" className="text-[11px]">
                   {result.mode}
                 </Badge>
               </span>
@@ -634,7 +634,7 @@ export function SimulationResultView({
                   <span className="text-xs font-semibold text-destructive">
                     {errorTitle(kind)}
                   </span>
-                  <Badge variant="outline" className="w-fit text-[9px] text-destructive/80">
+                  <Badge variant="outline" className="w-fit text-[11px] text-destructive/80">
                     {result.error.errorCodeId}
                   </Badge>
                   <p className="text-xs text-destructive/80">
@@ -646,7 +646,7 @@ export function SimulationResultView({
               {guidance && (
                 <div className="flex items-start gap-2 rounded-md border border-destructive/10 bg-card p-3">
                   <HugeiconsIcon icon={InformationCircleIcon} className="mt-0.5 size-3.5 flex-shrink-0 text-muted-foreground" strokeWidth={2} />
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {guidance}
                   </p>
                 </div>
@@ -654,7 +654,7 @@ export function SimulationResultView({
 
               {result.error.resourceInfo && (
                 <div className="flex flex-col gap-1 overflow-hidden rounded-md border border-destructive/10 bg-card p-3 text-xs">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     Resource Info
                   </span>
                   <div className="flex items-center gap-2 min-w-0">
@@ -670,7 +670,7 @@ export function SimulationResultView({
 
               {result.error.suggestedFixes && result.error.suggestedFixes.length > 0 && (
                 <div className="flex flex-col gap-1.5 rounded-md border border-destructive/10 bg-card p-3">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     Suggested Fixes
                   </span>
                   <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
@@ -696,7 +696,7 @@ export function SimulationResultView({
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm">Transaction Tree</CardTitle>
                   {result.transactionTree.stateDiff && (
-                    <span className="text-[10px] font-medium text-muted-foreground">
+                    <span className="text-xs font-medium text-muted-foreground">
                       {result.transactionTree.stateDiff.netChange}
                     </span>
                   )}
@@ -788,14 +788,14 @@ export function SimulationResultView({
           result.costEstimation.estimatedCost ? (
             <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
               <HugeiconsIcon icon={DollarCircleIcon} className="size-3.5 flex-shrink-0 text-muted-foreground" strokeWidth={2} />
-              <span className="text-[10px] font-medium text-muted-foreground">Cost:</span>
+              <span className="text-xs font-medium text-muted-foreground">Cost:</span>
               <span className="font-mono text-xs font-semibold">{result.costEstimation.estimatedCost}</span>
-              <span className="text-[10px] text-muted-foreground">{result.costEstimation.unit}</span>
+              <span className="text-xs text-muted-foreground">{result.costEstimation.unit}</span>
             </div>
           ) : (
             <div className="flex items-center gap-2 rounded-md border border-muted-foreground/15 bg-muted/30 px-3 py-1.5">
               <HugeiconsIcon icon={DollarCircleIcon} className="size-3.5 flex-shrink-0 text-muted-foreground/40" strokeWidth={2} />
-              <span className="text-[11px] text-muted-foreground/50">No cost data available from this participant</span>
+              <span className="text-xs text-muted-foreground/50">No cost data available from this participant</span>
             </div>
           )
         )}
@@ -805,7 +805,7 @@ export function SimulationResultView({
           <div className="flex flex-col gap-1 rounded-md border bg-muted/30 px-3 py-2">
             <div className="flex items-center gap-2">
               <HugeiconsIcon icon={HashtagIcon} className="size-3.5 flex-shrink-0 text-muted-foreground" strokeWidth={2} />
-              <span className="text-[10px] font-medium text-muted-foreground">Hash:</span>
+              <span className="text-xs font-medium text-muted-foreground">Hash:</span>
               <span className="min-w-0 truncate font-mono text-xs" title={result.hashInfo.transactionHash}>
                 {result.hashInfo.transactionHash}
               </span>
@@ -816,7 +816,7 @@ export function SimulationResultView({
                     <TooltipTrigger asChild>
                       <span className="flex items-center gap-1 cursor-help text-muted-foreground/70">
                         <HugeiconsIcon icon={Alert01Icon} className="size-3.5 flex-shrink-0" strokeWidth={2} />
-                        <span className="text-[10px] font-medium">Advisory</span>
+                        <span className="text-xs font-medium">Advisory</span>
                       </span>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
@@ -826,7 +826,7 @@ export function SimulationResultView({
                 </TooltipProvider>
               )}
             </div>
-            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span>Hashing scheme version: <span className="font-mono">{result.hashInfo.hashingSchemeVersion}</span></span>
             </div>
           </div>
@@ -872,7 +872,7 @@ export function SimulationResultView({
         {result.stateDriftWarning && (
           <div className="flex items-center gap-2 rounded-md border border-muted-foreground/15 bg-muted/30 px-3 py-1.5">
             <HugeiconsIcon icon={InformationCircleIcon} className="size-3.5 flex-shrink-0 text-muted-foreground/60" strokeWidth={2} />
-            <p className="text-[11px] text-muted-foreground/70">
+            <p className="text-xs text-muted-foreground/70">
               {result.stateDriftWarning}
             </p>
           </div>
