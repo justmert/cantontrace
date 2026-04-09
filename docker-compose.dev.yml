@@ -1,6 +1,12 @@
 version: '3.9'
 
 services:
+  canton-sandbox:
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+
   frontend:
     build:
       context: ./frontend
@@ -31,6 +37,7 @@ services:
       - DATABASE_URL=postgresql://cantontrace:cantontrace@postgres:5432/cantontrace
       - REDIS_URL=redis://redis:6379
       - ENGINE_SERVICE_URL=http://engine-service:3002
+      - CANTON_SANDBOX_ENDPOINT=canton-sandbox:10000
       - LOG_LEVEL=debug
     command: npx tsx watch src/server.ts
 

@@ -1,0 +1,50 @@
+version: '3.9'
+
+# Production overrides for cantontrace.com
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  # Replace self-signed nginx with Caddy (automatic Let's Encrypt)
+  nginx-proxy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    depends_on:
+      frontend:
+        condition: service_started
+      api-gateway:
+        condition: service_started
+    restart: always
+    networks:
+      - cantontrace
+
+  frontend:
+    restart: always
+
+  api-gateway:
+    env_file:
+      - .env.production
+    restart: always
+
+  canton-sandbox:
+    restart: always
+
+  engine-service:
+    restart: always
+
+  postgres:
+    restart: always
+
+  redis:
+    restart: always
+
+volumes:
+  caddy-data:
+  caddy-config:

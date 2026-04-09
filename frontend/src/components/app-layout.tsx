@@ -14,6 +14,7 @@ import {
   ArrowRight01Icon,
   Plug01Icon,
   Plug02Icon,
+  Logout01Icon,
 } from "@hugeicons/core-free-icons";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -24,9 +25,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ConnectionDialog } from "@/components/connection-dialog";
 import { CommandPalette } from "@/components/command-palette";
 import { useConnectionStore } from "@/stores/connection-store";
+import { useAuthStore } from "@/stores/auth-store";
 
 interface NavItem {
   title: string;
@@ -75,6 +78,19 @@ export function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { status, bootstrap, config } = useConnectionStore();
+  const { user, isLoading: authLoading, authEnabled, checkAuth, logout } = useAuthStore();
+
+  // Check authentication on mount
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  // Redirect to login if platform auth is enabled and user is not authenticated
+  useEffect(() => {
+    if (!authLoading && authEnabled && !user) {
+      navigate({ to: "/login" });
+    }
+  }, [authLoading, authEnabled, user, navigate]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -118,6 +134,20 @@ export function AppLayout() {
       .map((r) => r.party) ?? [];
 
   const knownParties = bootstrap?.knownParties ?? [];
+
+  // Show a minimal loading state while checking auth
+  if (authLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-lg bg-primary">
+            <span className="text-sm font-bold text-primary-foreground">CT</span>
+          </div>
+          <div className="size-5 animate-spin rounded-full border-2 border-muted-foreground/20 border-t-primary" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -269,6 +299,61 @@ export function AppLayout() {
               className="size-4"
             />
           </button>
+
+          {/* Authenticated user */}
+          {user && (
+            <>
+              <Separator className="my-1" />
+              {collapsed ? (
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={logout}
+                      className="flex w-full items-center justify-center rounded-md p-2 transition-colors hover:bg-sidebar-accent"
+                    >
+                      <Avatar className="size-6">
+                        <AvatarImage src={user.avatarUrl} alt={user.login} />
+                        <AvatarFallback className="text-[10px]">
+                          {user.login.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    {user.displayName} — Sign out
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <div className="flex items-center gap-2 rounded-md px-2 py-1.5">
+                  <Avatar className="size-6 shrink-0">
+                    <AvatarImage src={user.avatarUrl} alt={user.login} />
+                    <AvatarFallback className="text-[10px]">
+                      {user.login.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate text-xs font-medium text-sidebar-foreground">
+                      {user.displayName}
+                    </p>
+                    <p className="truncate text-[10px] text-muted-foreground">
+                      {user.login}
+                    </p>
+                  </div>
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={logout}
+                        className="shrink-0 rounded-md p-1 text-sidebar-foreground/40 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                      >
+                        <HugeiconsIcon icon={Logout01Icon} strokeWidth={2} className="size-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">Sign out</TooltipContent>
+                  </Tooltip>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </aside>
 

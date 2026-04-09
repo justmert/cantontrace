@@ -3,15 +3,30 @@ import {
   createRoute,
   createRootRoute,
   lazyRouteComponent,
+  Outlet,
 } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app-layout";
 
 const rootRoute = createRootRoute({
+  component: Outlet,
+});
+
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/login",
+  component: lazyRouteComponent(
+    () => import("@/features/auth/login-page")
+  ),
+});
+
+const appLayoutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: "app",
   component: AppLayout,
 });
 
 const dashboardRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: "/",
   component: lazyRouteComponent(
     () => import("@/features/dashboard/page")
@@ -19,7 +34,7 @@ const dashboardRoute = createRoute({
 });
 
 const contractsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: "/contracts",
   component: lazyRouteComponent(
     () => import("@/features/contracts/page")
@@ -27,7 +42,7 @@ const contractsRoute = createRoute({
 });
 
 const contractDetailRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: "/contracts/$contractId",
   component: lazyRouteComponent(
     () => import("@/features/contracts/page")
@@ -35,7 +50,7 @@ const contractDetailRoute = createRoute({
 });
 
 const templatesRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: "/templates",
   component: lazyRouteComponent(
     () => import("@/features/template-explorer/page")
@@ -43,7 +58,7 @@ const templatesRoute = createRoute({
 });
 
 const eventsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: "/events",
   component: lazyRouteComponent(
     () => import("@/features/events/page")
@@ -51,7 +66,7 @@ const eventsRoute = createRoute({
 });
 
 const transactionsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: "/transactions",
   component: lazyRouteComponent(
     () => import("@/features/transactions/page")
@@ -59,7 +74,7 @@ const transactionsRoute = createRoute({
 });
 
 const transactionDetailRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: "/transactions/$updateId",
   component: lazyRouteComponent(
     () => import("@/features/transactions/page")
@@ -67,7 +82,7 @@ const transactionDetailRoute = createRoute({
 });
 
 const debuggerRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: "/debugger",
   component: lazyRouteComponent(
     () => import("@/features/debugger/page")
@@ -75,7 +90,7 @@ const debuggerRoute = createRoute({
 });
 
 const sandboxRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: "/sandbox",
   component: lazyRouteComponent(
     () => import("@/features/sandbox-manager/page")
@@ -83,7 +98,7 @@ const sandboxRoute = createRoute({
 });
 
 const settingsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: "/settings",
   component: lazyRouteComponent(
     () => import("@/features/settings/page")
@@ -91,16 +106,19 @@ const settingsRoute = createRoute({
 });
 
 const routeTree = rootRoute.addChildren([
-  dashboardRoute,
-  contractsRoute,
-  contractDetailRoute,
-  templatesRoute,
-  eventsRoute,
-  transactionsRoute,
-  transactionDetailRoute,
-  debuggerRoute,
-  sandboxRoute,
-  settingsRoute,
+  loginRoute,
+  appLayoutRoute.addChildren([
+    dashboardRoute,
+    contractsRoute,
+    contractDetailRoute,
+    templatesRoute,
+    eventsRoute,
+    transactionsRoute,
+    transactionDetailRoute,
+    debuggerRoute,
+    sandboxRoute,
+    settingsRoute,
+  ]),
 ]);
 
 export const router = createRouter({ routeTree });

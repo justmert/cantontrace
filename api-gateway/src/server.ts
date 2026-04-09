@@ -16,6 +16,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import cookie from '@fastify/cookie';
 import websocket from '@fastify/websocket';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
@@ -25,7 +26,7 @@ import { Pool } from 'pg';
 // Middleware
 import { registerAuthMiddleware, type AuthConfig } from './middleware/auth.js';
 import { registerErrorHandler } from './middleware/error-handler.js';
-import { registerCantonContext } from './middleware/canton-context.js';
+import { registerSessionIdHook, registerCantonContext, disconnectAllSessions } from './middleware/canton-context.js';
 
 // Services
 import { CacheService } from './services/cache.js';
@@ -47,7 +48,8 @@ import { registerSandboxRoutes } from './routes/sandboxes.js';
 import { registerReassignmentRoutes } from './routes/reassignments.js';
 import { registerCIRoutes } from './routes/ci.js';
 import { registerExecuteRoutes } from './routes/execute.js';
-import { restoreSandboxes } from './services/sandbox-manager.js';
+import { registerAuthRoutes } from './routes/auth.js';
+import { restoreSandboxes, registerDemoSandbox } from './services/sandbox-manager.js';
 
 // ============================================================
 // Configuration
@@ -61,7 +63,8 @@ const DATABASE_URL = process.env.DATABASE_URL;
 const JWKS_URL = process.env.JWKS_URL ?? null;
 const JWT_AUDIENCE = process.env.JWT_AUDIENCE;
 const JWT_ISSUER = process.env.JWT_ISSUER;
-const CORS_ORIGIN = process.env.CORS_ORIGIN ?? 'http://localhost:3000';
+const CORS_ORIGIN = process.env.CORS_ORIGIN ?? 'http://localhost:3000,http://localhost:5174';
+const SESSION_SECRET = process.env.SESSION_SECRET ?? 'cantontrace-dev-secret-change-in-production';
 
 // ============================================================
 // Server Initialization
@@ -88,6 +91,11 @@ async function buildServer() {
     origin: CORS_ORIGIN.split(',').map((o) => o.trim()),
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     credentials: true,
+  });
+
+  // Cookie support (for session management)
+  await app.register(cookie, {
+    secret: SESSION_SECRET,
   });
 
   // WebSocket support
@@ -196,7 +204,10 @@ async function buildServer() {
   // Global error handler
   registerErrorHandler(app);
 
-  // JWT authentication
+  // Session ID resolution (must run before auth and canton-context)
+  registerSessionIdHook(app);
+
+  // JWT + platform authentication
   const authConfig: AuthConfig = {
     jwksUrl: JWKS_URL,
     audience: JWT_AUDIENCE,
@@ -212,6 +223,7 @@ async function buildServer() {
   // Route Registration
   // ============================================================
 
+  registerAuthRoutes(app);
   registerConnectionRoutes(app, cache);
   registerACSRoutes(app, cache);
   registerContractRoutes(app);
@@ -239,6 +251,9 @@ async function buildServer() {
     // Close Fastify server (stops accepting new connections)
     await app.close();
 
+    // Disconnect all Canton sessions and stop cleanup timer
+    disconnectAllSessions();
+
     // Disconnect services
     await cache.disconnect();
     if (pgPool) {
@@ -263,7 +278,10 @@ async function main() {
   try {
     const app = await buildServer();
 
-    // Restore persisted sandboxes before accepting requests
+    // Register Demo sandbox if CANTON_SANDBOX_ENDPOINT is set (Docker mode)
+    await registerDemoSandbox();
+
+    // Restore user-created sandboxes from disk
     await restoreSandboxes();
 
     await app.listen({ port: PORT, host: HOST });

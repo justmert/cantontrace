@@ -7,6 +7,7 @@ import {
   ServerStack01Icon,
   Add01Icon,
   Plug02Icon,
+  PlayIcon,
 } from "@hugeicons/core-free-icons";
 import { api } from "@/lib/api";
 import type { Sandbox } from "@/lib/types";
@@ -238,15 +239,39 @@ function SandboxTabContent({
     refetchInterval: 5000,
   });
 
-  const runningSandboxes = (sandboxes ?? []).filter((s) => s.status === "running");
-  const hasSandboxes = runningSandboxes.length > 0;
+  const allSandboxes = sandboxes ?? [];
+  const demoSandbox = allSandboxes.find((s) => s.isDemo);
+  const runningSandboxes = allSandboxes.filter((s) => s.status === "running" && !s.isDemo);
+  const hasSandboxes = runningSandboxes.length > 0 || !!demoSandbox;
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Existing running sandboxes */}
-      {hasSandboxes && (
+      {/* Demo sandbox — always first, prominent */}
+      {demoSandbox && (
+        <button
+          disabled={isConnecting || demoSandbox.status !== "running"}
+          onClick={() => onConnect(demoSandbox.ledgerApiEndpoint, demoSandbox.id)}
+          className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-left transition-colors hover:bg-primary/10"
+        >
+          <HugeiconsIcon icon={PlayIcon} strokeWidth={2} className="size-5 shrink-0 text-primary" />
+          <div className="flex flex-1 flex-col">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold">Demo Sandbox</span>
+              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
+                {demoSandbox.status === "running" ? "Ready" : "Starting..."}
+              </span>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              Pre-loaded with parties, contracts, and transactions
+            </span>
+          </div>
+        </button>
+      )}
+
+      {/* Other running sandboxes */}
+      {runningSandboxes.length > 0 && (
         <div className="flex flex-col gap-2">
-          <span className="text-xs font-medium text-muted-foreground">Running Sandboxes</span>
+          <span className="text-xs font-medium text-muted-foreground">Your Sandboxes</span>
           <div className="flex flex-col gap-1.5">
             {runningSandboxes.map((sb) => (
               <button

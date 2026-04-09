@@ -114,8 +114,11 @@ function SidebarRow({
     >
       <StatusDot status={sandbox.status} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-medium">
+        <span className="flex items-center gap-1.5 truncate text-sm font-medium">
           {sandbox.name || sandbox.ledgerApiEndpoint}
+          {sandbox.isDemo && (
+            <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0 text-[10px] font-medium text-primary">Demo</span>
+          )}
         </span>
         <span className="text-xs text-muted-foreground">
           {sandbox.ledgerApiEndpoint} · {sandbox.parties.length}p · {sandbox.uploadedDars.length}d
@@ -672,8 +675,15 @@ export default function SandboxManagerPage() {
                       <HugeiconsIcon icon={Plug01Icon} strokeWidth={2} data-icon="inline-start" />
                       {(connectionStore.config?.sandboxId === selectedSandbox.id && connectionStore.status === "connected") ? "Connected" : isConnecting ? "Connecting..." : "Connect"}
                     </Button>
-                    <Button size="sm" variant="outline" disabled={selectedSandbox.status !== "running"} onClick={() => setShowResetConfirm(selectedSandbox.id)}>Reset</Button>
-                    <Button size="sm" variant="outline" className="text-destructive" disabled={selectedSandbox.status === "provisioning"} onClick={() => setShowDeleteConfirm(selectedSandbox.id)}>Delete</Button>
+                    {!selectedSandbox.isDemo && (
+                      <>
+                        <Button size="sm" variant="outline" disabled={selectedSandbox.status !== "running"} onClick={() => setShowResetConfirm(selectedSandbox.id)}>Reset</Button>
+                        <Button size="sm" variant="outline" className="text-destructive" disabled={selectedSandbox.status === "provisioning"} onClick={() => setShowDeleteConfirm(selectedSandbox.id)}>Delete</Button>
+                      </>
+                    )}
+                    {selectedSandbox.isDemo && (
+                      <span className="rounded-full bg-primary/15 px-2.5 py-1 text-[11px] font-medium text-primary">Demo</span>
+                    )}
                   </div>
                 </div>
 

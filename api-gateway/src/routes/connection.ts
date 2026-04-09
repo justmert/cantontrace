@@ -4,6 +4,9 @@
  * POST /api/v1/connect   — Store connection config, run bootstrap, cache in Redis
  * DELETE /api/v1/connect  — Disconnect, clear cache
  * GET /api/v1/health      — Health check including Canton connectivity
+ *
+ * All connection state is session-scoped — each browser session
+ * manages its own Canton client independently.
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
@@ -13,14 +16,13 @@ import {
   clearActiveConnection,
   getActiveClient,
   getActiveBootstrapInfo,
+  getSessionConnection,
+  getActiveSessionCount,
 } from '../middleware/canton-context.js';
 import type { CacheService } from '../services/cache.js';
-import { unsubscribeAll } from '../services/event-stream.js';
+import { unsubscribeForSession } from '../services/event-stream.js';
 import { OAuth2TokenService, discoverKeycloakCredentials } from '../services/oauth2.js';
 import type { ConnectionConfig, BootstrapInfo, ApiResponse } from '../types.js';
-
-// Module-level reference so we can stop it on disconnect
-let activeOAuth2Service: OAuth2TokenService | null = null;
 
 export function registerConnectionRoutes(app: FastifyInstance, cache: CacheService): void {
   /**
@@ -38,8 +40,9 @@ export function registerConnectionRoutes(app: FastifyInstance, cache: CacheServi
       },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const client = getActiveClient();
-    const bootstrapInfo = getActiveBootstrapInfo();
+    const { sessionId } = request;
+    const client = getActiveClient(sessionId);
+    const bootstrapInfo = getActiveBootstrapInfo(sessionId);
 
     if (client?.isConnected() && bootstrapInfo) {
       // If refresh requested, re-fetch dynamic data (parties, packages, offset)
@@ -57,7 +60,7 @@ export function registerConnectionRoutes(app: FastifyInstance, cache: CacheServi
           // Re-fetch current offset
           bootstrapInfo.currentOffset = await client.stateService.getLedgerEnd();
           // Update cached bootstrap
-          setActiveConnection(client, bootstrapInfo);
+          setActiveConnection(sessionId, client, bootstrapInfo);
         } catch (err) {
           request.log.warn({ err }, 'Failed to refresh bootstrap data');
         }
@@ -108,17 +111,18 @@ export function registerConnectionRoutes(app: FastifyInstance, cache: CacheServi
       },
     },
   }, async (request: FastifyRequest<{ Body: ConnectionConfig }>, reply: FastifyReply) => {
+    const { sessionId } = request;
     const { ledgerApiEndpoint, iamUrl, sandboxId, clientId, clientSecret, audience } = request.body;
 
-    // Clean up streaming subscriptions before disconnecting
-    unsubscribeAll();
+    // Clean up streaming subscriptions for this session before disconnecting
+    unsubscribeForSession(sessionId);
 
-    // Disconnect existing connection if any
-    if (activeOAuth2Service) {
-      activeOAuth2Service.stop();
-      activeOAuth2Service = null;
+    // Disconnect existing connection for this session if any
+    const existingSession = getSessionConnection(sessionId);
+    if (existingSession?.oauth2Service) {
+      existingSession.oauth2Service.stop();
     }
-    clearActiveConnection();
+    clearActiveConnection(sessionId);
     await cache.clearBootstrapInfo();
     await cache.clearConnectionConfig();
 
@@ -126,6 +130,7 @@ export function registerConnectionRoutes(app: FastifyInstance, cache: CacheServi
     // OAuth2 Token Acquisition (when iamUrl is provided)
     // ============================================================
     let initialToken: string | undefined;
+    let oauth2Service: OAuth2TokenService | null = null;
 
     if (iamUrl) {
       app.log.info({ iamUrl }, 'IAM URL provided — acquiring OAuth2 token');
@@ -158,7 +163,7 @@ export function registerConnectionRoutes(app: FastifyInstance, cache: CacheServi
       }
 
       // Create OAuth2 token service (onTokenRefreshed will be set after client is created)
-      const oauth2Service = new OAuth2TokenService({
+      oauth2Service = new OAuth2TokenService({
         issuerUrl: iamUrl,
         clientId: resolvedClientId,
         clientSecret: resolvedClientSecret,
@@ -188,8 +193,6 @@ export function registerConnectionRoutes(app: FastifyInstance, cache: CacheServi
           message: `Failed to acquire OAuth2 token: ${message}`,
         });
       }
-
-      activeOAuth2Service = oauth2Service;
     }
 
     // Create and connect Canton client
@@ -201,8 +204,8 @@ export function registerConnectionRoutes(app: FastifyInstance, cache: CacheServi
     const client = new CantonClient(ledgerApiEndpoint, clientOptions);
 
     // Wire up the token refresh callback so background refreshes update the client
-    if (activeOAuth2Service) {
-      activeOAuth2Service.setTokenRefreshCallback((jwt: string) => {
+    if (oauth2Service) {
+      oauth2Service.setTokenRefreshCallback((jwt: string) => {
         client.setToken(jwt);
         app.log.info('OAuth2 token refreshed and applied to Canton client');
       });
@@ -240,9 +243,8 @@ export function registerConnectionRoutes(app: FastifyInstance, cache: CacheServi
     }
 
     if (!bootstrapInfo) {
-      if (activeOAuth2Service) {
-        activeOAuth2Service.stop();
-        activeOAuth2Service = null;
+      if (oauth2Service) {
+        oauth2Service.stop();
       }
       client.disconnect();
       return reply.code(502).send({
@@ -251,8 +253,8 @@ export function registerConnectionRoutes(app: FastifyInstance, cache: CacheServi
       });
     }
 
-    // Store connection state
-    setActiveConnection(client, bootstrapInfo);
+    // Store connection state for this session
+    setActiveConnection(sessionId, client, bootstrapInfo, oauth2Service);
     await cache.setBootstrapInfo(bootstrapInfo);
     await cache.setConnectionConfig({
       ledgerApiEndpoint,
@@ -274,7 +276,7 @@ export function registerConnectionRoutes(app: FastifyInstance, cache: CacheServi
   /**
    * DELETE /api/v1/connect
    *
-   * Disconnect from the current Canton participant.
+   * Disconnect from the current Canton participant (for this session only).
    */
   app.delete('/api/v1/connect', {
     schema: {
@@ -289,17 +291,14 @@ export function registerConnectionRoutes(app: FastifyInstance, cache: CacheServi
         },
       },
     },
-  }, async (_request: FastifyRequest, reply: FastifyReply) => {
-    // Clean up streaming subscriptions before disconnecting
-    unsubscribeAll();
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { sessionId } = request;
 
-    // Stop OAuth2 token refresh if active
-    if (activeOAuth2Service) {
-      activeOAuth2Service.stop();
-      activeOAuth2Service = null;
-    }
+    // Clean up streaming subscriptions for this session
+    unsubscribeForSession(sessionId);
 
-    clearActiveConnection();
+    // Clear connection for this session (also stops OAuth2 refresh)
+    clearActiveConnection(sessionId);
     await cache.clearBootstrapInfo();
     await cache.clearConnectionConfig();
     await cache.clearAll();
@@ -330,9 +329,10 @@ export function registerConnectionRoutes(app: FastifyInstance, cache: CacheServi
         },
       },
     },
-  }, async (_request: FastifyRequest, reply: FastifyReply) => {
-    const client = getActiveClient();
-    const bootstrapInfo = getActiveBootstrapInfo();
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { sessionId } = request;
+    const client = getActiveClient(sessionId);
+    const bootstrapInfo = getActiveBootstrapInfo(sessionId);
 
     const cantonStatus = client?.isConnected()
       ? {
@@ -363,6 +363,9 @@ export function registerConnectionRoutes(app: FastifyInstance, cache: CacheServi
       },
       cache: {
         available: cache.isAvailable(),
+      },
+      sessions: {
+        active: getActiveSessionCount(),
       },
       uptime: process.uptime(),
     });

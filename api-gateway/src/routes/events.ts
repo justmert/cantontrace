@@ -171,8 +171,8 @@ export function registerEventRoutes(app: FastifyInstance, cache: CacheService): 
     let startOffset = offset ?? '';
     if (!startOffset) {
       // Try to resume from cached offset
-      const subscriptionId = `ws-${request.userId}-${partyList.join(',')}`;
-      const cachedOffset = await cache.getLastOffset(subscriptionId);
+      const cacheKey = `ws-${request.sessionId}-${partyList.join(',')}`;
+      const cachedOffset = await cache.getLastOffset(cacheKey);
       startOffset = cachedOffset ?? bootstrapInfo.currentOffset;
     }
 
@@ -189,8 +189,8 @@ export function registerEventRoutes(app: FastifyInstance, cache: CacheService): 
       transactionShape: (shape as 'ACS_DELTA' | 'LEDGER_EFFECTS') ?? 'LEDGER_EFFECTS',
     };
 
-    // Generate subscription ID
-    const subscriptionId = `ws-${request.userId}-${crypto.randomUUID().slice(0, 8)}`;
+    // Generate subscription ID scoped to the session
+    const subscriptionId = `ws-${request.sessionId}-${crypto.randomUUID().slice(0, 8)}`;
 
     // Subscribe to the event stream
     subscribeToEventStream(

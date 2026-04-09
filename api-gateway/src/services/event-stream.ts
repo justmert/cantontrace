@@ -117,8 +117,23 @@ export function unsubscribeFromEventStream(subscriptionId: string): void {
 }
 
 /**
- * Stop ALL active subscriptions. Called when disconnecting from Canton
- * to prevent stale stream reconnection attempts that would crash the process.
+ * Stop ALL subscriptions belonging to a specific session.
+ * Called when a session disconnects from Canton to prevent stale
+ * stream reconnection attempts that would crash the process.
+ *
+ * Subscription IDs for a session are prefixed with `ws-{sessionId}-`.
+ */
+export function unsubscribeForSession(sessionId: string): void {
+  const prefix = `ws-${sessionId}-`;
+  for (const id of Array.from(subscriptions.keys())) {
+    if (id.startsWith(prefix)) {
+      unsubscribeFromEventStream(id);
+    }
+  }
+}
+
+/**
+ * Stop ALL active subscriptions. Called on server shutdown.
  */
 export function unsubscribeAll(): void {
   for (const id of Array.from(subscriptions.keys())) {

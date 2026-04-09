@@ -83,6 +83,112 @@ async function loadPersistedSandboxes(): Promise<PersistedSandbox[]> {
   }
 }
 
+// Demo sandbox ID — constant so it's always the same
+const DEMO_SANDBOX_ID = 'demo-sandbox';
+
+/**
+ * Register the built-in Demo sandbox if CANTON_SANDBOX_ENDPOINT is set.
+ * The Demo sandbox is permanent — cannot be deleted or reset.
+ * It's populated by the demo-init Docker service with parties, DARs, and contracts.
+ */
+export async function registerDemoSandbox(): Promise<void> {
+  const endpoint = process.env.CANTON_SANDBOX_ENDPOINT;
+  if (!endpoint) return;
+
+  // Check if Canton is reachable
+  let alive = false;
+  try {
+    await execFileAsync('grpcurl', [
+      '-plaintext',
+      '-connect-timeout', '3',
+      endpoint,
+      'grpc.health.v1.Health/Check',
+    ], { timeout: 5000 });
+    alive = true;
+  } catch {
+    // Canton not ready yet — still register but as provisioning
+  }
+
+  // Discover parties already on the sandbox
+  let parties: string[] = [];
+  if (alive) {
+    try {
+      const { stdout } = await execFileAsync('grpcurl', [
+        '-plaintext',
+        '-d', '{}',
+        endpoint,
+        'com.daml.ledger.api.v2.admin.PartyManagementService/ListKnownParties',
+      ], { timeout: 10000 });
+      const response = JSON.parse(stdout);
+      parties = (response.party_details ?? [])
+        .filter((p: { is_local?: boolean }) => p.is_local)
+        .map((p: { party: string }) => p.party);
+    } catch {
+      // Could not list parties — will be populated later by demo-init
+    }
+  }
+
+  const demoSandbox: Sandbox = {
+    id: DEMO_SANDBOX_ID,
+    name: 'Demo',
+    status: alive ? 'running' : 'provisioning',
+    ledgerApiEndpoint: endpoint,
+    createdAt: new Date().toISOString(),
+    parties,
+    uploadedDars: ['cantontrace-test-1.0.0.dar'],
+    profilingEnabled: false,
+    isDemo: true,
+  };
+
+  sandboxes.set(DEMO_SANDBOX_ID, { sandbox: demoSandbox });
+  console.log(`Demo sandbox registered at ${endpoint} (${demoSandbox.status})`);
+
+  // Poll in background until parties appear (demo-init runs after Canton starts)
+  pollDemoSandboxHealth(endpoint);
+}
+
+async function pollDemoSandboxHealth(endpoint: string): Promise<void> {
+  for (let i = 0; i < 60; i++) {
+    await new Promise(r => setTimeout(r, 5000));
+    const state = sandboxes.get(DEMO_SANDBOX_ID);
+    if (!state) return;
+
+    try {
+      await execFileAsync('grpcurl', [
+        '-plaintext',
+        '-connect-timeout', '3',
+        endpoint,
+        'grpc.health.v1.Health/Check',
+      ], { timeout: 5000 });
+
+      state.sandbox.status = 'running';
+
+      // Re-discover parties
+      try {
+        const { stdout } = await execFileAsync('grpcurl', [
+          '-plaintext',
+          '-d', '{}',
+          endpoint,
+          'com.daml.ledger.api.v2.admin.PartyManagementService/ListKnownParties',
+        ], { timeout: 10000 });
+        const response = JSON.parse(stdout);
+        state.sandbox.parties = (response.party_details ?? [])
+          .filter((p: { is_local?: boolean }) => p.is_local)
+          .map((p: { party: string }) => p.party);
+      } catch { /* ignore */ }
+
+      // Keep polling until demo-init has created parties (> 1 = sandbox default)
+      if (state.sandbox.parties.length >= 4) {
+        console.log(`Demo sandbox ready: ${state.sandbox.parties.length} parties`);
+        return;
+      }
+    } catch {
+      // Still not ready
+    }
+  }
+  console.warn('Demo sandbox parties did not appear within 300s');
+}
+
 /**
  * Restore sandboxes from disk on startup.
  *
@@ -294,6 +400,9 @@ export async function deleteSandbox(id: string): Promise<void> {
   if (!state) {
     throw Object.assign(new Error(`Sandbox ${id} not found`), { statusCode: 404 });
   }
+  if (state.sandbox.isDemo) {
+    throw Object.assign(new Error('Demo sandbox cannot be deleted'), { statusCode: 403 });
+  }
 
   const port = extractPort(state.sandbox.ledgerApiEndpoint);
 
@@ -319,6 +428,9 @@ export async function resetSandbox(id: string): Promise<Sandbox> {
   const state = sandboxes.get(id);
   if (!state) {
     throw Object.assign(new Error(`Sandbox ${id} not found`), { statusCode: 404 });
+  }
+  if (state.sandbox.isDemo) {
+    throw Object.assign(new Error('Demo sandbox cannot be reset'), { statusCode: 403 });
   }
 
   const port = extractPort(state.sandbox.ledgerApiEndpoint);

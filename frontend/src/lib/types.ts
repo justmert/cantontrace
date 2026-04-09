@@ -581,6 +581,7 @@ export interface Sandbox {
   uploadedDars: string[];
   profilingEnabled: boolean;
   shareUrl?: string;
+  isDemo?: boolean;
 }
 
 export interface SandboxCreateRequest {

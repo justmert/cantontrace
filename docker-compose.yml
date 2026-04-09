@@ -1,6 +1,55 @@
 version: '3.9'
 
 services:
+  # Canton Open-Source 3.4.11 Sandbox — Ledger API v2
+  # Downloads from GitHub release (Apache 2.0). No dpm or license needed.
+  canton-sandbox:
+    build:
+      context: ./docker/canton
+      dockerfile: Dockerfile
+    ports:
+      - "${CANTON_PORT:-10000}:10000"
+      - "${CANTON_ADMIN_PORT:-10001}:10001"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/10000' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 90s
+    networks:
+      - cantontrace
+
+  # Demo data seeder — runs once after Canton is healthy, then exits
+  demo-init:
+    build:
+      context: .
+      dockerfile: docker/demo/Dockerfile
+    depends_on:
+      canton-sandbox:
+        condition: service_healthy
+    environment:
+      - CANTON_HOST=canton-sandbox
+      - CANTON_PORT=10000
+    networks:
+      - cantontrace
+    restart: "no"
+
+  nginx-proxy:
+    image: nginx:alpine
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./docker/nginx/proxy.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      frontend:
+        condition: service_started
+      api-gateway:
+        condition: service_started
+    networks:
+      - cantontrace
+
   frontend:
     build:
       context: ./frontend
@@ -8,7 +57,7 @@ services:
       args:
         - VITE_API_URL=/api/v1
     ports:
-      - "80:80"
+      - "5174:80"
     depends_on:
       api-gateway:
         condition: service_healthy
@@ -25,7 +74,7 @@ services:
       context: ./api-gateway
       dockerfile: Dockerfile
     ports:
-      - "3001:3001"
+      - "${API_PORT:-3001}:3001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -38,8 +87,11 @@ services:
       - REDIS_URL=redis://redis:6379
       - ENGINE_SERVICE_URL=http://engine-service:3002
       - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - CANTON_SANDBOX_ENDPOINT=canton-sandbox:10000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/v1/health"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3001/api/v1/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -94,6 +146,21 @@ services:
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     networks:
       - cantontrace
+
+  # Startup banner — prints URLs and quick start guide
+  ready:
+    image: alpine:3.19
+    volumes:
+      - ./docker/startup-banner.sh:/banner.sh:ro
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    entrypoint: ["sh", "/banner.sh"]
+    networks:
+      - cantontrace
+    restart: "no"
 
 volumes:
   postgres-data:

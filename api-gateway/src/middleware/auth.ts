@@ -5,10 +5,16 @@
  * Uses the `jose` library for JWT operations.
  *
  * In sandbox mode (no IAM URL configured), authentication is bypassed.
+ *
+ * Platform Authentication (GitHub OAuth):
+ * When GITHUB_CLIENT_ID is set, an additional layer of platform auth
+ * is enforced before Canton JWT checks. This requires users to sign in
+ * with GitHub before accessing non-public routes.
  */
 
 import type { FastifyRequest, FastifyReply, FastifyInstance } from 'fastify';
 import * as jose from 'jose';
+import { isPlatformAuthEnabled, getPlatformUser } from '../routes/auth.js';
 
 export interface AuthConfig {
   /** IAM / JWKS URL for token validation. Null = sandbox mode (no auth). */
@@ -43,11 +49,29 @@ export function registerAuthMiddleware(
   app.decorateRequest('userId', '');
   app.decorateRequest('jwtToken', '');
   app.decorateRequest('jwtPayload', null);
+  app.decorateRequest('platformUser', null);
 
   app.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
-    // Skip auth for health check and swagger endpoints
+    // Skip auth for health check, swagger, and auth endpoints
     if (isPublicRoute(request.url)) {
       return;
+    }
+
+    // Platform auth check (GitHub OAuth) — runs before Canton JWT checks
+    if (isPlatformAuthEnabled()) {
+      const sessionId = request.sessionId;
+      const platformUser = getPlatformUser(sessionId);
+
+      if (!platformUser) {
+        reply.code(401).send({
+          code: 'PLATFORM_UNAUTHENTICATED',
+          message: 'Platform authentication required. Please sign in with GitHub.',
+        });
+        return;
+      }
+
+      // Attach platform user info to request for downstream use
+      request.platformUser = platformUser;
     }
 
     // Sandbox mode: no auth required
@@ -122,6 +146,7 @@ async function validateToken(token: string, config: AuthConfig): Promise<JwtPayl
 function isPublicRoute(url: string): boolean {
   const publicPrefixes = [
     '/api/v1/health',
+    '/api/v1/auth/',
     '/documentation',
     '/swagger',
   ];
@@ -134,5 +159,6 @@ declare module 'fastify' {
     userId: string;
     jwtToken: string;
     jwtPayload: JwtPayload | null;
+    platformUser: import('../routes/auth.js').PlatformUser | null;
   }
 }

@@ -14,10 +14,12 @@ target/
 .env
 .env.local
 .env.*.local
+.env.production
 
 # Logs
 *.log
 logs/
+log/
 
 # OS
 .DS_Store
@@ -50,12 +52,23 @@ coverage/
 
 # Docker
 docker-data/
+docker/nginx/certs/server.crt
+docker/nginx/certs/server.key
 
 # Temporary
 /tmp/
 *.tmp
-
-# CN-Quickstart (if cloned inside)
-cn-quickstart/
 *.gz
-log/
+
+# CN-Quickstart
+cn-quickstart/
+
+# Claude workspace
+.claude/
+
+# Documentation (keep only README)
+*.md
+!README.md
+
+# Sandbox persistence
+.cantontrace/

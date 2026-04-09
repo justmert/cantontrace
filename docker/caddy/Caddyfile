@@ -1,0 +1,16 @@
+:80 {
+	# API + WebSocket
+	handle /api/* {
+		reverse_proxy api-gateway:3001
+	}
+
+	# Swagger docs
+	handle /documentation* {
+		reverse_proxy api-gateway:3001
+	}
+
+	# Frontend SPA
+	handle {
+		reverse_proxy frontend:80
+	}
+}

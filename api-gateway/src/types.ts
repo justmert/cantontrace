@@ -578,6 +578,8 @@ export interface Sandbox {
   uploadedDars: string[];
   profilingEnabled: boolean;
   shareUrl?: string;
+  /** Demo sandbox — cannot be deleted or reset, always visible */
+  isDemo?: boolean;
 }
 
 export interface SandboxCreateRequest {
