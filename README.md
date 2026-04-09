@@ -2,6 +2,8 @@
 
 Web-based debugging platform for Canton Network and Daml smart contracts.
 
+Watch the demo: https://youtu.be/xjXGmoFw7xA
+
 ## Quick Start
 
 ```bash
